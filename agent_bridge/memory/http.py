@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -111,9 +111,9 @@ class HttpMemoryClient:
 
         if not response.content:
             return {}
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
-    async def __aenter__(self) -> "HttpMemoryClient":
+    async def __aenter__(self) -> HttpMemoryClient:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:

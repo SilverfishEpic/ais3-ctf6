@@ -66,7 +66,9 @@ def show_row(row: dict, all_fields: bool) -> None:
         if data.get("tool_response") is not None:
             print(f"      response={clip(data.get('tool_response'), 200)}")
         if data.get("error") is not None:
-            print(f"      error={clip(data.get('error'), 200)}  is_interrupt={data.get('is_interrupt')}")
+            error = clip(data.get("error"), 200)
+            interrupted = data.get("is_interrupt")
+            print(f"      error={error}  is_interrupt={interrupted}")
         return
 
     kind = row["type"]

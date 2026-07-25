@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from typing import Literal
 
 InjectMode = Literal["turn_start", "never"]
@@ -48,7 +48,7 @@ class MemoryPolicy:
     def includes(self, layer: str) -> bool:
         return layer in self.wants
 
-    def with_(self, **changes: object) -> "MemoryPolicy":
+    def with_(self, **changes: object) -> MemoryPolicy:
         return replace(self, **changes)  # type: ignore[arg-type]
 
 

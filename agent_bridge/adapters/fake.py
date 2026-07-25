@@ -28,7 +28,7 @@ interrupted      中途被喊停
 
 `sandbox_denied` 與 `interrupted` 特別重要：那兩種情況裡的 tool_result
 **不是**關於題目的證據，Summarizer 不該把「rm 不在白名單」寫進白板。
-事件上的 `outcome` 欄位就是給這個判斷用的。
+事件上的 `outcome` 欄位就是給 Memory Core 判斷用的。
 """
 
 from __future__ import annotations

@@ -22,6 +22,7 @@ M0 實測確認被中斷那一輪先前跑完的工具在 collector 的 buffer �
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import signal
 from dataclasses import dataclass, field
@@ -116,6 +117,11 @@ class StopSignal:
             return True
         return bool(self.path and self.path.exists())
 
+    async def wait(self, *, interval: float = 0.1) -> None:
+        """等到中止旗標升起。"""
+        while not self.raised:
+            await asyncio.sleep(interval)
+
     def clear(self) -> None:
         self._interrupted = False
         if self.path and self.path.exists():
@@ -141,11 +147,19 @@ class AgentLoop:
         self.memory = memory
         self.challenge_id = challenge_id
         self.session = session or SessionMode()
+        adapter_session = getattr(adapter, "session_kind", None)
+        if adapter_session is not None and adapter_session != self.session.kind:
+            raise ValueError(
+                "AgentLoop session.kind 與 adapter.session_kind 不一致："
+                f"{self.session.kind!r} != {adapter_session!r}"
+            )
         self.policy = self.session.effective(policy or MemoryPolicy())
         self.limits = limits or LoopLimits()
         self.stop = stop or StopSignal()
         self._turn = 0
         self._last_revision: int | None = None
+        self._last_injected_revision: int | None = None
+        self._last_agent_revision_after: int | None = None
         #: 上一輪 ingest 回來的 diff，下一輪要拿它當注入內容（決定 4）
         self._pending_diff: dict[str, Any] = {}
 
@@ -167,7 +181,7 @@ class AgentLoop:
                     outcome.stopped_because = "人喊停"
                     break
 
-                record = await self._turn_once(prompt, first=index == 0)
+                record = await self._turn_once_until_stopped(prompt, first=index == 0)
                 outcome.turns.append(record)
 
                 if record.result.interrupted:
@@ -213,6 +227,8 @@ class AgentLoop:
         # 中止時已經跑完的部分照樣送出去（規劃書 §14）
         ingest = await self.memory.ingest(self.challenge_id, result.envelope)
         self._pending_diff = ingest.get("diff") or {}
+        after = ingest.get("revision_after")
+        self._last_agent_revision_after = after if isinstance(after, int) else None
 
         return TurnRecord(
             index=self._turn,
@@ -221,6 +237,21 @@ class AgentLoop:
             result=result,
             ingest=ingest,
         )
+
+    async def _turn_once_until_stopped(self, prompt: str, *, first: bool) -> TurnRecord:
+        turn_task = asyncio.create_task(self._turn_once(prompt, first=first))
+        stop_task = asyncio.create_task(self.stop.wait())
+        try:
+            done, _ = await asyncio.wait(
+                {turn_task, stop_task}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if stop_task in done and self.stop.raised and not turn_task.done():
+                await self.adapter.cancel()
+            return await turn_task
+        finally:
+            stop_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await stop_task
 
     async def _board_for_turn(self, *, first: bool) -> str | None:
         """決定這一輪要注入什麼。"""
@@ -231,18 +262,31 @@ class AgentLoop:
         current = revision(snapshot)
 
         give_full = first or not self.policy.diff_after_first_turn
+        if (
+            not give_full
+            and self._last_agent_revision_after is not None
+            and current != self._last_agent_revision_after
+        ):
+            # 兩輪之間有外部人類 mutation。沒有 diff-history endpoint 時，
+            # 安全作法是刷新整份白板，避免同 session Agent 只看到自己的舊 diff。
+            give_full = True
+
         if give_full:
             self._last_revision = current
+            self._last_injected_revision = current
             candidates = await self._guess_candidates()
             text = render_board(snapshot, self.policy, guess_candidates=candidates)
             return text or None
 
         # 之後只給 diff（決定 4）。diff 只有 ID，要靠新的 snapshot 反查文字。
         #
-        # 白板可能在兩輪之間被人類 mutate 過，那些變動不在這份 diff 裡；
-        # 注入文字有告訴 Agent「舊快照已過期，要現況請呼叫 memory_show」。
-        before = self._last_revision if self._last_revision is not None else current
+        before = (
+            self._last_injected_revision
+            if self._last_injected_revision is not None
+            else current
+        )
         self._last_revision = current
+        self._last_injected_revision = current
         text = render_diff(
             self._pending_diff, snapshot, self.policy, revision_before=before
         )

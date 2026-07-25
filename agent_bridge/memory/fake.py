@@ -203,6 +203,27 @@ class FakeMemoryClient:
             merged.update(diff)
             queued.append(merged)
 
+    def apply_external_fact(
+        self,
+        challenge_id: str,
+        *,
+        item_id: str,
+        text: str,
+        section: str = "general",
+    ) -> None:
+        """測試用：模擬人類在兩輪 Agent 之間透過 Memory Core mutation 改白板。"""
+        snapshot = self._require(challenge_id)
+        snapshot.setdefault("fact", {}).setdefault(section, []).append(
+            {
+                "id": item_id,
+                "text": text,
+                "evidence": ["I-human0001"],
+                "source_actor": "human",
+                "tags": [],
+            }
+        )
+        snapshot["revision"] += 1
+
     def _require(self, challenge_id: str) -> dict[str, Any]:
         if challenge_id not in self._challenges:
             raise MemoryCoreError(

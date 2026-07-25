@@ -1,0 +1,4 @@
+{"kind":"meta","type":"scenario","data":{"name":"sandbox_denied"}}
+{"kind":"message","type":"AssistantMessage","data":{"model":"claude-fixture","content":[{"__type__":"ToolUseBlock","id":"toolu_denied","name":"Bash","input":{"command":"rm -rf /tmp/not-real"}}]}}
+{"kind":"message","type":"UserMessage","data":{"content":[{"__type__":"ToolResultBlock","tool_use_id":"toolu_denied","content":"Tool use denied by sandbox policy.","is_error":true}]}}
+{"kind":"message","type":"ResultMessage","data":{"session_id":"sess-denied","subtype":"success","is_error":false,"terminal_reason":"end_turn","num_turns":1,"duration_ms":6,"total_cost_usd":0.0,"permission_denials":[{"tool_use_id":"toolu_denied","reason":"sandbox policy denied this command"}]}}

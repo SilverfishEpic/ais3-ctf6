@@ -24,7 +24,7 @@ from dataclasses import dataclass, replace
 from pathlib import PurePath
 from typing import Any
 
-from claude_agent_sdk import HookMatcher
+from agent_bridge.sdk_compat import HookMatcher
 
 # 指令替換能把任意東西藏進一個看起來乾淨的指令裡（`echo $(rm x)` 的第一個
 # token 是 echo），任何逐段分析都攔不住，所以不分模式一律拒絕。
@@ -72,7 +72,7 @@ class ToolPolicy:
         tools: frozenset[str] | set[str] | None = None,
         commands: frozenset[str] | set[str] | None = None,
         allow_shell_operators: bool | None = None,
-    ) -> "ToolPolicy":
+    ) -> ToolPolicy:
         return replace(
             self,
             allowed_tools=self.allowed_tools | frozenset(tools or ()),
@@ -170,10 +170,12 @@ def _deny(reason: str) -> dict[str, Any]:
     }
 
 
-def make_sandbox_hook(policy: ToolPolicy):
+def make_sandbox_hook(policy: ToolPolicy) -> Any:
     """做出一個可以掛在 PreToolUse 的 callback。"""
 
-    async def sandbox_hook(input_data, tool_use_id, context):  # noqa: ANN001
+    async def sandbox_hook(
+        input_data: dict[str, Any], tool_use_id: str | None, context: Any
+    ) -> dict[str, Any]:
         if input_data.get("hook_event_name") != "PreToolUse":
             return {}
         reason = policy.check(

@@ -8,7 +8,8 @@ contract 一改，要跟著改的地方越少越好。
 
 from __future__ import annotations
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 LAYERS = ("fact", "assumption")
 

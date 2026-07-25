@@ -1,0 +1,5 @@
+{"kind":"meta","type":"scenario","data":{"name":"single_tool"}}
+{"kind":"message","type":"AssistantMessage","data":{"model":"claude-fixture","content":[{"__type__":"ToolUseBlock","id":"toolu_single","name":"Bash","input":{"command":"cat service.txt"}}]}}
+{"kind":"message","type":"UserMessage","data":{"content":[{"__type__":"ToolResultBlock","tool_use_id":"toolu_single","content":"HTTP service is listening on tcp/8080\n","is_error":false}]}}
+{"kind":"hook","type":"PostToolUse","data":{"event":"PostToolUse","tool_use_id":"toolu_single","tool_name":"Bash","tool_input":{"command":"cat service.txt"},"tool_response":{"stdout":"HTTP service is listening on tcp/8080\n","stderr":""},"duration_ms":6}}
+{"kind":"message","type":"ResultMessage","data":{"session_id":"sess-single","subtype":"success","is_error":false,"terminal_reason":"end_turn","num_turns":1,"duration_ms":8,"total_cost_usd":0.0}}

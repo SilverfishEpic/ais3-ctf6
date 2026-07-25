@@ -1,0 +1,5 @@
+{"kind":"meta","type":"scenario","data":{"name":"tool_failure"}}
+{"kind":"message","type":"AssistantMessage","data":{"model":"claude-fixture","content":[{"__type__":"ToolUseBlock","id":"toolu_fail","name":"Bash","input":{"command":"cat missing.txt"}}]}}
+{"kind":"message","type":"UserMessage","data":{"content":[{"__type__":"ToolResultBlock","tool_use_id":"toolu_fail","content":"cat: missing.txt: No such file or directory\n","is_error":true}]}}
+{"kind":"hook","type":"PostToolUseFailure","data":{"event":"PostToolUseFailure","tool_use_id":"toolu_fail","tool_name":"Bash","tool_input":{"command":"cat missing.txt"},"error":"cat: missing.txt: No such file or directory","duration_ms":4}}
+{"kind":"message","type":"ResultMessage","data":{"session_id":"sess-failure","subtype":"success","is_error":false,"terminal_reason":"end_turn","num_turns":1,"duration_ms":9,"total_cost_usd":0.0}}

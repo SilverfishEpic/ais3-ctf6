@@ -1,0 +1,5 @@
+{"kind":"meta","type":"scenario","data":{"name":"interrupted"}}
+{"kind":"message","type":"AssistantMessage","data":{"model":"claude-fixture","content":[{"__type__":"ToolUseBlock","id":"toolu_done","name":"Bash","input":{"command":"cat service.txt"}},{"__type__":"ToolUseBlock","id":"toolu_interrupt","name":"Bash","input":{"command":"sleep 30"}}]}}
+{"kind":"message","type":"UserMessage","data":{"content":[{"__type__":"ToolResultBlock","tool_use_id":"toolu_done","content":"HTTP service is listening on tcp/8080\n","is_error":false},{"__type__":"ToolResultBlock","tool_use_id":"toolu_interrupt","content":"The user doesn't want to proceed with this tool use","is_error":true}]}}
+{"kind":"hook","type":"PostToolUse","data":{"event":"PostToolUse","tool_use_id":"toolu_done","tool_name":"Bash","tool_input":{"command":"cat service.txt"},"tool_response":{"stdout":"HTTP service is listening on tcp/8080\n","stderr":""},"duration_ms":5}}
+{"kind":"message","type":"ResultMessage","data":{"session_id":"sess-interrupted","subtype":"error","is_error":true,"terminal_reason":"aborted_tools","num_turns":1,"duration_ms":10,"total_cost_usd":0.0}}

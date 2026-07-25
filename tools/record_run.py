@@ -38,7 +38,7 @@ import dataclasses
 import json
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -52,8 +52,11 @@ from claude_agent_sdk import (  # noqa: E402
     ToolUseBlock,
 )
 
-from agent_bridge.collect import RunCollector, ToolRecord  # noqa: E402
-from agent_bridge.collect import merge_hooks  # noqa: E402
+from agent_bridge.collect import (  # noqa: E402
+    RunCollector,
+    ToolRecord,
+    merge_hooks,  # noqa: E402
+)
 from agent_bridge.sandbox import ToolPolicy, sandbox_hooks  # noqa: E402
 from agent_bridge.serialize import jsonable  # noqa: E402
 
@@ -106,7 +109,10 @@ SCENARIOS: tuple[Scenario, ...] = (
             "用 Bash 執行 `cat does_not_exist_xyz.txt`。它會失敗。"
             "把錯誤訊息原樣回報給我就停 —— 不要重試，也不要改用其他方式讀取。"
         ),
-        why="工具失敗的形狀。實測：非零 exit 會觸發 PostToolUseFailure，error 是「Exit code N\\n<stderr>」。",
+        why=(
+            "工具失敗的形狀。實測：非零 exit 會觸發 PostToolUseFailure，"
+            "error 是「Exit code N\\n<stderr>」。"
+        ),
         max_turns=4,
     ),
     Scenario(
@@ -156,7 +162,7 @@ class JsonlRecorder:
         line = {
             "seq": self._seq,
             "mono": round(time.monotonic() - self._t0, 4),
-            "wall": datetime.now(timezone.utc).isoformat(),
+            "wall": datetime.now(UTC).isoformat(),
             "kind": kind,
             "type": type_,
             "data": jsonable(data),

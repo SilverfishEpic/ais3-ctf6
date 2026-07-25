@@ -15,22 +15,25 @@
 2. `input` 結構化工具參數（第 4 題）—— §8.2 範例把 `checksec ./chall` 塞進
    `content` 字串，但 Bash 以外的工具參數是 dict，字串塞不下。這裡兩個都給：
    `content` 保持人類可讀，`input` 是結構化的真相。
-3. `outcome`（新提案）—— 實測有四種結局，對 Summarizer 意義完全不同：
-   `ok` / `failed`（指令跑了但失敗，是證據）/ `denied`（被沙箱擋下，
-   **不是**關於題目的任何證據）/ `interrupted`（人喊停，什麼都不能推論）。
-   少了這個欄位，Summarizer 會把「rm 不在白名單」當成題目的事實。
+3. `outcome` —— 實測有五種結局，對 Summarizer 意義完全不同：
+   `succeeded` / `failed`（工具有執行，是觀察證據）/ `denied`（被沙箱擋下，
+   **不是**關於題目的任何證據）/ `interrupted`（人喊停，什麼都不能推論）/
+   `unknown`（無足夠 provenance）。
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from agent_bridge.collect import ToolRecord
 from agent_bridge.serialize import jsonable
 from agent_bridge.truncate import TruncationPolicy, apply_run_budget
+
+JsonDict = dict[str, Any]
 
 # 中斷時 SDK 塞進 tool_result 的固定字串，見 m0-findings.md §5.3
 INTERRUPT_MARKERS = (
@@ -78,9 +81,9 @@ class NormalizedRun:
 # ---------------------------------------------------------------------------
 
 
-def rows_from_live(messages: Sequence[Any], tool_records: Sequence[ToolRecord]) -> list[dict]:
+def rows_from_live(messages: Sequence[Any], tool_records: Sequence[ToolRecord]) -> list[JsonDict]:
     """正式執行用：把 SDK 訊息與 hook 紀錄組成跟錄音檔一樣的列。"""
-    rows: list[dict] = [
+    rows: list[JsonDict] = [
         {"kind": "message", "type": type(m).__name__, "data": jsonable(m)} for m in messages
     ]
     rows += [
@@ -89,7 +92,7 @@ def rows_from_live(messages: Sequence[Any], tool_records: Sequence[ToolRecord]) 
     return rows
 
 
-def load_rows(path: str | Path) -> list[dict]:
+def load_rows(path: str | Path) -> list[JsonDict]:
     """重播用：讀一份錄音檔。"""
     text = Path(path).read_text(encoding="utf-8")
     return [json.loads(line) for line in text.splitlines() if line.strip()]
@@ -101,14 +104,14 @@ def load_rows(path: str | Path) -> list[dict]:
 
 
 def normalize(
-    rows: Iterable[dict],
+    rows: Iterable[JsonDict],
     *,
     policy: TruncationPolicy | None = None,
 ) -> NormalizedRun:
     policy = policy or TruncationPolicy()
     rows = list(rows)
 
-    hooks_by_id: dict[str, dict] = {}
+    hooks_by_id: dict[str, JsonDict] = {}
     result_data: dict[str, Any] | None = None
     scenario: dict[str, Any] | None = None
     skipped: dict[str, int] = {}
@@ -226,7 +229,7 @@ def _render_tool_call(name: str | None, tool_input: dict[str, Any]) -> str:
     return f"{name}: " + json.dumps(tool_input, ensure_ascii=False, sort_keys=True)
 
 
-def _render_tool_output(hook: dict | None, stream_content: Any) -> str:
+def _render_tool_output(hook: JsonDict | None, stream_content: Any) -> str:
     """優先用 hook 的結構化輸出 —— 它比 stream 壓平過的字串完整（m0-findings §4）。"""
     if hook is not None:
         if hook.get("error") is not None:
@@ -254,21 +257,32 @@ def _render_tool_output(hook: dict | None, stream_content: Any) -> str:
     return "" if stream_content is None else str(stream_content)
 
 
-def _classify(hook: dict | None, is_error: bool, text: str, tool_use_id: str, denied: set) -> str:
+def _classify(
+    hook: JsonDict | None,
+    is_error: bool,
+    text: str,
+    tool_use_id: str,
+    denied: set[str | None],
+) -> str:
     """四種結局對 Summarizer 的意義完全不同，見模組開頭的提案 3。"""
     if tool_use_id in denied:
         return "denied"
     if hook is not None:
         if hook.get("is_interrupt"):
             return "interrupted"
-        return "failed" if hook.get("event") == "PostToolUseFailure" else "ok"
+        return "failed" if hook.get("event") == "PostToolUseFailure" else "succeeded"
     # 沒有 hook 紀錄 = 指令根本沒執行
     if any(marker in text for marker in INTERRUPT_MARKERS):
         return "interrupted"
-    return "failed" if is_error else "ok"
+    return "unknown"
 
 
-def _add_tool_result(add, block: dict, hooks_by_id: dict, denied: set) -> None:
+def _add_tool_result(
+    add: Callable[..., AgentRunEvent],
+    block: JsonDict,
+    hooks_by_id: dict[str, JsonDict],
+    denied: set[str | None],
+) -> None:
     tool_use_id = block.get("tool_use_id") or ""
     hook = hooks_by_id.get(tool_use_id)
     is_error = bool(block.get("is_error"))
@@ -290,7 +304,11 @@ def _apply_truncation(events: list[AgentRunEvent], policy: TruncationPolicy) -> 
     targets = [e for e in events if e.kind == "tool_result"]
     if not targets:
         return
-    for event, result in zip(targets, apply_run_budget([e.content for e in targets], policy)):
+    for event, result in zip(
+        targets,
+        apply_run_budget([e.content for e in targets], policy),
+        strict=True,
+    ):
         event.content = result.text
         event.truncated = result.truncated
         event.original_bytes = result.original_bytes
@@ -301,7 +319,7 @@ def _build_run_meta(
     scenario: dict[str, Any] | None,
     thinking_blocks: int,
     skipped: dict[str, int],
-    hooks_by_id: dict,
+    hooks_by_id: dict[str, JsonDict],
     events: list[AgentRunEvent],
     model: str | None,
 ) -> dict[str, Any]:

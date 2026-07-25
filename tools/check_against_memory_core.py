@@ -92,7 +92,8 @@ def main() -> int:
         for event in events:
             key = f"{event['role']}/{event['kind']}"
             kinds[key] = kinds.get(key, 0) + 1
-        print(f"  送出 {len(events)} 個事件：" + "  ".join(f"{k}×{v}" for k, v in sorted(kinds.items())))
+        event_summary = "  ".join(f"{k}×{v}" for k, v in sorted(kinds.items()))
+        print(f"  送出 {len(events)} 個事件：" + event_summary)
 
         status, body = post(f"{base}/v1/challenges/{challenge_id}/ingest", envelope)
 
@@ -103,7 +104,9 @@ def main() -> int:
             continue
 
         diff = body.get("diff", {})
-        print(f"  ✓ ingest 接受  revision {body.get('revision_before')} → {body.get('revision_after')}")
+        before = body.get("revision_before")
+        after = body.get("revision_after")
+        print(f"  ✓ ingest 接受  revision {before} → {after}")
         print(f"    summary: {body.get('summary')}")
         print(f"    source_id: {body.get('source_id')}")
         changed = {k: v for k, v in diff.items() if v}
@@ -114,7 +117,11 @@ def main() -> int:
             facts = memory.get("fact", {})
             assumptions = memory.get("assumption", {})
             n_fact = sum(len(v) for v in facts.values()) if isinstance(facts, dict) else 0
-            n_assume = sum(len(v) for v in assumptions.values()) if isinstance(assumptions, dict) else 0
+            n_assume = (
+                sum(len(v) for v in assumptions.values())
+                if isinstance(assumptions, dict)
+                else 0
+            )
             print(f"    白板現況: {n_fact} 個 Fact / {n_assume} 個 Assumption")
             for section, items in (facts.items() if isinstance(facts, dict) else []):
                 for item in items:

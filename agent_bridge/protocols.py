@@ -21,7 +21,8 @@ class RunResult:
     """一輪執行的產出。
 
     `envelope` 是要送進 `/ingest` 的東西；`run` 保留轉換後的完整細節，
-    供 loop 做停損判斷與除錯（`outcome`、`duration_ms` 這些不上線）。
+    供 loop 做停損判斷與除錯（`duration_ms` 等不上線欄位）。
+    `outcome` 是公開 contract 的一部分，會隨 tool_result 一起送給 Memory Core。
     """
 
     envelope: dict[str, Any]

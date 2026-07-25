@@ -40,7 +40,7 @@ class MemoryCoreError(BridgeError):
         self.details = details or {}
 
     @classmethod
-    def from_response(cls, method: str, url: str, status: int, body: str) -> "MemoryCoreError":
+    def from_response(cls, method: str, url: str, status: int, body: str) -> MemoryCoreError:
         code: str | None = None
         details: dict[str, Any] = {}
         message = body.strip()

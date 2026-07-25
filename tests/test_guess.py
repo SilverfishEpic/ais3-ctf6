@@ -47,21 +47,22 @@ def test_different_seeds_can_draw_different_sets(service: MemoryService, demo: s
 
 
 def test_only_untried_filters_marked_techniques(service: MemoryService, demo: str) -> None:
+    technique = "GEN-ENUMERATION"
     service.mutate(
         demo,
         MemoryMutation(
             expected_revision=0,
             actor="ctshen",
             reason="already enumerated everything",
-            operations=[{"op": "mark_tried", "technique": "GEN-ENUM", "tried": True}],
+            operations=[{"op": "mark_tried", "technique": technique, "tried": True}],
         ),
     )
-    untried = service.guess(demo, GuessRequest(count=10, only_untried=True))
-    everything = service.guess(demo, GuessRequest(count=10, only_untried=False))
+    untried = service.guess(demo, GuessRequest(count=50, only_untried=True))
+    everything = service.guess(demo, GuessRequest(count=50, only_untried=False))
 
-    assert "GEN-ENUM" not in {c.id for c in untried.candidates}
-    assert "GEN-ENUM" in {c.id for c in everything.candidates}
-    assert next(c for c in everything.candidates if c.id == "GEN-ENUM").tried is True
+    assert technique not in {c.id for c in untried.candidates}
+    assert technique in {c.id for c in everything.candidates}
+    assert next(c for c in everything.candidates if c.id == technique).tried is True
 
 
 def test_marking_an_unknown_technique_is_rejected(service: MemoryService, demo: str) -> None:
@@ -76,7 +77,7 @@ def test_marking_an_unknown_technique_is_rejected(service: MemoryService, demo: 
                 expected_revision=0,
                 actor="ctshen",
                 reason="typo",
-                operations=[{"op": "mark_tried", "technique": "WEB-SQLI"}],
+                operations=[{"op": "mark_tried", "technique": "NO-SUCH-TECHNIQUE"}],
             ),
         )
 
@@ -94,10 +95,10 @@ def test_guess_follows_the_challenge_template(service: MemoryService, demo: str)
 
 
 def test_asking_for_more_than_the_catalog_returns_what_exists(
-    service: MemoryService, demo: str
+    service: MemoryService, demo: str, registry: TemplateRegistry
 ) -> None:
     response = service.guess(demo, GuessRequest(count=50, only_untried=False))
-    assert len(response.candidates) == 3
+    assert len(response.candidates) == len(registry.get("generic").guessing)
 
 
 def test_create_challenge_is_not_required_for_a_seed(service: MemoryService, demo: str) -> None:

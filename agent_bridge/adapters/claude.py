@@ -14,8 +14,9 @@ new ：每一輪重開一個 session，沒有歷史，白板每輪給整份。
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
@@ -132,7 +133,7 @@ class ClaudeAdapter:
         )
         return RunResult(envelope=envelope, run=run)
 
-    async def __aenter__(self) -> "ClaudeAdapter":
+    async def __aenter__(self) -> ClaudeAdapter:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:

@@ -21,13 +21,13 @@ reviewed against `memory-system`, not directly against `main`, until Memory Core
 
 - `memory_core/` - canonical Memory Core implementation.
 - `spec/` - normative protocol, OpenAPI, and JSON schemas.
-- `templates/` - minimal Memory Core fixture templates only.
+- `templates/` - Agent Bridge-owned curated CTF category catalogs on this branch.
 - `scripts/memctl.py` - developer/admin helper for exercising Memory Core.
 - `docs/` - maintained documentation index, architecture notes, contracts, and roadmap.
 
-Human Client and Agent Bridge implementations belong on their own branches. Memory Core
-must not contain terminal automation, Claude orchestration, YOLO loops, or full CTF
-technique catalogs.
+Human Client implementations belong on their own branch. This branch adds Agent Bridge
+code, Claude orchestration, replay fixtures, and real template catalogs on top of the
+Memory Core baseline.
 
 ## Local Verification
 
@@ -36,7 +36,7 @@ Use Python 3.12.
 ```bash
 uv run --python 3.12 --extra dev pytest
 uv run --python 3.12 --extra dev ruff check .
-uv run --python 3.12 --extra dev mypy memory_core
+uv run --python 3.12 --extra dev mypy memory_core agent_bridge
 uv run --python 3.12 --extra dev python scripts/gen_spec.py --check
 ```
 

@@ -20,11 +20,10 @@ from __future__ import annotations
 import json
 from typing import Annotated, Any
 
-from claude_agent_sdk import create_sdk_mcp_server, tool
-
 from agent_bridge.inject import render_board
 from agent_bridge.policy import MemoryPolicy
 from agent_bridge.protocols import MemoryClient
+from agent_bridge.sdk_compat import create_sdk_mcp_server, tool
 
 SERVER_NAME = "memory"
 
@@ -49,10 +48,10 @@ def build_memory_server(
     client: MemoryClient,
     challenge_id: str,
     policy: MemoryPolicy,
-):
+) -> Any:
     """做出一個綁定到特定 challenge 的 MCP server。"""
 
-    @tool(
+    @tool(  # type: ignore[untyped-decorator]
         "memory_show",
         "顯示共享白板目前的完整內容。開場已經給過你一份，這個工具是用來"
         "確認手上的資訊有沒有過期。" + READ_ONLY,
@@ -70,7 +69,7 @@ def build_memory_server(
             candidates = result.get("candidates")
         return _text(render_board(snapshot, policy, guess_candidates=candidates))
 
-    @tool(
+    @tool(  # type: ignore[untyped-decorator]
         "memory_query",
         "用自然語言問白板上已經確認了什麼。回答只會根據白板現況，"
         "不會憑空推論。" + READ_ONLY,
@@ -81,7 +80,9 @@ def build_memory_server(
         if not question:
             return _text("要問什麼？question 不能是空的。")
         result = await client.query(
-            challenge_id, question, layers=[l for l in policy.layers if l != "guessing"]
+            challenge_id,
+            question,
+            layers=[layer for layer in policy.layers if layer != "guessing"],
         )
         answer = result.get("answer", "")
         references = result.get("references") or []
@@ -89,7 +90,7 @@ def build_memory_server(
             answer += f"\n\n（依據：{', '.join(references)}）"
         return _text(answer)
 
-    @tool(
+    @tool(  # type: ignore[untyped-decorator]
         "memory_guess",
         "卡住的時候用。從這個題型的技術清單裡抽幾個還沒試過的方向。"
         "這些是**建議**不是事實，要自己驗證。" + READ_ONLY,

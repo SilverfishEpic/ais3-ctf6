@@ -14,10 +14,11 @@ hook 相對於直接讀 message stream 多給的東西只有兩樣，但都是�
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
-from claude_agent_sdk import HookMatcher
+from agent_bridge.sdk_compat import HookMatcher
 
 
 @dataclass
@@ -84,14 +85,18 @@ class RunCollector:
 
     # ---- callbacks -------------------------------------------------
 
-    async def _on_pre(self, input_data, tool_use_id, context):  # noqa: ANN001
+    async def _on_pre(
+        self, input_data: dict[str, Any], tool_use_id: str | None, context: Any
+    ) -> dict[str, Any]:
         # 只記開始時間。放行與否交給 sandbox 那個 hook，兩個並行跑、deny 優先。
         tid = _tool_use_id(input_data, tool_use_id)
         if tid:
             self._starts[tid] = self._monotonic()
         return {}
 
-    async def _on_post(self, input_data, tool_use_id, context):  # noqa: ANN001
+    async def _on_post(
+        self, input_data: dict[str, Any], tool_use_id: str | None, context: Any
+    ) -> dict[str, Any]:
         self._append(
             input_data,
             tool_use_id,
@@ -100,7 +105,9 @@ class RunCollector:
         )
         return {}
 
-    async def _on_failure(self, input_data, tool_use_id, context):  # noqa: ANN001
+    async def _on_failure(
+        self, input_data: dict[str, Any], tool_use_id: str | None, context: Any
+    ) -> dict[str, Any]:
         self._append(
             input_data,
             tool_use_id,
