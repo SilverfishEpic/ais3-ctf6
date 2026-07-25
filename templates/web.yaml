@@ -1,0 +1,125 @@
+# Web 題型。
+#
+# Guessing 的 ID 用技術本身命名，不加題型前綴（決定 10）。
+# 理由：規劃書 §7.3 要求換題型時保留 tried 狀態。如果寫成 WEB-SQLI /
+# MISC-SQLI，題型判錯一次再改回來，試過的紀錄就全掉了。
+#
+# 同一個 ID 出現在不同模板時，title 必須一致 —— lint 會檢查。
+id: web
+version: 1
+description: Web 安全題
+
+classifier_hints:
+  - HTTP
+  - HTTPS
+  - cookie
+  - session
+  - API
+  - login
+  - endpoint
+  - nginx
+  - apache
+  - flask
+  - express
+
+fact_sections:
+  - target              # 網址、埠、對外服務
+  - endpoints           # 已知路由與參數
+  - technologies        # 框架、伺服器、資料庫、前端
+  - authentication      # 登入怎麼運作
+  - authorization       # 誰能存取什麼
+  - validated_behavior  # 實際測過、可重現的行為
+  - progress
+  - general
+
+assumption_sections:
+  - attack_surface
+  - vulnerability_hypotheses
+  - attack_paths
+  - next_checks
+  - general
+
+guessing:
+  # --- 注入類 ---
+  - id: SQLI
+    title: SQL Injection
+    tags: [injection, database, input]
+  - id: NOSQLI
+    title: NoSQL Injection
+    tags: [injection, database, input]
+  - id: SSTI
+    title: Server-Side Template Injection
+    tags: [injection, template, rce]
+  - id: CMDI
+    title: OS Command Injection
+    tags: [injection, rce]
+  - id: XXE
+    title: XML External Entity
+    tags: [injection, xml, file-read]
+  - id: XSS
+    title: Cross-Site Scripting
+    tags: [injection, client, session]
+
+  # --- 存取控制 ---
+  - id: IDOR
+    title: 不安全的直接物件參照（換 ID 就能看別人的資料）
+    tags: [authz, access-control]
+  - id: AUTHZ-BYPASS
+    title: 權限檢查缺漏或可繞過的路徑
+    tags: [authz, access-control]
+  - id: AUTH-CONFUSION
+    title: 身分綁定或帳號合併時的混淆
+    tags: [auth, logic]
+  - id: JWT-FLAW
+    title: JWT 演算法混淆、弱簽章或未驗簽
+    tags: [auth, token, crypto]
+  - id: SESSION-FIXATION
+    title: Session 未在權限變更時重新產生
+    tags: [auth, session]
+
+  # --- 伺服器端請求與檔案 ---
+  - id: SSRF
+    title: Server-Side Request Forgery
+    tags: [ssrf, network, internal]
+  - id: LFI
+    title: 本機檔案讀取／路徑穿越
+    tags: [file-read, traversal]
+  - id: UPLOAD-BYPASS
+    title: 上傳檢查繞過導致可執行檔落地
+    tags: [upload, rce]
+
+  # --- 協定與快取 ---
+  - id: REQUEST-SMUGGLING
+    title: HTTP Request Smuggling
+    tags: [protocol, proxy]
+  - id: CACHE-POISONING
+    title: Web Cache Poisoning / Deception
+    tags: [protocol, cache]
+  - id: CORS-MISCONFIG
+    title: CORS 設定過寬導致跨站讀取
+    tags: [protocol, client]
+
+  # --- 其他 ---
+  - id: DESERIALIZATION
+    title: 不安全的反序列化
+    tags: [deserialization, rce]
+  - id: RACE-CONDITION
+    title: 並發競態（例如重複兌換、超額提領）
+    tags: [logic, concurrency]
+  - id: BUSINESS-LOGIC
+    title: 商業邏輯瑕疵（負數、四捨五入、狀態跳躍）
+    tags: [logic]
+  - id: SECRET-LEAK
+    title: 原始碼、備份檔或版本控制目錄外洩
+    tags: [recon, disclosure]
+
+  # --- 跨題型共用（與 generic.yaml 相同 ID，title 必須一致）---
+  - id: RECON-NETWORK
+    title: 掃描開放連接埠與服務版本
+    tags: [recon, network]
+  - id: SOURCE-REVIEW
+    title: 若有原始碼，先讀輸入處理與權限判斷
+    tags: [source, baseline]
+  - id: ENCODING
+    title: 嘗試常見編碼還原（base64、hex、URL、ROT）
+    tags: [encoding, quickwin]
