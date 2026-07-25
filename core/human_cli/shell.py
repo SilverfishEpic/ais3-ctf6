@@ -235,7 +235,7 @@ class PowerShellNoteApp:
 
     def launch_shell(self) -> int:
         shell = self.args.shell or self.find_powershell()
-        profile_script = self.script_dir / "note_shell_profile.ps1"
+        profile_script = self.script_dir / "core" / "human_cli" / "note_shell_profile.ps1"
         main_script = self.script_dir / "main.py"
         command_text = (
             f". '{profile_script}' "
