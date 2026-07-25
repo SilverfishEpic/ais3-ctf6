@@ -72,6 +72,17 @@ from .templates import TemplateRegistry, empty_layout, initial_guessing, reclass
 #: How many times ingest may re-summarize when another writer wins the commit race.
 DEFAULT_MAX_REBASE = 2
 
+#: Stand-in for the journal record a mutation has not earned yet.  A mutation is rehearsed
+#: against a copy of the state before anything is written, and the applier wants a record
+#: to cite as evidence; this one is discarded along with the copy and never reaches disk.
+_REHEARSAL_RECORD = SourceRecord(
+    id="M-rehearsal",
+    type="mutation",
+    at="1970-01-01T00:00:00Z",
+    actor="memory-core",
+    reason="rehearsal",
+)
+
 
 class MemoryService:
     """Owns the whiteboard.  The only component permitted to write ``state.yaml``."""
@@ -329,8 +340,11 @@ class MemoryService:
         """Controlled human mutation with optimistic concurrency.
 
         The journal record is written *inside* the commit critical section, after the
-        revision check has passed, so a rejected 409 never leaves a phantom override in
-        the evidence log.
+        revision check has passed **and** after the operations have been shown to apply
+        cleanly.  Neither a stale ``expected_revision`` (409) nor an operation naming
+        something that does not exist (400) may leave a phantom override in the evidence
+        log: the journal is the audit trail and the replay input, so it must record what
+        happened, not what was attempted.
         """
 
         if not self.store.exists(challenge_id):
@@ -340,6 +354,10 @@ class MemoryService:
         template = self.templates.get(self.store.load(challenge_id).challenge.template)
 
         def apply(state: MemorySnapshot) -> MemorySnapshot:
+            # Rehearse on a throwaway copy first.  Running the real applier rather than a
+            # parallel validator is deliberate: a separate list of preconditions would be
+            # free to drift away from the operations it claims to check.
+            _apply_mutation(state.model_copy(deep=True), mutation, _REHEARSAL_RECORD, template)
             record = self.journal.append_mutation(challenge_id, mutation)
             return _apply_mutation(state, mutation, record, template)
 
