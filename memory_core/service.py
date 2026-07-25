@@ -26,7 +26,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .diff import compute_diff
-from .errors import ChallengeNotFound, InvalidRequest, RevisionConflict
+from .errors import ChallengeNotFound, InvalidRequest, RevisionConflict, SummarizerUnauthorized
 from .ids import IdAllocator
 from .journal import Journal, utc_now
 from .locks import LockRegistry
@@ -142,12 +142,20 @@ class MemoryService:
         if request.template is not None:
             template = self.templates.get(request.template)
         elif request.initial_input:
-            proposal = self.summarizer.classify(
-                initial_input=request.initial_input, templates=self.templates.all()
-            )
             try:
+                proposal = self.summarizer.classify(
+                    initial_input=request.initial_input, templates=self.templates.all()
+                )
                 template = self.templates.get(proposal.template)
+            except SummarizerUnauthorized:
+                # The one exception to "advisory": a rejected key is a server
+                # misconfiguration, and swallowing it would quietly create every challenge
+                # as `generic` with nobody the wiser (memory-core-v2.md §12).
+                raise
             except Exception:
+                # Classification is advisory. A backend that is down, slow or incoherent
+                # must not stop a human from opening a challenge — the template can always
+                # be corrected afterwards with POST /template.
                 template = self.templates.get("generic")
         else:
             template = self.templates.get("generic")

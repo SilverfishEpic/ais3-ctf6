@@ -7,11 +7,16 @@ Fact layer.
 
 from __future__ import annotations
 
-from conftest import agent_run_log, command_result, human_note
+from pathlib import Path
 
+import pytest
+from conftest import TEMPLATES_DIR, agent_run_log, command_result, human_note
+
+from memory_core.errors import SummarizerUnauthorized, SummarizerUnavailable
 from memory_core.models import (
     AssumptionItem,
     ChallengeMeta,
+    ClassificationProposal,
     CreateChallengeRequest,
     GuessingState,
     IngestEnvelope,
@@ -23,7 +28,7 @@ from memory_core.models import (
     SummaryProposal,
 )
 from memory_core.service import MemoryService
-from memory_core.summarizer import enforce_epistemic_policy, is_direct_evidence
+from memory_core.summarizer import FakeSummarizer, enforce_epistemic_policy, is_direct_evidence
 
 
 def _record(**kwargs: object) -> SourceRecord:
@@ -297,6 +302,59 @@ def test_challenge_template_is_not_reclassified_by_ingest(service: MemoryService
         ),
     )
     assert service.read_memory("c").challenge.template == "generic"
+
+
+class _UnavailableClassifier(FakeSummarizer):
+    """A backend that is down for exactly the advisory call."""
+
+    def classify(self, **kwargs: object) -> ClassificationProposal:
+        raise SummarizerUnavailable("backend down")
+
+
+class _UnauthorizedClassifier(FakeSummarizer):
+    """A backend that rejected *our* key — a server misconfiguration, not an outage."""
+
+    def classify(self, **kwargs: object) -> ClassificationProposal:
+        raise SummarizerUnauthorized("bad key")
+
+
+def _service_with(summarizer: object, runs_dir: Path) -> MemoryService:
+    return MemoryService.build(
+        runs_dir=runs_dir,
+        templates_dir=TEMPLATES_DIR,
+        summarizer=summarizer,  # type: ignore[arg-type]
+    )
+
+
+def test_an_unavailable_classifier_falls_back_instead_of_blocking_creation(
+    runs_dir: Path,
+) -> None:
+    """Classification is advisory: a down backend must not stop a human opening a board.
+
+    The template is a layout, not a truth claim, and ``POST /template`` can fix it later.
+    Refusing to create the challenge would strand the human with nowhere to put notes.
+    """
+
+    service = _service_with(_UnavailableClassifier(), runs_dir)
+    response = service.create_challenge(
+        CreateChallengeRequest(id="c", title="C", initial_input="an HTTP login form")
+    )
+    assert response.template == "generic"
+    assert service.read_memory("c").revision == 0
+
+
+def test_a_rejected_key_still_surfaces_from_creation(runs_dir: Path) -> None:
+    """The one thing the fallback must not swallow.
+
+    A bad key would otherwise create every challenge as ``generic`` forever, looking like
+    a classifier that simply never matches anything.
+    """
+
+    service = _service_with(_UnauthorizedClassifier(), runs_dir)
+    with pytest.raises(SummarizerUnauthorized):
+        service.create_challenge(
+            CreateChallengeRequest(id="c", title="C", initial_input="an HTTP login form")
+        )
 
 
 def memory_items(container: dict[str, list]) -> list[tuple[str, object]]:  # type: ignore[type-arg]
