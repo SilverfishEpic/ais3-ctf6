@@ -662,8 +662,12 @@ POST /v1/challenges/{challenge_id}/mutate
 - promote
 - demote
 - move
+- mark_tried
 
 不提供任意 YAML patch。
+
+`mark_tried` 只允許更新 template-owned Guessing technique 的本題 `tried` 狀態，
+不允許 client 改寫 Guessing catalog 或自行建立 technique。
 
 ### 8.7 Template correction
 
