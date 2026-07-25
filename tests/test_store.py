@@ -6,8 +6,16 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
-from memory_core.errors import ChallengeExists, ChallengeNotFound, RevisionConflict, StateCorrupt
+from memory_core.errors import (
+    ChallengeExists,
+    ChallengeNotFound,
+    InvalidRequest,
+    RevisionConflict,
+    StateCorrupt,
+)
+from memory_core.journal import Journal
 from memory_core.models import (
     ChallengeMeta,
     CreateChallengeRequest,
@@ -73,6 +81,38 @@ def test_stale_expected_revision_conflicts(store: StateStore) -> None:
         store.commit("demo", 0, lambda s: s)
     assert excinfo.value.details["current_revision"] == 1
     assert excinfo.value.status == 409
+
+
+@pytest.mark.parametrize("challenge_id", ["..", ".", ".hidden", "../escape"])
+def test_a_challenge_id_may_not_be_a_path(
+    store: StateStore, journal: Journal, runs_dir: Path, challenge_id: str
+) -> None:
+    """A challenge id names a directory under ``runs/``; it must not be able to leave it.
+
+    ``..`` is the dangerous one: it passed the old id pattern, resolved to the parent of
+    ``runs/``, and produced a challenge that ``list_challenges`` could not even see.
+    """
+
+    with pytest.raises(InvalidRequest):
+        store.init(_snapshot(challenge_id))
+    with pytest.raises(InvalidRequest):
+        store.load(challenge_id)
+    with pytest.raises(InvalidRequest):
+        journal.ensure(challenge_id)
+
+    assert not (runs_dir.parent / "state.yaml").exists()
+    assert not (runs_dir.parent / "journal.jsonl").exists()
+    assert list(runs_dir.iterdir()) == []
+
+
+def test_the_request_model_rejects_a_path_shaped_id() -> None:
+    """The same rule, enforced in the published contract rather than only in the store."""
+
+    for challenge_id in ("..", ".", ".hidden"):
+        with pytest.raises(ValidationError):
+            CreateChallengeRequest(id=challenge_id, title="escape")
+    # Ordinary ids keep working, dots included, as long as the id is not a path.
+    assert CreateChallengeRequest(id="demo-web.v2", title="fine").id == "demo-web.v2"
 
 
 def test_corrupt_state_is_reported_not_guessed(store: StateStore, runs_dir: Path) -> None:

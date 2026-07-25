@@ -23,11 +23,34 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
-from .errors import ChallengeExists, ChallengeNotFound, RevisionConflict, StateCorrupt
+from .errors import (
+    ChallengeExists,
+    ChallengeNotFound,
+    InvalidRequest,
+    RevisionConflict,
+    StateCorrupt,
+)
 from .locks import LockRegistry
-from .models import MemorySnapshot
+from .models import MemorySnapshot, is_valid_challenge_id
 
 STATE_FILENAME = "state.yaml"
+
+
+def require_safe_challenge_id(challenge_id: str) -> str:
+    """Reject ids that are paths rather than names.
+
+    Request-body validation already applies the same pattern, but a challenge id also
+    arrives as a URL path parameter, where nothing constrains it.  Checking here means
+    every filesystem path Memory Core builds is guarded at the point it is built, rather
+    than at each of the places a caller can name a challenge.
+    """
+
+    if not is_valid_challenge_id(challenge_id):
+        raise InvalidRequest(
+            f"invalid challenge id {challenge_id!r}: must be a name, not a path",
+            challenge_id=challenge_id,
+        )
+    return challenge_id
 
 
 def _prune_none(value: Any) -> Any:
@@ -54,7 +77,7 @@ class StateStore:
     # -- paths -------------------------------------------------------------
 
     def challenge_dir(self, challenge_id: str) -> Path:
-        return self.runs_dir / challenge_id
+        return self.runs_dir / require_safe_challenge_id(challenge_id)
 
     def state_path(self, challenge_id: str) -> Path:
         return self.challenge_dir(challenge_id) / STATE_FILENAME
