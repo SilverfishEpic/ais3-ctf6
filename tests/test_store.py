@@ -8,23 +8,23 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from memory_core.errors import (
+from memory.core.errors import (
     ChallengeExists,
     ChallengeNotFound,
     InvalidRequest,
     RevisionConflict,
     StateCorrupt,
 )
-from memory_core.journal import Journal
-from memory_core.models import (
+from memory.core.journal import Journal
+from memory.core.models import (
     ChallengeMeta,
     CreateChallengeRequest,
     FactItem,
     GuessingState,
     MemorySnapshot,
 )
-from memory_core.service import MemoryService
-from memory_core.store import StateStore
+from memory.core.service import MemoryService
+from memory.core.store import StateStore
 
 
 def _snapshot(challenge_id: str = "demo") -> MemorySnapshot:

@@ -12,10 +12,10 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
-from conftest import TEMPLATES_DIR, human_note
+from tests.conftest import TEMPLATES_DIR, human_note
 
-from memory_core.errors import RevisionConflict
-from memory_core.models import (
+from memory.core.errors import RevisionConflict
+from memory.core.models import (
     ClassificationProposal,
     CreateChallengeRequest,
     IngestEnvelope,
@@ -26,8 +26,8 @@ from memory_core.models import (
     SummaryProposal,
     TemplateDefinition,
 )
-from memory_core.service import MemoryService
-from memory_core.summarizer import FakeSummarizer
+from memory.core.service import MemoryService
+from memory.core.summarizer import FakeSummarizer
 
 
 class SlowSummarizer(FakeSummarizer):

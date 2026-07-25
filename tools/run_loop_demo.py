@@ -25,11 +25,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from agent_bridge.adapters.fake import FakeAgentAdapter  # noqa: E402
-from agent_bridge.errors import MemoryCoreError  # noqa: E402
-from agent_bridge.loop import AgentLoop, LoopLimits  # noqa: E402
-from agent_bridge.memory.http import HttpMemoryClient  # noqa: E402
-from agent_bridge.policy import BY_NAME, SessionMode  # noqa: E402
+from adapters.fake import FakeAgentAdapter  # noqa: E402
+from utils.errors import MemoryCoreError  # noqa: E402
+from bridge.loop import AgentLoop, LoopLimits  # noqa: E402
+from memory.client.http import HttpMemoryClient  # noqa: E402
+from bridge.policy import BY_NAME, SessionMode  # noqa: E402
 
 RULE = "─" * 78
 
@@ -70,8 +70,8 @@ async def main_async(args: argparse.Namespace) -> int:
         print(f"challenge {challenge_id} 已存在，直接用")
 
     if args.claude:
-        from agent_bridge.adapters.claude import ClaudeAdapter
-        from agent_bridge.skill import TOOL_NAMES, build_memory_server
+        from adapters.claude import ClaudeAdapter
+        from tools.skill import TOOL_NAMES, build_memory_server
 
         workspace = Path(args.claude)
         workspace.mkdir(parents=True, exist_ok=True)

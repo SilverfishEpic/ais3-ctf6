@@ -14,12 +14,12 @@ from pathlib import Path
 
 import pytest
 
-from memory_core.journal import Journal
-from memory_core.locks import LockRegistry
-from memory_core.service import MemoryService
-from memory_core.store import StateStore
-from memory_core.summarizer import FakeSummarizer
-from memory_core.templates import TemplateRegistry
+from memory.core.journal import Journal
+from memory.core.locks import LockRegistry
+from memory.core.service import MemoryService
+from memory.core.store import StateStore
+from memory.core.summarizer import FakeSummarizer
+from memory.core.templates import TemplateRegistry
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = REPO_ROOT / "templates"
@@ -78,7 +78,7 @@ def journal(runs_dir: Path) -> Journal:
 def demo(service: MemoryService) -> Iterator[str]:
     """A created-but-empty ``demo-web`` challenge at revision 0."""
 
-    from memory_core.models import CreateChallengeRequest
+    from memory.core.models import CreateChallengeRequest
 
     service.create_challenge(CreateChallengeRequest(id="demo-web", title="Demo Web"))
     yield "demo-web"

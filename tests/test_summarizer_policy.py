@@ -10,10 +10,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from conftest import TEMPLATES_DIR, agent_run_log, command_result, human_note
+from tests.conftest import TEMPLATES_DIR, agent_run_log, command_result, human_note
 
-from memory_core.errors import SummarizerUnauthorized, SummarizerUnavailable
-from memory_core.models import (
+from memory.core.errors import SummarizerUnauthorized, SummarizerUnavailable
+from memory.core.models import (
     AssumptionItem,
     ChallengeMeta,
     ClassificationProposal,
@@ -27,8 +27,8 @@ from memory_core.models import (
     SourceRecord,
     SummaryProposal,
 )
-from memory_core.service import MemoryService
-from memory_core.summarizer import FakeSummarizer, enforce_epistemic_policy, is_direct_evidence
+from memory.core.service import MemoryService
+from memory.core.summarizer import FakeSummarizer, enforce_epistemic_policy, is_direct_evidence
 
 
 def _record(**kwargs: object) -> SourceRecord:

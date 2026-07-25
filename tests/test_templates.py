@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import human_note
+from tests.conftest import human_note
 
-from memory_core.errors import InvalidTemplate, TemplateNotFound
-from memory_core.models import (
+from memory.core.errors import InvalidTemplate, TemplateNotFound
+from memory.core.models import (
     AssumptionItem,
     ChallengeMeta,
     CreateChallengeRequest,
@@ -25,8 +25,8 @@ from memory_core.models import (
     TemplateChangeRequest,
     TemplateDefinition,
 )
-from memory_core.service import MemoryService
-from memory_core.templates import TemplateRegistry, load_template, reclassify, validate_template
+from memory.core.service import MemoryService
+from memory.core.templates import TemplateRegistry, load_template, reclassify, validate_template
 
 MINIMAL = {
     "id": "tiny",

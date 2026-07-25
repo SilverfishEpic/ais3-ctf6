@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 
-from core.human_cli.shell import PowerShellNoteApp
+from core.human_cli.shell import NoteApp
 
 
 def main() -> int:
@@ -10,7 +10,7 @@ def main() -> int:
     script_dir = Path(__file__).resolve().parent
 
     # 實例化 App（這時候才會帶進 shell.py 裡的 self）
-    app = PowerShellNoteApp(script_dir=script_dir)
+    app = NoteApp(script_dir=script_dir)
 
     # 啟動程式
     return app.run()

@@ -6,11 +6,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import agent_run_log, human_note
+from tests.conftest import agent_run_log, human_note
 from fastapi.testclient import TestClient
 
-from memory_core.api import create_app
-from memory_core.service import MemoryService
+from memory.core.api import create_app
+from memory.core.service import MemoryService
 
 
 @pytest.fixture

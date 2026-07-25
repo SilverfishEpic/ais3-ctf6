@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from memory_core.diff import compute_diff
-from memory_core.models import (
+from memory.core.diff import compute_diff
+from memory.core.models import (
     AssumptionItem,
     ChallengeMeta,
     FactItem,

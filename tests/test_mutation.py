@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import pytest
-from conftest import human_note
+from tests.conftest import human_note
 from pydantic import ValidationError
 
-from memory_core.errors import InvalidRequest, RevisionConflict
-from memory_core.models import IngestEnvelope, MemoryMutation
-from memory_core.service import MemoryService
+from memory.core.errors import InvalidRequest, RevisionConflict
+from memory.core.models import IngestEnvelope, MemoryMutation
+from memory.core.service import MemoryService
 
 
 def _seeded(service: MemoryService, challenge: str) -> int:

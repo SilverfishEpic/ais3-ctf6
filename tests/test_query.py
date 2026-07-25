@@ -5,17 +5,17 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from conftest import TEMPLATES_DIR, human_note
+from tests.conftest import TEMPLATES_DIR, human_note
 
-from memory_core.models import (
+from memory.core.models import (
     AnswerProposal,
     CreateChallengeRequest,
     IngestEnvelope,
     MemorySnapshot,
     QueryRequest,
 )
-from memory_core.service import MemoryService
-from memory_core.summarizer import FakeSummarizer
+from memory.core.service import MemoryService
+from memory.core.summarizer import FakeSummarizer
 
 
 def test_query_references_only_existing_memory_ids(service: MemoryService, demo: str) -> None:

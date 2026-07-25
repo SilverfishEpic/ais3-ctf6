@@ -16,12 +16,12 @@ import os
 from pathlib import Path
 
 import pytest
-from conftest import TEMPLATES_DIR, command_result
+from tests.conftest import TEMPLATES_DIR, command_result
 
-from memory_core.config import Settings
-from memory_core.models import CreateChallengeRequest, IngestEnvelope
-from memory_core.providers.ais3 import AIS3Summarizer
-from memory_core.service import MemoryService
+from memory.core.config import Settings
+from memory.core.models import CreateChallengeRequest, IngestEnvelope
+from memory.core.providers.ais3 import AIS3Summarizer
+from memory.core.service import MemoryService
 
 pytestmark = pytest.mark.live
 

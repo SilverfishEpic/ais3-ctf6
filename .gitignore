@@ -1,45 +1,14 @@
-<<<<<<< HEAD
-# IDE / editor
-.vscode/
-
-# OpenCode / OMO
-.omo/
-
-# CodeGraph index
-.codegraph/
-
-# Patches
-patches/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-dist/
-build/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Runtime data
-rounds.jsonl
-transcripts/
-
-# Environment
-.env
-.env.local
-*.venv
-=======
 .venv/
 __pycache__/
 *.py[cod]
-*.egg-info/
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
-runs/
 .env
-uv.lock
->>>>>>> 3ccaa55 (memory system build)
+.secrets.env
+
+# 每題的執行狀態由 Memory Core 產生，不進版控
+runs/
+
+# 錄音時用的臨時工作區
+.workspaces/
+
+# fixtures/ 是測試基準，要進版控，不要忽略

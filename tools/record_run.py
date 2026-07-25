@@ -52,10 +52,10 @@ from claude_agent_sdk import (  # noqa: E402
     ToolUseBlock,
 )
 
-from agent_bridge.collect import RunCollector, ToolRecord  # noqa: E402
-from agent_bridge.collect import merge_hooks  # noqa: E402
-from agent_bridge.sandbox import ToolPolicy, sandbox_hooks  # noqa: E402
-from agent_bridge.serialize import jsonable  # noqa: E402
+from pipeline.collect import RunCollector, ToolRecord  # noqa: E402
+from pipeline.collect import merge_hooks  # noqa: E402
+from security.sandbox import ToolPolicy, sandbox_hooks  # noqa: E402
+from utils.serialize import jsonable  # noqa: E402
 
 FIXTURE_DIR = REPO_ROOT / "fixtures" / "claude"
 WORKSPACE_DIR = REPO_ROOT / ".workspaces"

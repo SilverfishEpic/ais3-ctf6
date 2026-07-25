@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from conftest import human_note
+from tests.conftest import human_note
 
-from memory_core.models import (
+from memory.core.models import (
     GuessRequest,
     IngestEnvelope,
     MemoryMutation,
     TemplateChangeRequest,
 )
-from memory_core.service import MemoryService
-from memory_core.templates import TemplateRegistry
+from memory.core.service import MemoryService
+from memory.core.templates import TemplateRegistry
 
 
 def test_candidates_come_from_the_template_not_the_summarizer(
@@ -67,7 +67,7 @@ def test_only_untried_filters_marked_techniques(service: MemoryService, demo: st
 def test_marking_an_unknown_technique_is_rejected(service: MemoryService, demo: str) -> None:
     import pytest
 
-    from memory_core.errors import InvalidRequest
+    from memory.core.errors import InvalidRequest
 
     with pytest.raises(InvalidRequest):
         service.mutate(

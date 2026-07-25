@@ -3,19 +3,23 @@
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from core.human_cli.shell_profiles import (
+    build_launch_cmd,
+    detect_shell,
+    resolve_profile_path,
+)
 from core.note_ai.command_filter import CommandFilter
 from core.note_ai.llm_client import LLMClient
 from core.note_ai.storage import Storage
 
 
-class PowerShellNoteApp:
-    """應用程式核心邏輯與 Shell 控制器"""
+class NoteApp:
+    """系統無關的筆記應用程式 — 可在任何 shell 中執行 note / auto-note 功能。"""
 
     DEFAULT_BASE_URL = "https://api.openai.com/v1"
     DEFAULT_MODEL = "gpt-4.1-mini"
@@ -55,7 +59,7 @@ class PowerShellNoteApp:
 
     def _parse_args(self) -> argparse.Namespace:
         parser = argparse.ArgumentParser(
-            description="Launch a real interactive PowerShell with a `note` command."
+            description="Launch a real interactive shell with a `note` command."
         )
         parser.add_argument("--send-note", action="store_true", help=argparse.SUPPRESS)
         parser.add_argument("--auto-note", action="store_true", help=argparse.SUPPRESS)
@@ -94,13 +98,6 @@ class PowerShellNoteApp:
             args.save_response = Storage.resolve_path(args.save_response, self.script_dir)
 
         return args
-
-    def find_powershell(self) -> str:
-        for name in ("pwsh.exe", "pwsh", "powershell.exe", "powershell"):
-            found = shutil.which(name)
-            if found:
-                return found
-        raise RuntimeError("PowerShell was not found in PATH.")
 
     def load_skill(self) -> str:
         if not self.args.skill:
@@ -234,27 +231,35 @@ class PowerShellNoteApp:
         return 0
 
     def launch_shell(self) -> int:
-        shell = self.args.shell or self.find_powershell()
-        profile_script = self.script_dir / "core" / "human_cli" / "note_shell_profile.ps1"
+        """Detect the user's shell and launch it with the note profile injected."""
+        profile = detect_shell(shell_hint=self.args.shell)
+        if profile is None:
+            print(
+                "[note] Could not detect a supported shell. "
+                "Install PowerShell (pwsh), bash, or zsh, or pass --shell explicitly.",
+                file=sys.stderr,
+            )
+            return 1
+
+        profile_path = resolve_profile_path(profile, self.script_dir)
+        if not profile_path.is_file():
+            print(f"[note] Profile not found: {profile_path}", file=sys.stderr)
+            return 1
+
         main_script = self.script_dir / "main.py"
-        command_text = (
-            f". '{profile_script}' "
-            f"-PythonExe '{sys.executable}' "
-            f"-HelperScript '{main_script.resolve()}' "
-            f"-WorkspaceDir '{self.script_dir}'"
+        cmd, extra_env = build_launch_cmd(
+            profile=profile,
+            profile_path=profile_path,
+            helper_script=main_script,
+            workspace_dir=self.script_dir,
+            python_exe=sys.executable,
         )
 
-        command = [
-            shell,
-            "-NoLogo",
-            "-NoExit",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            command_text,
-        ]
+        # Merge extra env into the subprocess environment
+        launch_env = os.environ.copy()
+        launch_env.update(extra_env)
 
-        return subprocess.call(command)
+        return subprocess.call(cmd, env=launch_env)
 
     def run(self) -> int:
         if self.args.send_note:

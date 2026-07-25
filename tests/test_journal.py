@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from conftest import agent_run_log, human_note
+from tests.conftest import agent_run_log, human_note
 
-from memory_core.journal import Journal
-from memory_core.models import CreateChallengeRequest, IngestEnvelope
-from memory_core.service import MemoryService
+from memory.core.journal import Journal
+from memory.core.models import CreateChallengeRequest, IngestEnvelope
+from memory.core.service import MemoryService
 
 
 def test_human_note_is_preserved_verbatim(journal: Journal, runs_dir: Path) -> None:

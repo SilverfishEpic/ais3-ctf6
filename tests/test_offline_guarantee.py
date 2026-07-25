@@ -16,16 +16,16 @@ import socket
 import httpx
 import pytest
 
-from memory_core.errors import ProposalInvalid, SummarizerUnauthorized, SummarizerUnavailable
-from memory_core.models import (
+from memory.core.errors import ProposalInvalid, SummarizerUnauthorized, SummarizerUnavailable
+from memory.core.models import (
     ChallengeMeta,
     GuessingState,
     MemorySnapshot,
     SourceRecord,
     TemplateDefinition,
 )
-from memory_core.providers.ais3 import AIS3Summarizer
-from memory_core.summarizer import extract_json, parse_proposal
+from memory.core.providers.ais3 import AIS3Summarizer
+from memory.core.summarizer import extract_json, parse_proposal
 
 
 def test_the_network_guard_actually_blocks_connections() -> None:
