@@ -1,0 +1,1469 @@
+# GENERATED FILE - do not edit by hand.
+# Source of truth: memory_core/models.py + memory_core/api.py
+# Regenerate with: python scripts/gen_spec.py
+openapi: 3.1.0
+info:
+  title: CTF Memory Core
+  description: 'Memory Core is a shared CTF whiteboard. Humans and external agents are clients; the only
+
+    model-driven component inside the service is a Summarizer.
+
+
+    Three memory concepts exist and no more:
+
+
+    * **Fact** - confirmed by direct evidence or an explicit human override.
+
+    * **Assumption** - plausible and testable, not yet verified.
+
+    * **Guessing** - a curated technique catalog owned by the challenge''s template.
+
+
+    Memory Core is the only writer of `state.yaml`. Clients never edit it directly. All
+
+    state-changing operations return a machine-readable semantic diff, and all explicit
+
+    mutations carry `expected_revision` and fail with **409 Conflict** when stale.
+
+    '
+  version: 2.0.0
+paths:
+  /healthz:
+    get:
+      tags:
+      - meta
+      summary: Liveness probe
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+  /v1/challenges:
+    get:
+      tags:
+      - challenges
+      summary: List known challenge ids
+      operationId: list_challenges_v1_challenges_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                type: array
+                title: Response List Challenges V1 Challenges Get
+    post:
+      tags:
+      - challenges
+      summary: Create a challenge at revision 0
+      operationId: create_challenge_v1_challenges_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChallengeRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateChallengeResponse'
+        '400':
+          description: Malformed or semantically invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Challenge or template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale expected_revision, or challenge exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Summarizer proposal failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Summarizer backend unavailable or too slow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/challenges/{challenge_id}/ingest:
+    post:
+      tags:
+      - memory
+      summary: Ingest a normalized human or agent input
+      description: The envelope is vendor-neutral. Provider-specific events (e.g. Claude SDK objects)
+        must be normalized by the Agent Bridge before they get here. The raw input is journalled before
+        summarization, so nothing is lost if the Summarizer fails.
+      operationId: ingest_v1_challenges__challenge_id__ingest_post
+      parameters:
+      - name: challenge_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Challenge Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestEnvelope'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+        '400':
+          description: Malformed or semantically invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Challenge or template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale expected_revision, or challenge exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Summarizer proposal failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Summarizer backend unavailable or too slow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/challenges/{challenge_id}/memory:
+    get:
+      tags:
+      - memory
+      summary: Read the whiteboard with deterministic filters
+      operationId: read_memory_v1_challenges__challenge_id__memory_get
+      parameters:
+      - name: challenge_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Challenge Id
+      - name: layer
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - fact
+            - assumption
+            - guessing
+            type: string
+          - type: 'null'
+          title: Layer
+      - name: section
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Section
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryReadResponse'
+        '400':
+          description: Malformed or semantically invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Challenge or template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale expected_revision, or challenge exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Summarizer proposal failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Summarizer backend unavailable or too slow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/challenges/{challenge_id}/query:
+    post:
+      tags:
+      - memory
+      summary: Ask a natural-language question about current memory
+      description: Answers are grounded strictly in current whiteboard state. Returned references are
+        intersected with the live snapshot, so an invented id cannot reach a client.
+      operationId: query_v1_challenges__challenge_id__query_post
+      parameters:
+      - name: challenge_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Challenge Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          description: Malformed or semantically invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Challenge or template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale expected_revision, or challenge exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Summarizer proposal failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Summarizer backend unavailable or too slow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/challenges/{challenge_id}/guess:
+    post:
+      tags:
+      - memory
+      summary: Draw techniques from the template catalog
+      description: Deterministic given a seed, and never model-driven. Guessing is a curated procedural
+        prior owned by the template, not LLM brainstorming.
+      operationId: guess_v1_challenges__challenge_id__guess_post
+      parameters:
+      - name: challenge_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Challenge Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuessRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuessResponse'
+        '400':
+          description: Malformed or semantically invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Challenge or template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale expected_revision, or challenge exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Summarizer proposal failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Summarizer backend unavailable or too slow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/challenges/{challenge_id}/mutate:
+    post:
+      tags:
+      - memory
+      summary: Apply controlled human mutations
+      description: Controlled operations only - add / replace / remove / promote / demote / move / mark_tried.
+        There is no arbitrary YAML patch endpoint. `expected_revision` is mandatory and a stale value
+        returns 409.
+      operationId: mutate_v1_challenges__challenge_id__mutate_post
+      parameters:
+      - name: challenge_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Challenge Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoryMutation'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiffEnvelope'
+        '400':
+          description: Malformed or semantically invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Challenge or template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale expected_revision, or challenge exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Summarizer proposal failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Summarizer backend unavailable or too slow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/challenges/{challenge_id}/template:
+    post:
+      tags:
+      - memory
+      summary: Explicitly reclassify the challenge
+      description: 'Reclassification re-lays-out the whiteboard. It preserves every memory id and every
+        epistemic level: changing the category is not the same as re-judging what is true.'
+      operationId: set_template_v1_challenges__challenge_id__template_post
+      parameters:
+      - name: challenge_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Challenge Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateChangeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiffEnvelope'
+        '400':
+          description: Malformed or semantically invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Challenge or template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Stale expected_revision, or challenge exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Summarizer proposal failed validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Summarizer backend unavailable or too slow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    AddOperation:
+      properties:
+        op:
+          type: string
+          const: add
+          title: Op
+          default: add
+        layer:
+          type: string
+          enum:
+          - fact
+          - assumption
+          title: Layer
+        section:
+          type: string
+          title: Section
+          default: general
+        text:
+          type: string
+          title: Text
+        evidence:
+          items:
+            type: string
+          type: array
+          title: Evidence
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+      additionalProperties: false
+      type: object
+      required:
+      - layer
+      - text
+      title: AddOperation
+    AgentRunEvent:
+      properties:
+        seq:
+          type: integer
+          minimum: 1.0
+          title: Seq
+        role:
+          type: string
+          enum:
+          - assistant
+          - tool
+          - user
+          - system
+          title: Role
+        kind:
+          type: string
+          enum:
+          - message
+          - tool_call
+          - tool_result
+          title: Kind
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Tool name, for tool_call/tool_result.
+        content:
+          type: string
+          title: Content
+      additionalProperties: false
+      type: object
+      required:
+      - seq
+      - role
+      - kind
+      - content
+      title: AgentRunEvent
+      description: 'One normalized event from an external agent run.
+
+
+        ``kind`` carries the epistemic weight: a ``tool_result`` is direct evidence and may
+
+        support a Fact, whereas a ``message`` is agent narrative and may only support an
+
+        Assumption.'
+    AssumptionItem:
+      properties:
+        id:
+          type: string
+          pattern: ^[FA]\d{3,}$
+          title: Id
+          description: 'Stable identity within a layer. The F/A prefix always matches the layer the item
+            currently lives in, so crossing layers mints a new id: promoting A017 produces a new F-item
+            carrying promoted_from=''A017''. An id is never reused, even after the item it named is removed
+            or promoted away.'
+        text:
+          type: string
+          title: Text
+        evidence:
+          items:
+            type: string
+          type: array
+          title: Evidence
+          description: Journal source IDs supporting this item.
+        source_actor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Actor
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated At
+        promoted_from:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Promoted From
+          description: The id this item had in the other layer before a promotion or demotion. Follow
+            the chain to reconstruct an item's epistemic history.
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - text
+      title: AssumptionItem
+      description: Plausible and testable, but not yet sufficiently verified.
+    ChallengeMeta:
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        category:
+          type: string
+          title: Category
+          default: generic
+        template:
+          type: string
+          title: Template
+          default: generic
+        template_version:
+          type: integer
+          title: Template Version
+          default: 1
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - title
+      title: ChallengeMeta
+    CommandResultInput:
+      properties:
+        type:
+          type: string
+          const: command_result
+          title: Type
+          default: command_result
+        command:
+          items:
+            type: string
+          type: array
+          title: Command
+        exit_code:
+          type: integer
+          title: Exit Code
+        stdout:
+          type: string
+          title: Stdout
+          default: ''
+        stderr:
+          type: string
+          title: Stderr
+          default: ''
+      additionalProperties: false
+      type: object
+      required:
+      - command
+      - exit_code
+      title: CommandResultInput
+      description: 'Result of a command the human ran.  Direct evidence: may support a Fact.'
+    CreateChallengeRequest:
+      properties:
+        id:
+          type: string
+          pattern: ^[A-Za-z0-9_-][A-Za-z0-9._-]*$
+          title: Id
+        title:
+          type: string
+          title: Title
+        initial_input:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Initial Input
+          description: If present, the Summarizer may classify the challenge into a template once.
+        template:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Template
+          description: Explicit template; suppresses auto-classification.
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - title
+      title: CreateChallengeRequest
+    CreateChallengeResponse:
+      properties:
+        challenge_id:
+          type: string
+          title: Challenge Id
+        revision:
+          type: integer
+          title: Revision
+        template:
+          type: string
+          title: Template
+        template_version:
+          type: integer
+          title: Template Version
+      additionalProperties: false
+      type: object
+      required:
+      - challenge_id
+      - revision
+      - template
+      - template_version
+      title: CreateChallengeResponse
+    DemoteOperation:
+      properties:
+        op:
+          type: string
+          const: demote
+          title: Op
+          default: demote
+        id:
+          type: string
+          title: Id
+        to:
+          type: string
+          const: assumption
+          title: To
+          default: assumption
+        section:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Section
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      title: DemoteOperation
+      description: Fact -> Assumption, e.g. when new evidence undermines a previous conclusion.
+    DiffEnvelope:
+      properties:
+        revision_before:
+          type: integer
+          title: Revision Before
+        revision_after:
+          type: integer
+          title: Revision After
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        diff:
+          $ref: '#/components/schemas/MemoryDiff'
+      additionalProperties: false
+      type: object
+      required:
+      - revision_before
+      - revision_after
+      - diff
+      title: DiffEnvelope
+      description: 'Returned by every successful state-changing operation.
+
+
+        This is a machine-readable collaboration artifact.  Rendering belongs to the Human
+
+        Client (Person 2); Memory Core never formats it for a terminal.'
+    ErrorBody:
+      properties:
+        code:
+          type: string
+          title: Code
+        message:
+          type: string
+          title: Message
+        details:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Details
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - message
+      title: ErrorBody
+    ErrorResponse:
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+      additionalProperties: false
+      type: object
+      required:
+      - error
+      title: ErrorResponse
+    FactItem:
+      properties:
+        id:
+          type: string
+          pattern: ^[FA]\d{3,}$
+          title: Id
+          description: 'Stable identity within a layer. The F/A prefix always matches the layer the item
+            currently lives in, so crossing layers mints a new id: promoting A017 produces a new F-item
+            carrying promoted_from=''A017''. An id is never reused, even after the item it named is removed
+            or promoted away.'
+        text:
+          type: string
+          title: Text
+        evidence:
+          items:
+            type: string
+          type: array
+          title: Evidence
+          description: Journal source IDs supporting this item.
+        source_actor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Actor
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated At
+        promoted_from:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Promoted From
+          description: The id this item had in the other layer before a promotion or demotion. Follow
+            the chain to reconstruct an item's epistemic history.
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - text
+      title: FactItem
+      description: Confirmed by direct evidence or an explicit human override.
+    GuessCandidate:
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+        tried:
+          type: boolean
+          title: Tried
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - title
+      title: GuessCandidate
+    GuessRequest:
+      properties:
+        count:
+          type: integer
+          maximum: 50.0
+          minimum: 1.0
+          title: Count
+          default: 3
+        only_untried:
+          type: boolean
+          title: Only Untried
+          default: true
+        seed:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Seed
+          description: Fixing the seed makes ablation runs reproducible.
+      additionalProperties: false
+      type: object
+      title: GuessRequest
+    GuessResponse:
+      properties:
+        catalog:
+          type: string
+          title: Catalog
+        revision:
+          type: integer
+          title: Revision
+        candidates:
+          items:
+            $ref: '#/components/schemas/GuessCandidate'
+          type: array
+          title: Candidates
+      additionalProperties: false
+      type: object
+      required:
+      - catalog
+      - revision
+      - candidates
+      title: GuessResponse
+    GuessingState:
+      properties:
+        catalog:
+          type: string
+          pattern: ^[a-z0-9_-]+@\d+$
+          title: Catalog
+          description: e.g. "web@1".
+        state:
+          additionalProperties:
+            $ref: '#/components/schemas/GuessingTechniqueState'
+          type: object
+          title: State
+      additionalProperties: false
+      type: object
+      required:
+      - catalog
+      title: GuessingState
+      description: 'Per-challenge local state over a template-owned catalog.
+
+
+        ``state.yaml`` stores only the catalog identity plus local ``tried`` flags; the full
+
+        technique metadata is always resolved from the template registry (設計規劃書 §4.3).'
+    GuessingTechniqueState:
+      properties:
+        tried:
+          type: boolean
+          title: Tried
+          default: false
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+      additionalProperties: false
+      type: object
+      title: GuessingTechniqueState
+    IngestEnvelope:
+      properties:
+        source:
+          $ref: '#/components/schemas/InputSource'
+        input:
+          oneOf:
+          - $ref: '#/components/schemas/NoteInput'
+          - $ref: '#/components/schemas/CommandResultInput'
+          - $ref: '#/components/schemas/RunLogInput'
+          title: Input
+          discriminator:
+            propertyName: type
+            mapping:
+              command_result: '#/components/schemas/CommandResultInput'
+              note: '#/components/schemas/NoteInput'
+              run_log: '#/components/schemas/RunLogInput'
+      additionalProperties: false
+      type: object
+      required:
+      - source
+      - input
+      title: IngestEnvelope
+      description: The one and only ingest contract, shared by humans and agents.
+    IngestResponse:
+      properties:
+        revision_before:
+          type: integer
+          title: Revision Before
+        revision_after:
+          type: integer
+          title: Revision After
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        diff:
+          $ref: '#/components/schemas/MemoryDiff'
+        source_id:
+          type: string
+          title: Source Id
+          description: Journal ID of the record just appended.
+      additionalProperties: false
+      type: object
+      required:
+      - revision_before
+      - revision_after
+      - diff
+      - source_id
+      title: IngestResponse
+    InputSource:
+      properties:
+        type:
+          type: string
+          enum:
+          - human
+          - agent
+          title: Type
+        actor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor
+          description: Human username, when type=human.
+        provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provider
+          description: e.g. "anthropic", when type=agent.
+        model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      additionalProperties: false
+      type: object
+      required:
+      - type
+      title: InputSource
+      description: 'Who produced an input.
+
+
+        Vendor-neutral on purpose.  Claude SDK objects are normalized into this shape by
+
+        the Agent Bridge (Person 3) *before* they reach Memory Core; provider-specific
+
+        classes never become part of the domain model.'
+    MarkTriedOperation:
+      properties:
+        op:
+          type: string
+          const: mark_tried
+          title: Op
+          default: mark_tried
+        technique:
+          type: string
+          title: Technique
+        tried:
+          type: boolean
+          title: Tried
+          default: true
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+      additionalProperties: false
+      type: object
+      required:
+      - technique
+      title: MarkTriedOperation
+      description: 'Record that a Guessing technique has been attempted for this challenge.
+
+
+        Beyond the six operations in the original brief, and deliberately so: ``state.yaml``
+
+        stores per-challenge ``tried`` flags (設計規劃書 §4.3) and ``GuessRequest.only_untried``
+
+        is meaningless without a sanctioned way to set them.  It is still a *controlled*
+
+        operation over template-owned identifiers — it can flip a flag and attach a note, and
+
+        it can neither add a technique to the catalog nor change its metadata.'
+    MemoryDiff:
+      properties:
+        fact_added:
+          items:
+            type: string
+          type: array
+          title: Fact Added
+        fact_updated:
+          items:
+            type: string
+          type: array
+          title: Fact Updated
+        fact_removed:
+          items:
+            type: string
+          type: array
+          title: Fact Removed
+        assumption_added:
+          items:
+            type: string
+          type: array
+          title: Assumption Added
+        assumption_updated:
+          items:
+            type: string
+          type: array
+          title: Assumption Updated
+        assumption_removed:
+          items:
+            type: string
+          type: array
+          title: Assumption Removed
+        promoted:
+          items:
+            type: string
+          type: array
+          title: Promoted
+        demoted:
+          items:
+            type: string
+          type: array
+          title: Demoted
+        template_changed:
+          anyOf:
+          - $ref: '#/components/schemas/TemplateChange'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      title: MemoryDiff
+    MemoryMutation:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        actor:
+          type: string
+          title: Actor
+        reason:
+          type: string
+          minLength: 1
+          title: Reason
+          description: 'Required: overrides must be attributable.'
+        operations:
+          items:
+            oneOf:
+            - $ref: '#/components/schemas/AddOperation'
+            - $ref: '#/components/schemas/ReplaceOperation'
+            - $ref: '#/components/schemas/RemoveOperation'
+            - $ref: '#/components/schemas/PromoteOperation'
+            - $ref: '#/components/schemas/DemoteOperation'
+            - $ref: '#/components/schemas/MoveOperation'
+            - $ref: '#/components/schemas/MarkTriedOperation'
+            discriminator:
+              propertyName: op
+              mapping:
+                add: '#/components/schemas/AddOperation'
+                demote: '#/components/schemas/DemoteOperation'
+                mark_tried: '#/components/schemas/MarkTriedOperation'
+                move: '#/components/schemas/MoveOperation'
+                promote: '#/components/schemas/PromoteOperation'
+                remove: '#/components/schemas/RemoveOperation'
+                replace: '#/components/schemas/ReplaceOperation'
+          type: array
+          minItems: 1
+          title: Operations
+      additionalProperties: false
+      type: object
+      required:
+      - expected_revision
+      - actor
+      - reason
+      - operations
+      title: MemoryMutation
+      description: Controlled human mutation.  There is deliberately no arbitrary YAML patch API.
+    MemoryReadResponse:
+      properties:
+        revision:
+          type: integer
+          title: Revision
+        challenge:
+          $ref: '#/components/schemas/ChallengeMeta'
+        fact:
+          additionalProperties:
+            items:
+              $ref: '#/components/schemas/FactItem'
+            type: array
+          type: object
+          title: Fact
+        assumption:
+          additionalProperties:
+            items:
+              $ref: '#/components/schemas/AssumptionItem'
+            type: array
+          type: object
+          title: Assumption
+        guessing:
+          anyOf:
+          - $ref: '#/components/schemas/GuessingState'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - revision
+      - challenge
+      title: MemoryReadResponse
+    MoveOperation:
+      properties:
+        op:
+          type: string
+          const: move
+          title: Op
+          default: move
+        id:
+          type: string
+          title: Id
+        section:
+          type: string
+          title: Section
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - section
+      title: MoveOperation
+      description: Change an item's section only.  Never changes its epistemic level.
+    NoteInput:
+      properties:
+        type:
+          type: string
+          const: note
+          title: Type
+          default: note
+        content:
+          type: string
+          title: Content
+      additionalProperties: false
+      type: object
+      required:
+      - content
+      title: NoteInput
+      description: Free-form human note.  Ordinary human hypotheses default to Assumption.
+    PromoteOperation:
+      properties:
+        op:
+          type: string
+          const: promote
+          title: Op
+          default: promote
+        id:
+          type: string
+          title: Id
+        to:
+          type: string
+          const: fact
+          title: To
+          default: fact
+        section:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Section
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      title: PromoteOperation
+      description: Assumption -> Fact.  This is the *only* sanctioned human override path.
+    QueryRequest:
+      properties:
+        question:
+          type: string
+          minLength: 1
+          title: Question
+        layers:
+          items:
+            type: string
+            enum:
+            - fact
+            - assumption
+            - guessing
+          type: array
+          title: Layers
+      additionalProperties: false
+      type: object
+      required:
+      - question
+      title: QueryRequest
+    QueryResponse:
+      properties:
+        answer:
+          type: string
+          title: Answer
+        references:
+          items:
+            type: string
+          type: array
+          title: References
+        revision:
+          type: integer
+          title: Revision
+      additionalProperties: false
+      type: object
+      required:
+      - answer
+      - revision
+      title: QueryResponse
+      description: 'Answers are grounded strictly in current whiteboard state.
+
+
+        ``references`` is filtered against the live snapshot, so a hallucinated ID can never
+
+        reach the client.'
+    RemoveOperation:
+      properties:
+        op:
+          type: string
+          const: remove
+          title: Op
+          default: remove
+        id:
+          type: string
+          title: Id
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      title: RemoveOperation
+    ReplaceOperation:
+      properties:
+        op:
+          type: string
+          const: replace
+          title: Op
+          default: replace
+        id:
+          type: string
+          title: Id
+        text:
+          type: string
+          title: Text
+        evidence:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Evidence
+        tags:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tags
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - text
+      title: ReplaceOperation
+    RunLogInput:
+      properties:
+        type:
+          type: string
+          const: run_log
+          title: Type
+          default: run_log
+        events:
+          items:
+            $ref: '#/components/schemas/AgentRunEvent'
+          type: array
+          title: Events
+      additionalProperties: false
+      type: object
+      required:
+      - events
+      title: RunLogInput
+      description: Normalized external-agent run log.
+    TemplateChange:
+      properties:
+        from:
+          type: string
+          title: From
+        to:
+          type: string
+          title: To
+      additionalProperties: false
+      type: object
+      required:
+      - from
+      - to
+      title: TemplateChange
+    TemplateChangeRequest:
+      properties:
+        template:
+          type: string
+          title: Template
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        actor:
+          type: string
+          title: Actor
+        reason:
+          type: string
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - template
+      - expected_revision
+      - actor
+      - reason
+      title: TemplateChangeRequest

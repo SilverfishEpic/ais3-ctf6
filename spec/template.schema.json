@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "GuessingTechnique": {
+      "additionalProperties": false,
+      "description": "One curated technique.  IDs are stable within a template version.",
+      "properties": {
+        "id": {
+          "pattern": "^[A-Z0-9]+-[A-Z0-9-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "GuessingTechnique",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A CTF category template: section layout plus a curated Guessing technique catalog.",
+  "properties": {
+    "id": {
+      "pattern": "^[a-z0-9_-]+$",
+      "title": "Id",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "classifier_hints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Classifier Hints",
+      "type": "array"
+    },
+    "fact_sections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Fact Sections",
+      "type": "array"
+    },
+    "assumption_sections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumption Sections",
+      "type": "array"
+    },
+    "guessing": {
+      "items": {
+        "$ref": "#/$defs/GuessingTechnique"
+      },
+      "title": "Guessing",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "fact_sections",
+    "assumption_sections"
+  ],
+  "title": "TemplateDefinition",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

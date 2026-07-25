@@ -1,0 +1,367 @@
+{
+  "$defs": {
+    "AssumptionItem": {
+      "additionalProperties": false,
+      "description": "Plausible and testable, but not yet sufficiently verified.",
+      "properties": {
+        "id": {
+          "description": "Stable identity within a layer. The F/A prefix always matches the layer the item currently lives in, so crossing layers mints a new id: promoting A017 produces a new F-item carrying promoted_from='A017'. An id is never reused, even after the item it named is removed or promoted away.",
+          "pattern": "^[FA]\\d{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Journal source IDs supporting this item.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "source_actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Actor"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        },
+        "promoted_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The id this item had in the other layer before a promotion or demotion. Follow the chain to reconstruct an item's epistemic history.",
+          "title": "Promoted From"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "AssumptionItem",
+      "type": "object"
+    },
+    "ChallengeMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "category": {
+          "default": "generic",
+          "title": "Category",
+          "type": "string"
+        },
+        "template": {
+          "default": "generic",
+          "title": "Template",
+          "type": "string"
+        },
+        "template_version": {
+          "default": 1,
+          "title": "Template Version",
+          "type": "integer"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "ChallengeMeta",
+      "type": "object"
+    },
+    "FactItem": {
+      "additionalProperties": false,
+      "description": "Confirmed by direct evidence or an explicit human override.",
+      "properties": {
+        "id": {
+          "description": "Stable identity within a layer. The F/A prefix always matches the layer the item currently lives in, so crossing layers mints a new id: promoting A017 produces a new F-item carrying promoted_from='A017'. An id is never reused, even after the item it named is removed or promoted away.",
+          "pattern": "^[FA]\\d{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Journal source IDs supporting this item.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "source_actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Actor"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        },
+        "promoted_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The id this item had in the other layer before a promotion or demotion. Follow the chain to reconstruct an item's epistemic history.",
+          "title": "Promoted From"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "FactItem",
+      "type": "object"
+    },
+    "GuessingState": {
+      "additionalProperties": false,
+      "description": "Per-challenge local state over a template-owned catalog.\n\n``state.yaml`` stores only the catalog identity plus local ``tried`` flags; the full\ntechnique metadata is always resolved from the template registry (設計規劃書 §4.3).",
+      "properties": {
+        "catalog": {
+          "description": "e.g. \"web@1\".",
+          "pattern": "^[a-z0-9_-]+@\\d+$",
+          "title": "Catalog",
+          "type": "string"
+        },
+        "state": {
+          "additionalProperties": {
+            "$ref": "#/$defs/GuessingTechniqueState"
+          },
+          "title": "State",
+          "type": "object"
+        }
+      },
+      "required": [
+        "catalog"
+      ],
+      "title": "GuessingState",
+      "type": "object"
+    },
+    "GuessingTechniqueState": {
+      "additionalProperties": false,
+      "properties": {
+        "tried": {
+          "default": false,
+          "title": "Tried",
+          "type": "boolean"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "title": "GuessingTechniqueState",
+      "type": "object"
+    },
+    "SnapshotMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "last_input_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Input Id"
+        },
+        "last_updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Updated At"
+        },
+        "fact_seq": {
+          "default": 0,
+          "description": "High-water mark for allocated F ids. Persisted so that an id is never reused after its item is removed or promoted into the other layer.",
+          "minimum": 0,
+          "title": "Fact Seq",
+          "type": "integer"
+        },
+        "assumption_seq": {
+          "default": 0,
+          "description": "High-water mark for A ids.",
+          "minimum": 0,
+          "title": "Assumption Seq",
+          "type": "integer"
+        }
+      },
+      "title": "SnapshotMeta",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Persisted whiteboard for one challenge: the contents of runs/<challenge-id>/state.yaml.",
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "default": 2,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "revision": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "challenge": {
+      "$ref": "#/$defs/ChallengeMeta"
+    },
+    "fact": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/FactItem"
+        },
+        "type": "array"
+      },
+      "title": "Fact",
+      "type": "object"
+    },
+    "assumption": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/AssumptionItem"
+        },
+        "type": "array"
+      },
+      "title": "Assumption",
+      "type": "object"
+    },
+    "guessing": {
+      "$ref": "#/$defs/GuessingState"
+    },
+    "meta": {
+      "$ref": "#/$defs/SnapshotMeta"
+    }
+  },
+  "required": [
+    "challenge",
+    "guessing"
+  ],
+  "title": "MemorySnapshot",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
