@@ -1,0 +1,19 @@
+[project]
+name = "ctf-memory-agent-bridge"
+version = "0.0.1"
+description = "CTF 共享記憶系統 v2 — Agent Bridge (Person 3)"
+requires-python = ">=3.11"
+dependencies = [
+    "claude-agent-sdk>=0.2.128",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["agent_bridge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
