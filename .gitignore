@@ -1,14 +1,22 @@
 .venv/
 __pycache__/
 *.py[cod]
+*.egg-info/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 .env
+.env.*
+!.env.example
 .secrets.env
+.secrets.*
 
-# 每題的執行狀態由 Memory Core 產生，不進版控
 runs/
+uv.lock
 
-# 錄音時用的臨時工作區
+# Agent Bridge local runtime artifacts.
 .workspaces/
+transcripts/
 
-# fixtures/ 是測試基準，要進版控，不要忽略
+# fixtures/ is the sanitized replay baseline and must remain trackable.

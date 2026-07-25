@@ -1,0 +1,232 @@
+id: rev
+version: 1
+description: Reverse-engineering challenge memory template distilled from Linux ELF RE, advanced anti-analysis RE, and Windows malware RE course
+  material Guessing catalog v2 is deliberately coarsened to independently actionable technique families.
+classifier_hints:
+- rev
+- reverse engineering
+- binary
+- ELF
+- PE
+- x86-64
+- assembly
+- IDA
+- x64dbg
+- symbolic execution
+- obfuscation
+- packer
+- anti-debug
+- anti-disassemble
+- malware
+fact_sections:
+- target
+- binary_format
+- architecture
+- loader_layout
+- imports_exports
+- functions
+- data_structures
+- control_flow
+- constants_strings
+- runtime_behavior
+- compiler_artifacts
+- anti_analysis
+- malware_behavior
+- progress
+- general
+assumption_sections:
+- program_intent
+- function_roles
+- validation_logic
+- data_model
+- compiler_hypotheses
+- obfuscation_hypotheses
+- anti_analysis_hypotheses
+- malware_capabilities
+- analysis_paths
+- next_checks
+- general
+guessing:
+- id: REV-FOOTHOLD
+  title: Static / Dynamic Foothold Discovery
+  tags:
+  - static-analysis
+  - dynamic-analysis
+  - api
+  - breakpoint
+  - strings
+  - debug-message
+  - xref
+  - magic-bytes
+  - signature
+  - source-matching
+  - bindiff
+  - library
+- id: REV-CALLING-CONVENTION
+  title: Calling-Convention and Stack-Frame Recovery
+  tags:
+  - calling-convention
+  - stack
+  - frame
+  - locals
+  - decompiler
+  - usercall
+  - x86-64
+- id: REV-STRUCT-RECOVERY
+  title: Data-Structure, Type, and C++ Class Recovery
+  tags:
+  - data-structure
+  - struct
+  - type-recovery
+  - cpp
+  - vtable
+  - inheritance
+  - class-layout
+- id: REV-COMPILER-ARTIFACT
+  title: Compiler Artifact and Optimization Recognition
+  tags:
+  - compiler
+  - optimization
+  - switch
+  - jump-table
+  - tail-call
+  - loop-unroll
+  - strength-reduction
+  - division
+  - simd
+  - avx
+  - sse
+- id: REV-Z3-CONSTRAINT
+  title: Constraint Solving and Symbolic Execution
+  tags:
+  - symbolic
+  - smt
+  - z3
+  - constraints
+  - angr
+  - claripy
+  - path-exploration
+- id: REV-DEOBFUSCATION
+  title: Control-Flow / State-Machine Deobfuscation
+  tags:
+  - obfuscation
+  - constant-folding
+  - computed-constant
+  - cfg
+  - flattening
+  - switch
+  - state-machine
+  - control-flow
+- id: REV-RUNTIME-CODE-MAP
+  title: Trace Runtime-Mapped, Decrypted, or Self-Modifying Code
+  tags:
+  - runtime-code
+  - dynamic-analysis
+  - virtualalloc
+  - mmap
+  - self-modifying
+  - decryption
+- id: REV-PACKER-DETECT
+  title: Packer Identification and Unpacking
+  tags:
+  - packer
+  - unpack
+  - upx
+  - tooling
+  - dynamic-analysis
+  - memory-dump
+  - decryption
+- id: REV-VM-PACKER
+  title: VM-Based Protector / Custom Bytecode Recovery
+  tags:
+  - packer
+  - virtual-machine
+  - bytecode
+  - vmprotect
+  - themida
+  - emulation
+- id: REV-ANTI-ANALYSIS
+  title: Anti-Debug / Sandbox-Evasion Detection and Bypass
+  tags:
+  - anti-debug
+  - anti-attach
+  - sandbox-evasion
+  - timing
+  - sleep
+  - windows
+  - peb
+  - isdebuggerpresent
+  - ntqueryinformationprocess
+  - exception
+  - seh
+  - hook
+  - patch
+- id: REV-ANTIDISASM
+  title: Anti-Disassembly Recognition and Repair
+  tags:
+  - anti-disassemble
+  - linear-sweep
+  - instruction-offset
+  - cfg
+  - fake-jump
+  - ida
+  - undefine
+  - mark-code
+  - repair
+- id: REV-PE-API-RESOLUTION
+  title: PE Import / Export and Dynamic API Resolution
+  tags:
+  - pe
+  - windows
+  - iat
+  - imports
+  - eat
+  - exports
+  - peb
+  - api-hash
+  - dynamic-api
+- id: REV-EMBEDDED-PE
+  title: Embedded / Multi-Stage Payload Extraction
+  tags:
+  - pe
+  - embedded-payload
+  - stage
+  - extraction
+  - resource
+- id: REV-PERSISTENCE-STARTUP
+  title: Malware Persistence and Execution Artifacts
+  tags:
+  - malware
+  - persistence
+  - startup-folder
+  - registry
+  - service
+  - scheduled-task
+  - mutex
+  - reinfection
+  - indicator
+- id: REV-PROCESS-INJECTION
+  title: Process Injection and Reflective / Manual Mapping
+  tags:
+  - malware
+  - process-injection
+  - remote-thread
+  - virtualallocex
+  - writeprocessmemory
+  - createremotethread
+  - reflective-dll
+  - manual-mapping
+  - relocation
+  - iat
+- id: REV-C2-PROTOCOL
+  title: Custom C2 Protocol and Exfiltration Data Recovery
+  tags:
+  - malware
+  - network
+  - c2
+  - protocol
+  - wireshark
+  - pcap
+  - exfiltration
+  - crypto
+  - decrypt

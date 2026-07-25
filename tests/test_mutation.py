@@ -1,0 +1,421 @@
+"""Controlled human mutation, attribution and override semantics."""
+
+from __future__ import annotations
+
+import os
+
+import pytest
+from conftest import human_note
+from pydantic import ValidationError
+
+from memory_core.errors import InvalidRequest, RevisionConflict
+from memory_core.models import IngestEnvelope, MemoryMutation
+from memory_core.service import MemoryService
+
+
+def _seeded(service: MemoryService, challenge: str) -> int:
+    """Ingest one note so F001 (fact) and A001 (assumption) exist; return the revision."""
+
+    service.ingest(challenge, IngestEnvelope.model_validate(human_note("port 80 is open")))
+    return service.read_memory(challenge).revision
+
+
+def test_reason_is_mandatory() -> None:
+    """A promotion without a stated reason is not a valid request at all."""
+
+    with pytest.raises(ValidationError):
+        MemoryMutation(
+            expected_revision=0,
+            actor="ctshen",
+            reason="",
+            operations=[{"op": "promote", "id": "A001"}],
+        )
+
+
+def test_at_least_one_operation_is_required() -> None:
+    with pytest.raises(ValidationError):
+        MemoryMutation(expected_revision=0, actor="ctshen", reason="because", operations=[])
+
+
+def test_human_promotion_mints_a_fact_id_and_records_actor_and_reason(
+    service: MemoryService, demo: str
+) -> None:
+    revision = _seeded(service, demo)
+
+    envelope = service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="Verified manually in the browser",
+            operations=[{"op": "promote", "id": "A001", "to": "fact"}],
+        ),
+    )
+
+    # The old id names the promotion; the new id shows up as the fact that now exists.
+    assert envelope.diff.promoted == ["A001"]
+    assert envelope.diff.fact_added == ["F002"]
+    # The claim did not disappear, so it is not reported as a removal.
+    assert envelope.diff.assumption_removed == []
+
+    memory = service.read_memory(demo)
+    promoted = [i for items in memory.fact.values() for i in items if i.promoted_from == "A001"]
+    assert len(promoted) == 1
+    assert promoted[0].id == "F002"
+    assert promoted[0].text == "The target may expose an HTTP application."
+    assert all(i.id != "A001" for items in memory.assumption.values() for i in items)
+
+    record = [r for r in service.journal.records(demo) if r.type == "mutation"][-1]
+    assert record.actor == "ctshen"
+    assert record.reason == "Verified manually in the browser"
+    assert record.operations == [{"op": "promote", "id": "A001", "to": "fact"}]
+    # The override itself becomes citable evidence for the item it changed, and the
+    # evidence gathered under the old id carries across.
+    assert record.id in promoted[0].evidence
+    assert len(promoted[0].evidence) == 2
+
+
+def test_a_promoted_id_is_never_handed_out_again(service: MemoryService, demo: str) -> None:
+    """Otherwise A001 would name two different claims across the journal's history."""
+
+    revision = _seeded(service, demo)
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="verified",
+            operations=[{"op": "promote", "id": "A001"}],
+        ),
+    )
+    # A001 is now gone from the assumption layer; the next assumption must not reclaim it.
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision + 1,
+            actor="ctshen",
+            reason="new hypothesis",
+            operations=[{"op": "add", "layer": "assumption", "text": "maybe SSRF"}],
+        ),
+    )
+    memory = service.read_memory(demo)
+    assumption_ids = [i.id for items in memory.assumption.values() for i in items]
+    assert assumption_ids == ["A002"]
+
+
+def test_a_removed_id_is_never_handed_out_again(service: MemoryService, demo: str) -> None:
+    revision = _seeded(service, demo)
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="duplicate",
+            operations=[{"op": "remove", "id": "F001"}],
+        ),
+    )
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision + 1,
+            actor="ctshen",
+            reason="confirmed something else",
+            operations=[{"op": "add", "layer": "fact", "text": "TCP/22 is open."}],
+        ),
+    )
+    memory = service.read_memory(demo)
+    assert [i.id for items in memory.fact.values() for i in items] == ["F002"]
+
+
+def test_id_high_water_marks_survive_a_reload(service: MemoryService, demo: str) -> None:
+    """The counters are persisted, so a restart cannot resurrect a retired id."""
+
+    revision = _seeded(service, demo)
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="verified",
+            operations=[{"op": "promote", "id": "A001"}],
+        ),
+    )
+    reloaded = service.store.load(demo)
+    assert (reloaded.meta.fact_seq, reloaded.meta.assumption_seq) == (2, 1)
+
+
+def test_human_override_does_not_need_new_evidence(service: MemoryService, demo: str) -> None:
+    """Unlike the model, a human may promote on their own authority — with a reason."""
+
+    revision = _seeded(service, demo)
+    envelope = service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="I saw it myself",
+            operations=[{"op": "promote", "id": "A001"}],
+        ),
+    )
+    assert envelope.diff.promoted == ["A001"]
+
+
+def test_demotion_moves_a_fact_back_without_deleting_it(service: MemoryService, demo: str) -> None:
+    revision = _seeded(service, demo)
+    envelope = service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="the scan was against the wrong host",
+            operations=[{"op": "demote", "id": "F001"}],
+        ),
+    )
+    assert envelope.diff.demoted == ["F001"]
+    assert envelope.diff.assumption_added == ["A002"]
+    assert envelope.diff.fact_removed == []
+    memory = service.read_memory(demo)
+    demoted = [
+        i for items in memory.assumption.values() for i in items if i.promoted_from == "F001"
+    ]
+    assert len(demoted) == 1
+    assert demoted[0].text == "TCP/80 is open."
+
+
+def test_move_changes_section_only(service: MemoryService, demo: str) -> None:
+    revision = _seeded(service, demo)
+    envelope = service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="better placement",
+            operations=[{"op": "move", "id": "F001", "section": "progress"}],
+        ),
+    )
+    assert envelope.diff.fact_updated == ["F001"]
+    assert envelope.diff.promoted == [] and envelope.diff.demoted == []
+    memory = service.read_memory(demo)
+    assert [i.id for i in memory.fact["progress"]] == ["F001"]
+
+
+def test_remove_deletes_an_item(service: MemoryService, demo: str) -> None:
+    revision = _seeded(service, demo)
+    envelope = service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="duplicate",
+            operations=[{"op": "remove", "id": "A001"}],
+        ),
+    )
+    assert envelope.diff.assumption_removed == ["A001"]
+
+
+def test_unknown_id_is_rejected(service: MemoryService, demo: str) -> None:
+    with pytest.raises(InvalidRequest):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=0,
+                actor="ctshen",
+                reason="oops",
+                operations=[{"op": "remove", "id": "F999"}],
+            ),
+        )
+
+
+def test_promoting_something_that_is_already_a_fact_is_rejected(
+    service: MemoryService, demo: str
+) -> None:
+    revision = _seeded(service, demo)
+    with pytest.raises(InvalidRequest):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="double promote",
+                operations=[{"op": "promote", "id": "F001"}],
+            ),
+        )
+
+
+def test_stale_expected_revision_returns_conflict(service: MemoryService, demo: str) -> None:
+    revision = _seeded(service, demo)
+    with pytest.raises(RevisionConflict) as excinfo:
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision - 1,
+                actor="ctshen",
+                reason="stale client",
+                operations=[{"op": "promote", "id": "A001"}],
+            ),
+        )
+    assert excinfo.value.status == 409
+    assert excinfo.value.details["current_revision"] == revision
+
+
+def test_rejected_mutation_leaves_no_phantom_journal_record(
+    service: MemoryService, demo: str
+) -> None:
+    """A 409 must not leave an override in the evidence log that never happened."""
+
+    revision = _seeded(service, demo)
+    before = len([r for r in service.journal.records(demo) if r.type == "mutation"])
+    with pytest.raises(RevisionConflict):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision - 1,
+                actor="ctshen",
+                reason="stale",
+                operations=[{"op": "promote", "id": "A001"}],
+            ),
+        )
+    after = len([r for r in service.journal.records(demo) if r.type == "mutation"])
+    assert before == after
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        {"op": "remove", "id": "F999"},
+        {"op": "replace", "id": "F999", "text": "nope"},
+        {"op": "promote", "id": "F001"},
+        {"op": "demote", "id": "A001"},
+        {"op": "move", "id": "A999", "section": "general"},
+        {"op": "mark_tried", "technique": "WEB-NOSUCHTHING", "tried": True},
+    ],
+)
+def test_invalid_operation_leaves_no_phantom_journal_record(
+    service: MemoryService, demo: str, operation: dict[str, object]
+) -> None:
+    """A 400 must not leave an override in the evidence log either.
+
+    The journal is the audit trail and the replay input for the ablation harness, so a
+    record must mean "this happened" — not "someone asked for this and was refused".
+    """
+
+    revision = _seeded(service, demo)
+    before = len([r for r in service.journal.records(demo) if r.type == "mutation"])
+
+    with pytest.raises(InvalidRequest):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="names something that is not there",
+                operations=[operation],
+            ),
+        )
+
+    assert len([r for r in service.journal.records(demo) if r.type == "mutation"]) == before
+    # A refused mutation is refused whole: no revision burned, no state change.
+    assert service.read_memory(demo).revision == revision
+
+
+def test_a_batch_is_all_or_nothing(service: MemoryService, demo: str) -> None:
+    """One bad operation rolls back the valid ones ahead of it, journal included."""
+
+    revision = _seeded(service, demo)
+    before = len([r for r in service.journal.records(demo) if r.type == "mutation"])
+
+    with pytest.raises(InvalidRequest):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="half of this is fine",
+                operations=[
+                    {"op": "add", "layer": "fact", "section": "general", "text": "real enough"},
+                    {"op": "remove", "id": "F999"},
+                ],
+            ),
+        )
+
+    memory = service.read_memory(demo)
+    assert memory.revision == revision
+    assert all(i.text != "real enough" for items in memory.fact.values() for i in items), (
+        "the valid half of a rejected batch must not survive"
+    )
+    assert len([r for r in service.journal.records(demo) if r.type == "mutation"]) == before
+
+
+def test_rehearsal_does_not_consume_memory_ids(service: MemoryService, demo: str) -> None:
+    """Validating a mutation must not advance the id high-water marks.
+
+    The rehearsal runs the real applier, which allocates ids — against a throwaway copy.
+    If that leaked, every refused mutation would silently punch a hole in the id sequence.
+    """
+
+    revision = _seeded(service, demo)
+    with pytest.raises(InvalidRequest):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="doomed",
+                operations=[
+                    {"op": "add", "layer": "fact", "section": "general", "text": "doomed"},
+                    {"op": "remove", "id": "F999"},
+                ],
+            ),
+        )
+
+    envelope = service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="this one is real",
+            operations=[{"op": "add", "layer": "fact", "section": "general", "text": "kept"}],
+        ),
+    )
+    assert envelope.diff.fact_added == ["F002"], "the refused attempt must not have burned F002"
+
+
+def test_state_commit_failure_does_not_leave_committed_phantom_journal(
+    service: MemoryService, demo: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If durable state does not move, the journal must not claim the mutation happened."""
+
+    revision = _seeded(service, demo)
+    before_records = service.journal.records(demo)
+
+    def fail_replace(src: str, dst: str) -> None:
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated replace failure"):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="manual correction",
+                operations=[{"op": "replace", "id": "F001", "text": "TCP/80 is closed."}],
+            ),
+        )
+
+    assert [record.id for record in service.journal.records(demo)] == [
+        record.id for record in before_records
+    ]
+    memory = service.read_memory(demo)
+    assert memory.revision == revision
+    assert [item.text for items in memory.fact.values() for item in items] == ["TCP/80 is open."]
+
+
+def test_there_is_no_arbitrary_patch_operation() -> None:
+    with pytest.raises(ValidationError):
+        MemoryMutation(
+            expected_revision=0,
+            actor="ctshen",
+            reason="sneaky",
+            operations=[{"op": "patch", "path": "/challenge/summary", "value": "anything"}],
+        )
