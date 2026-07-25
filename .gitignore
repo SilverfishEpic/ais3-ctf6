@@ -1,0 +1,28 @@
+# IDE / editor
+.vscode/
+
+# OpenCode / OMO
+.omo/
+
+# CodeGraph index
+.codegraph/
+
+# Patches
+patches/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.venv
