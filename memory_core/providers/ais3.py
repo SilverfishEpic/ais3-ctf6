@@ -19,12 +19,15 @@ No test in the default suite touches this class over the network; see
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Sequence
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
-from ..errors import ProposalInvalid, SummarizerUnavailable
+from ..config import CONNECT_TIMEOUT, DEFAULT_AIS3_TIMEOUT
+from ..errors import ProposalInvalid, SummarizerUnauthorized, SummarizerUnavailable
 from ..models import (
     AnswerProposal,
     ClassificationProposal,
@@ -88,7 +91,7 @@ class AIS3Summarizer:
         base_url: str,
         api_key: str | None,
         model: str,
-        timeout: float = 120.0,
+        timeout: float = DEFAULT_AIS3_TIMEOUT,
         max_repairs: int = 1,
         client: httpx.Client | None = None,
     ) -> None:
@@ -174,8 +177,10 @@ class AIS3Summarizer:
         raw = self._chat(messages)
         try:
             return ClassificationProposal.model_validate(json.loads(extract_json(raw)))
-        except Exception:
-            # Classification is advisory; a bad answer must never block challenge creation.
+        except (ValueError, ValidationError):
+            # Classification is advisory; an unparseable answer must never block challenge
+            # creation. Transport and auth failures are NOT swallowed here -- a rejected key
+            # must surface, not quietly degrade every challenge to 'generic'.
             return ClassificationProposal(
                 template="generic", confidence="low", rationale="fallback"
             )
@@ -208,7 +213,9 @@ class AIS3Summarizer:
         raw = self._chat(messages)
         try:
             return AnswerProposal.model_validate(json.loads(extract_json(raw)))
-        except Exception:
+        except (ValueError, ValidationError):
+            # Prose instead of JSON is still a usable answer; hand it back with no
+            # references rather than failing the read.
             return AnswerProposal(answer=raw.strip()[:2000], references=[])
 
     # -- transport ---------------------------------------------------------
@@ -248,13 +255,35 @@ class AIS3Summarizer:
         headers = {"content-type": "application/json"}
         if self.api_key:
             headers["authorization"] = f"Bearer {self.api_key}"
-        client = self._client or httpx.Client(timeout=self.timeout)
+        client = self._client or httpx.Client(timeout=_timeouts(self.timeout))
         try:
             response = client.post(
                 f"{self.base_url}/chat/completions", json=payload, headers=headers
             )
+            if response.status_code in (401, 403):
+                # A rejected key is not "the backend is down": retrying never fixes it, and
+                # telling the caller to authenticate is misleading — the operator of this
+                # service has to set AIS3_API_KEY. Say so, with the upstream text attached.
+                raise SummarizerUnauthorized(
+                    "AIS3 rejected our credentials; check AIS3_API_KEY on the Memory Core "
+                    "host (this is a server configuration problem, not a client one)",
+                    status=response.status_code,
+                    upstream=_upstream_message(response),
+                )
             response.raise_for_status()
             data = response.json()
+        except httpx.TimeoutException as exc:
+            raise SummarizerUnavailable(
+                f"AIS3 did not respond within {self.timeout:.0f}s; the input is safe in the "
+                "journal, so this ingest can be retried",
+                timeout_seconds=self.timeout,
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise SummarizerUnavailable(
+                f"AIS3 returned HTTP {exc.response.status_code}",
+                status=exc.response.status_code,
+                upstream=_upstream_message(exc.response),
+            ) from exc
         except httpx.HTTPError as exc:
             raise SummarizerUnavailable(f"AIS3 request failed: {exc}") from exc
         finally:
@@ -265,6 +294,51 @@ class AIS3Summarizer:
         except (KeyError, IndexError, TypeError) as exc:
             raise SummarizerUnavailable("AIS3 response had no message content") from exc
         return str(content)
+
+
+def _timeouts(read: float) -> httpx.Timeout:
+    """Be patient while the model thinks, impatient about reaching it at all."""
+
+    return httpx.Timeout(read, connect=CONNECT_TIMEOUT)
+
+
+#: Credential material that upstreams echo back into their own error text.  Observed live:
+#: LiteLLM answers a bad key with "Received API Key = sk-...rong, Key Hash (Token) = 7b31…".
+#: Its own redaction is not something we can rely on from an arbitrary proxy, and this text
+#: ends up in an HTTP response body and in logs, so scrub it on the way through.
+_SECRETS = [
+    re.compile(r"\bsk-[A-Za-z0-9_.\-]*", re.IGNORECASE),
+    re.compile(r"\b[0-9a-f]{32,}\b", re.IGNORECASE),
+    re.compile(r"\b[Bb]earer\s+\S+"),
+]
+
+
+def _redact(text: str) -> str:
+    for pattern in _SECRETS:
+        text = pattern.sub("[redacted]", text)
+    return text
+
+
+def _upstream_message(response: httpx.Response) -> str:
+    """Surface the backend's own error text, so a misconfiguration is self-diagnosing.
+
+    OpenAI-compatible proxies answer with ``{"error": {"message": ...}}``; fall back to the
+    raw body when they do not.  Always redacted: the point is to say *what went wrong*, and
+    no diagnosis needs the key that was rejected.
+    """
+
+    raw: str
+    try:
+        body = response.json()
+    except ValueError:
+        raw = response.text
+    else:
+        raw = response.text
+        if isinstance(body, dict):
+            error = body.get("error")
+            if isinstance(error, dict) and error.get("message"):
+                raw = str(error["message"])
+    return _redact(raw)[:300]
 
 
 def _render_state(state: MemorySnapshot, layers: Sequence[str] = ("fact", "assumption")) -> str:

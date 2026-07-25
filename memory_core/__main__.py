@@ -58,6 +58,7 @@ def main(argv: list[str] | None = None) -> int:
             base_url=settings.ais3_base_url,
             api_key=settings.ais3_api_key,
             model=settings.ais3_model,
+            timeout=settings.ais3_timeout,
         )
 
     args.runs.mkdir(parents=True, exist_ok=True)

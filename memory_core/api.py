@@ -58,7 +58,8 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Challenge or template not found"},
     409: {"model": ErrorResponse, "description": "Stale expected_revision, or challenge exists"},
     422: {"model": ErrorResponse, "description": "Summarizer proposal failed validation"},
-    502: {"model": ErrorResponse, "description": "Summarizer backend unavailable"},
+    500: {"model": ErrorResponse, "description": "Server misconfigured, e.g. a rejected AIS3 key"},
+    502: {"model": ErrorResponse, "description": "Summarizer backend unavailable or too slow"},
 }
 
 

@@ -16,7 +16,7 @@ import socket
 import httpx
 import pytest
 
-from memory_core.errors import ProposalInvalid, SummarizerUnavailable
+from memory_core.errors import ProposalInvalid, SummarizerUnauthorized, SummarizerUnavailable
 from memory_core.models import (
     ChallengeMeta,
     GuessingState,
@@ -135,7 +135,7 @@ def test_provider_gives_up_after_the_repair_budget() -> None:
 
 def test_provider_reports_transport_failure_as_unavailable() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(503, text="upstream down")
+        return httpx.Response(503, json={"error": {"message": "upstream down"}})
 
     summarizer = AIS3Summarizer(
         base_url="https://llm-api.zoolab.org/v1",
@@ -146,6 +146,97 @@ def test_provider_reports_transport_failure_as_unavailable() -> None:
     with pytest.raises(SummarizerUnavailable) as excinfo:
         summarizer.summarize(state=_snapshot(), source_record=_record(), template=_template())
     assert excinfo.value.status == 502
+    assert excinfo.value.details["upstream"] == "upstream down"
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_a_rejected_key_is_not_reported_as_backend_unavailable(status: int) -> None:
+    """A 502 would tell the client to retry, and retrying never fixes a bad key.
+
+    The observed upstream body is the real one from llm-api.zoolab.org.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            status,
+            json={
+                "error": {
+                    "message": "Authentication Error, No api key passed in.",
+                    "type": "auth_error",
+                    "code": str(status),
+                }
+            },
+        )
+
+    summarizer = AIS3Summarizer(
+        base_url="https://llm-api.zoolab.org/v1",
+        api_key="wrong",
+        model="m",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(SummarizerUnauthorized) as excinfo:
+        summarizer.summarize(state=_snapshot(), source_record=_record(), template=_template())
+
+    assert excinfo.value.status == 500  # not 502, not 401
+    assert excinfo.value.code == "summarizer_unauthorized"
+    assert "AIS3_API_KEY" in excinfo.value.message
+    assert excinfo.value.details["upstream"] == "Authentication Error, No api key passed in."
+
+
+def test_a_rejected_key_is_not_swallowed_by_the_classifier_fallback() -> None:
+    """Classification degrades to 'generic' on junk, but must not hide a bad key.
+
+    Otherwise every challenge would quietly be created as `generic` and the operator would
+    never learn the summarizer was never reachable.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"error": {"message": "no key"}})
+
+    summarizer = AIS3Summarizer(
+        base_url="https://llm-api.zoolab.org/v1",
+        api_key=None,
+        model="m",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(SummarizerUnauthorized):
+        summarizer.classify(initial_input="a login page", templates=[_template()])
+
+
+def test_a_slow_backend_is_reported_as_retryable_with_the_budget_named() -> None:
+    """Measured latency ranged 14-57s for one prompt, so timeouts are a real path."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("too slow", request=request)
+
+    summarizer = AIS3Summarizer(
+        base_url="https://llm-api.zoolab.org/v1",
+        api_key="test",
+        model="m",
+        timeout=42.0,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(SummarizerUnavailable) as excinfo:
+        summarizer.summarize(state=_snapshot(), source_record=_record(), template=_template())
+    assert excinfo.value.status == 502  # retryable, unlike a bad key
+    assert "42s" in excinfo.value.message
+    assert "journal" in excinfo.value.message  # the input was not lost
+    assert excinfo.value.details["timeout_seconds"] == 42.0
+
+
+def test_non_json_upstream_error_still_surfaces_something() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, text="<html>nginx bad gateway</html>")
+
+    summarizer = AIS3Summarizer(
+        base_url="https://llm-api.zoolab.org/v1",
+        api_key="test",
+        model="m",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(SummarizerUnavailable) as excinfo:
+        summarizer.summarize(state=_snapshot(), source_record=_record(), template=_template())
+    assert "nginx" in str(excinfo.value.details["upstream"])
 
 
 def test_provider_targets_the_documented_endpoint() -> None:
@@ -171,3 +262,43 @@ def test_provider_falls_back_to_generic_on_unparseable_classification() -> None:
     )
     proposal = summarizer.classify(initial_input="a login page", templates=[_template()])
     assert proposal.template == "generic"
+
+
+def test_upstream_error_text_never_leaks_credential_material() -> None:
+    """LiteLLM echoes the rejected key and its hash back in the error body.
+
+    That text goes into an HTTP response and into logs, so it is scrubbed here rather than
+    trusted to whatever redaction the upstream happens to do. The body below is verbatim
+    from llm-api.zoolab.org.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            401,
+            json={
+                "error": {
+                    "message": (
+                        "Authentication Error, Invalid proxy server token passed. "
+                        "Received API Key = sk-definitely-wrong, Key Hash (Token) ="
+                        "7b31d7a452c0e718f7859a46c876262508d086d861ca3b7493d1bb33e6287646. "
+                        "Unable to find token in cache"
+                    )
+                }
+            },
+        )
+
+    summarizer = AIS3Summarizer(
+        base_url="https://llm-api.zoolab.org/v1",
+        api_key="sk-definitely-wrong",
+        model="m",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(SummarizerUnauthorized) as excinfo:
+        summarizer.summarize(state=_snapshot(), source_record=_record(), template=_template())
+
+    upstream = str(excinfo.value.details["upstream"])
+    assert "sk-" not in upstream
+    assert "7b31d7a4" not in upstream
+    assert "[redacted]" in upstream
+    # The diagnosis itself must survive the scrubbing.
+    assert "Invalid proxy server token" in upstream
