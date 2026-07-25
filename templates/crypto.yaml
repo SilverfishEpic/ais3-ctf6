@@ -1,6 +1,7 @@
 id: crypto
 version: 1
-description: Cryptography challenge memory template distilled from the Crypto I, Crypto II, and Crypto III course material.
+description: Cryptography challenge memory template distilled from the Crypto I, Crypto II, and Crypto III course material Guessing catalog v2
+  is deliberately coarsened to independently actionable technique families.
 classifier_hints:
 - crypto
 - cryptography
@@ -41,23 +42,19 @@ assumption_sections:
 - general
 guessing:
 - id: CRYPTO-BRUTE-FORCE
-  title: Exhaustive Key Search
+  title: Exhaustive Key / Small-Space Search
   tags:
   - generic
   - keyspace
   - bruteforce
+  - enumeration
 - id: CRYPTO-SUB-FREQUENCY
-  title: Substitution Cipher Frequency and N-gram Analysis
+  title: Substitution Cipher Cryptanalysis
   tags:
   - classical
   - substitution
   - frequency
   - ngram
-- id: CRYPTO-SUB-HEURISTIC
-  title: Heuristic Search for Substitution Ciphers
-  tags:
-  - classical
-  - substitution
   - hill-climbing
   - simulated-annealing
   - genetic-algorithm
@@ -68,37 +65,24 @@ guessing:
   - xor
   - key-reuse
   - known-plaintext
-- id: CRYPTO-LCG-RECOVERY
-  title: LCG Parameter and State Recovery
+- id: CRYPTO-RNG-RECOVERY
+  title: PRNG State / Parameter Recovery
   tags:
   - rng
+  - state-recovery
+  - parameter-recovery
   - lcg
-  - state-recovery
-  - linear
-- id: CRYPTO-MT19937-CLONE
-  title: MT19937 State Cloning
-  tags:
-  - rng
   - mt19937
-  - state-recovery
   - tempering
+  - cloning
 - id: CRYPTO-LFSR-SEED
-  title: LFSR Seed Recovery from Output
+  title: LFSR Linear Recurrence / State Recovery
   tags:
   - lfsr
-  - stream-cipher
   - linear
   - state-recovery
-- id: CRYPTO-LFSR-TAPS
-  title: LFSR Tap Recovery with Linear Equations
-  tags:
-  - lfsr
-  - linear-system
+  - seed
   - taps
-- id: CRYPTO-LFSR-BERLEKAMP-MASSEY
-  title: Berlekamp-Massey Recurrence Recovery
-  tags:
-  - lfsr
   - berlekamp-massey
   - linear-recurrence
 - id: CRYPTO-LFSR-CORRELATION
@@ -109,289 +93,182 @@ guessing:
   - combiner
   - stream-cipher
 - id: CRYPTO-CBC-PADDING-ORACLE
-  title: CBC Padding Oracle Attack
+  title: Padding / Validity Oracle Attack
   tags:
   - block-cipher
   - cbc
   - padding-oracle
   - oracle
-- id: CRYPTO-CBC-BIT-FLIP
-  title: CBC Bit-Flipping Attack
+  - validity
+- id: CRYPTO-CIPHER-MALLEABILITY
+  title: Unauthenticated Ciphertext Malleability
   tags:
-  - block-cipher
+  - malleability
   - cbc
-  - malleability
-  - bit-flip
-- id: CRYPTO-CTR-MALLEABILITY
-  title: CTR Ciphertext Malleability
-  tags:
-  - block-cipher
   - ctr
-  - malleability
+  - bit-flip
   - xor
-- id: CRYPTO-CUT-AND-PASTE
-  title: Unauthenticated Ciphertext Cut-and-Paste
-  tags:
-  - aead
-  - malleability
   - cut-and-paste
   - authentication
 - id: CRYPTO-HASH-BIRTHDAY
-  title: Birthday Collision Search
+  title: Hash Collision Attack
   tags:
   - hash
   - collision
   - birthday
-- id: CRYPTO-MD5-COLLISION
-  title: MD5 Collision Attack
-  tags:
-  - hash
   - md5
-  - collision
-- id: CRYPTO-SHA1-COLLISION
-  title: SHA-1 Collision Attack
-  tags:
-  - hash
   - sha1
-  - collision
 - id: CRYPTO-HASH-LENGTH-EXTENSION
-  title: Merkle-Damgard Length Extension Attack
+  title: Merkle-Damgard Length Extension
   tags:
   - hash
   - merkle-damgard
   - mac
   - forgery
+  - length-extension
 - id: CRYPTO-RSA-FACTOR
   title: RSA Modulus Factorization
   tags:
   - rsa
   - factorization
-  - gnfs
-  - ecm
-- id: CRYPTO-RSA-FERMAT
-  title: Fermat Factorization for Close Primes
-  tags:
-  - rsa
-  - factorization
   - fermat
   - close-primes
-- id: CRYPTO-RSA-POLLARD-P1
-  title: Pollard's p-1 Factorization
-  tags:
-  - rsa
-  - factorization
-  - smoothness
   - pollard-p1
-- id: CRYPTO-RSA-WILLIAMS-P1
-  title: Williams' p+1 Factorization
-  tags:
-  - rsa
-  - factorization
-  - smoothness
   - williams-p1
-- id: CRYPTO-RSA-DIRECT-ROOT
-  title: RSA Direct e-th Root Attack
+  - smoothness
+  - ecm
+  - gnfs
+- id: CRYPTO-RSA-SMALL-E
+  title: RSA Small-Exponent / Related-Message Attacks
   tags:
   - rsa
   - small-e
   - small-message
   - root
-- id: CRYPTO-RSA-FRANKLIN-REITER
-  title: Franklin-Reiter Related-Message Attack
-  tags:
-  - rsa
-  - small-e
-  - related-message
-  - polynomial-gcd
-- id: CRYPTO-RSA-BROADCAST
-  title: Hastad Broadcast Attack
-  tags:
-  - rsa
-  - small-e
   - broadcast
   - crt
-- id: CRYPTO-RSA-WIENER
-  title: Wiener's Small-d Attack
+  - related-message
+  - franklin-reiter
+  - polynomial-gcd
+- id: CRYPTO-RSA-SMALL-D
+  title: RSA Small Private-Exponent Attacks
   tags:
   - rsa
   - small-d
+  - wiener
+  - boneh-durfee
   - continued-fraction
-- id: CRYPTO-RSA-BONEH-DURFEE
-  title: Boneh-Durfee Small-d Attack
-  tags:
-  - rsa
-  - small-d
   - lattice
   - coppersmith
-- id: CRYPTO-RSA-COMMON-FACTOR
-  title: RSA Common-Factor Attack
+- id: CRYPTO-RSA-KEY-REUSE
+  title: RSA Cross-Key / Modulus Reuse Relations
   tags:
   - rsa
-  - gcd
   - shared-prime
-- id: CRYPTO-RSA-COMMON-MODULUS
-  title: RSA Common-Modulus Attack
-  tags:
-  - rsa
+  - common-factor
   - common-modulus
+  - gcd
   - bezout
   - extended-euclid
-- id: CRYPTO-RSA-HOMOMORPHIC-CCA
-  title: Textbook RSA Multiplicative Chosen-Ciphertext Attack
+- id: CRYPTO-RSA-ORACLE
+  title: Textbook RSA Oracle / Chosen-Ciphertext Attack
   tags:
   - rsa
-  - homomorphism
+  - oracle
   - chosen-ciphertext
-  - oracle
-- id: CRYPTO-RSA-LSB-ORACLE
-  title: RSA LSB Oracle Attack
-  tags:
-  - rsa
+  - homomorphism
+  - multiplicative
   - lsb
-  - oracle
   - bit-recovery
 - id: CRYPTO-RSA-EXISTENTIAL-FORGERY
-  title: Textbook RSA Signature Existential Forgery
+  title: Textbook RSA Signature Forgery
   tags:
   - rsa
   - signature
   - forgery
-  - padding
-- id: CRYPTO-DLP-BSGS
-  title: Baby-Step Giant-Step Discrete Logarithm
+  - textbook-rsa
+- id: CRYPTO-DLP-GENERIC
+  title: Generic Discrete-Logarithm Search
   tags:
   - dlp
+  - generic-group
   - bsgs
-  - generic-group
-- id: CRYPTO-DLP-POLLARD-RHO
-  title: Pollard's Rho for Discrete Logarithms
-  tags:
-  - dlp
+  - baby-step-giant-step
   - pollard-rho
-  - generic-group
 - id: CRYPTO-DLP-POHLIG-HELLMAN
   title: Pohlig-Hellman on Smooth-Order Groups
   tags:
   - dlp
+  - ecdlp
   - pohlig-hellman
   - smooth-order
   - crt
+  - ecc
 - id: CRYPTO-DLP-INDEX-CALCULUS
   title: Index Calculus for Finite-Field DLP
   tags:
   - dlp
   - finite-field
   - index-calculus
-- id: CRYPTO-ECC-POHLIG-HELLMAN
-  title: Pohlig-Hellman on Smooth-Order Elliptic Curves
-  tags:
-  - ecc
-  - ecdlp
-  - pohlig-hellman
-  - smooth-order
 - id: CRYPTO-ECC-SMART
-  title: Smart's Attack on Anomalous Curves
+  title: Anomalous-Curve / Smart Attack
   tags:
   - ecc
   - ecdlp
   - anomalous-curve
   - smart
-- id: CRYPTO-ECC-SINGULAR-NODE
-  title: Singular Elliptic Curve Node Reduction
+- id: CRYPTO-ECC-SINGULAR
+  title: Singular Elliptic-Curve Reduction
   tags:
   - ecc
   - singular-curve
   - node
-  - dlp
-- id: CRYPTO-ECC-SINGULAR-CUSP
-  title: Singular Elliptic Curve Cusp Reduction
-  tags:
-  - ecc
-  - singular-curve
   - cusp
   - dlp
-- id: CRYPTO-DSA-NONCE-REUSE
-  title: DSA/ECDSA Nonce Reuse Key Recovery
+  - reduction
+- id: CRYPTO-SIGNATURE-NONCE
+  title: DSA / ECDSA Nonce Weakness
   tags:
   - dsa
   - ecdsa
   - nonce
-  - key-recovery
-- id: CRYPTO-DSA-NONCE-RELATION
-  title: DSA/ECDSA Related or Predictable Nonce Attack
-  tags:
-  - dsa
-  - ecdsa
-  - nonce
-  - relation
-  - randomness
-- id: CRYPTO-DSA-PARTIAL-NONCE-LATTICE
-  title: DSA/ECDSA Partial-Nonce Lattice Attack
-  tags:
-  - dsa
-  - ecdsa
-  - nonce
-  - lll
+  - reuse
+  - related-nonce
+  - predictable
+  - partial-bits
+  - lattice
   - cvp
-  - hidden-number
-- id: CRYPTO-LATTICE-GAUSSIAN-SVP
-  title: Two-Dimensional Gaussian Lattice Reduction
-  tags:
-  - lattice
-  - svp
-  - gaussian-reduction
-  - short-vector
 - id: CRYPTO-LATTICE-LLL
-  title: LLL Short-Vector Reduction
+  title: Lattice Short-Vector Reduction
   tags:
   - lattice
-  - lll
   - svp
   - short-vector
+  - lll
+  - gaussian-reduction
 - id: CRYPTO-LATTICE-CVP-BABAI
-  title: Babai's Nearest-Plane CVP
+  title: Lattice Closest-Vector Reduction
   tags:
   - lattice
   - cvp
   - babai
   - nearest-plane
-- id: CRYPTO-LATTICE-CVP-KANNAN
-  title: Kannan's Embedding for CVP
-  tags:
-  - lattice
-  - cvp
   - kannan
   - embedding
 - id: CRYPTO-COPPERSMITH-SMALL-ROOT
-  title: Coppersmith's Small-Root Method
+  title: Coppersmith Small-Root / Partial-Information Attack
   tags:
   - lattice
   - lll
   - coppersmith
   - small-root
-- id: CRYPTO-RSA-STEREOTYPED
-  title: RSA Stereotyped-Message Coppersmith Attack
-  tags:
   - rsa
-  - coppersmith
   - known-prefix
-  - small-root
-- id: CRYPTO-RSA-PARTIAL-FACTOR
-  title: RSA Partial-Factor Recovery with Coppersmith
-  tags:
-  - rsa
-  - coppersmith
-  - partial-bits
-  - factorization
-- id: CRYPTO-RSA-PARTIAL-KEY
-  title: RSA Partial Private-Key Recovery
-  tags:
-  - rsa
+  - partial-factor
   - partial-key
-  - lattice
-  - coppersmith
+  - partial-bits
 - id: CRYPTO-LWE-CVP
-  title: LWE Recovery via Closest Vector Formulation
+  title: LWE / Short-Error Recovery via Lattice Reduction
   tags:
   - lattice
   - lwe

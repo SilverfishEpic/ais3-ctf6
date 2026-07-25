@@ -1,7 +1,7 @@
 id: pwn
 version: 1
-description: Binary-exploitation challenge memory template distilled from the Pwn 0x0-0x2 course material and generalized
-  from the user's historical Pwn solving records.
+description: Binary-exploitation challenge memory template distilled from the Pwn 0x0-0x2 course material and generalized from the user's historical
+  Pwn solving records Guessing catalog v2 is deliberately coarsened to independently actionable technique families.
 classifier_hints:
 - pwn
 - binary exploitation
@@ -56,12 +56,19 @@ assumption_sections:
 - general
 guessing:
 - id: PWN-CHECKSEC
-  title: Binary Mitigation and ELF Protection Triage
+  title: Binary Mitigation and Runtime-Protection Triage
   tags:
   - triage
   - elf
   - checksec
   - mitigation
+  - pie
+  - nx
+  - relro
+  - canary
+  - cet
+  - shstk
+  - ibt
 - id: PWN-CRASH-OFFSET
   title: Controlled Crash and Overwrite-Offset Recovery
   tags:
@@ -69,144 +76,118 @@ guessing:
   - crash
   - offset
   - cyclic
+  - overwrite
 - id: PWN-LIBC-FINGERPRINT
-  title: Libc Version and Build Fingerprinting
+  title: Libc Version / Build Fingerprinting
   tags:
   - libc
   - fingerprint
   - symbols
   - offset
+  - build-id
 - id: PWN-SECCOMP-ANALYSIS
-  title: Seccomp Filter Recovery and Syscall-Surface Analysis
+  title: Seccomp Filter and Syscall-Surface Analysis
   tags:
   - seccomp
   - bpf
   - syscall
   - sandbox
-- id: PWN-CET-RUNTIME-CHECK
-  title: CET / SHSTK / IBT Runtime-Enforcement Check
-  tags:
-  - cet
-  - shstk
-  - ibt
-  - mitigation
-- id: PWN-IO-STATE-MODEL
-  title: Interactive Protocol and Program-State Modeling
-  tags:
-  - io
-  - state-machine
-  - menu
-  - protocol
+  - allowlist
+  - denylist
 - id: PWN-STACK-BOF
-  title: Stack Buffer Overflow
+  title: Stack / Static Buffer Overflow
   tags:
   - stack
+  - global
+  - bss
   - buffer-overflow
   - memory-corruption
+  - local-variable
+  - return-address
 - id: PWN-HEAP-BOF
-  title: Heap Buffer Overflow
+  title: Heap Buffer / Adjacent-Metadata Overflow
   tags:
   - heap
   - buffer-overflow
   - memory-corruption
-- id: PWN-GLOBAL-BOF
-  title: Global / BSS Buffer Overflow
-  tags:
-  - global
-  - bss
-  - buffer-overflow
+  - adjacent-object
+  - metadata
 - id: PWN-OFF-BY-ONE
-  title: Off-by-One Overflow
+  title: Off-by-One / Null-Byte Overflow
   tags:
   - overflow
   - off-by-one
-  - boundary
-- id: PWN-NULL-BYTE-OVERFLOW
-  title: Null-Byte / Off-by-One-NUL Corruption
-  tags:
-  - overflow
   - null-byte
-  - off-by-one
-- id: PWN-OOB-READ
-  title: Out-of-Bounds Read
+  - boundary
+  - c-string
+- id: PWN-OOB-ACCESS
+  title: Out-of-Bounds / Indexed Memory Access
   tags:
   - oob
   - read
-  - leak
-- id: PWN-OOB-WRITE
-  title: Out-of-Bounds Write
-  tags:
-  - oob
   - write
-  - memory-corruption
-- id: PWN-NEGATIVE-INDEX
-  title: Negative-Index Memory Access
-  tags:
-  - oob
   - index
   - negative-index
-- id: PWN-INTEGER-WRAP
-  title: Integer Wraparound to Memory-Index Corruption
-  tags:
-  - integer
-  - wraparound
-  - index
-  - oob
+  - integer-wraparound
+  - memory-corruption
 - id: PWN-UNINIT-LEAK
   title: Uninitialized-Value Information Leak
   tags:
   - uninitialized
   - leak
   - stack
+  - memory
 - id: PWN-UAF
   title: Use-After-Free
   tags:
   - heap
   - uaf
   - dangling-pointer
+  - reuse
 - id: PWN-DOUBLE-FREE
-  title: Double Free
+  title: Double Free / Duplicate-Chunk Primitive
   tags:
   - heap
   - double-free
   - allocator
-- id: PWN-LOCAL-VAR-CORRUPTION
-  title: Intra-Frame Local-Variable Corruption
-  tags:
-  - stack
-  - local-variable
-  - overflow
-- id: PWN-ADJACENT-OBJECT-CORRUPTION
-  title: Adjacent Object / Metadata Corruption
-  tags:
-  - memory-corruption
-  - adjacent-object
-  - metadata
+  - dup
 - id: PWN-INDEXED-ARBITRARY-RW
-  title: Indexed Primitive to Arbitrary Read / Write
+  title: Arbitrary Read / Write Primitive Construction
   tags:
-  - index
+  - primitive
   - arbitrary-read
   - arbitrary-write
-  - primitive
+  - index
+  - pointer
+  - memory-corruption
 - id: PWN-CANARY-LEAK
-  title: Stack Canary Leak
+  title: Stack Canary Leak / Replay
   tags:
   - stack
   - canary
   - leak
+  - replay
+  - stack-overflow
 - id: PWN-PIE-LEAK
-  title: PIE Base Leak
+  title: PIE / Binary-Base Leak
   tags:
   - pie
   - aslr
+  - binary-base
+  - code-pointer
   - leak
 - id: PWN-LIBC-GOT-LEAK
-  title: Libc Leak through GOT / PLT
+  title: Libc Address / Base Leak
   tags:
   - libc
   - got
   - plt
+  - unsorted-bin
+  - main-arena
+  - small-bin
+  - large-bin
+  - fd
+  - bk
   - leak
 - id: PWN-STACK-LEAK
   title: Stack Address Leak
@@ -214,96 +195,76 @@ guessing:
   - stack
   - address
   - leak
+  - libc
+  - environ
+  - tls
 - id: PWN-HEAP-LEAK
-  title: Heap Base Leak
+  title: Heap / Allocator-Metadata Leak
   tags:
   - heap
   - address
   - leak
-- id: PWN-UNSORTED-LEAK
-  title: Unsorted-Bin / main_arena Libc Leak
-  tags:
-  - heap
-  - unsorted-bin
-  - main-arena
-  - libc
-  - leak
-- id: PWN-ENVIRON-STACK
-  title: Stack Leak through libc environ
-  tags:
-  - libc
-  - environ
-  - stack
-  - leak
-- id: PWN-TCACHE-FD-LEAK
-  title: Heap / Safe-Linking Leak from Tcache Forward Pointer
-  tags:
-  - heap
   - tcache
+  - fd
   - safe-linking
-  - leak
-- id: PWN-ALLOCATOR-METADATA-LEAK
-  title: Allocator-Metadata Side-Effect Leak
-  tags:
-  - heap
   - allocator
   - metadata
-  - leak
 - id: PWN-RET2WIN
   title: Return-to-Win / Return-to-Text
   tags:
   - stack
   - ret2win
+  - ret2text
   - control-flow
+  - existing-function
 - id: PWN-SHELLCODE
-  title: Direct Shellcode Execution
+  title: Shellcode / Direct Syscall Payload
   tags:
   - shellcode
   - rwx
   - syscall
-- id: PWN-ORW-SHELLCODE
-  title: Open-Read-Write Shellcode
-  tags:
-  - shellcode
+  - execve
   - orw
   - file-read
-  - seccomp
 - id: PWN-ROP
-  title: Return-Oriented Programming
+  title: Return-Oriented Programming / Reused-Code Chain
   tags:
   - rop
   - gadgets
   - control-flow
+  - ret2plt
+  - ret2csu
+  - register-control
+  - multi-stage
+  - restart-main
+  - stack-alignment
+  - existing-function
+  - print-routine
 - id: PWN-RETLIBC
   title: Return-to-libc
   tags:
   - rop
   - libc
   - system
-- id: PWN-RET2PLT
-  title: Return-to-PLT
-  tags:
-  - rop
-  - plt
-  - dynamic-linking
+  - one-gadget
+  - rce
 - id: PWN-GOT-HIJACK
-  title: GOT Entry Hijacking
+  title: GOT / Writable Dispatch-Table Hijacking
   tags:
   - got
   - partial-relro
   - arbitrary-write
+  - stack-chk-fail
+  - dispatch
+  - control-flow
 - id: PWN-STACK-PIVOT
-  title: Stack Pivot to a Larger ROP Chain
+  title: Stack Pivot / Alternate ROP Stack
   tags:
   - rop
   - stack-pivot
   - leave-ret
-- id: PWN-RET2CSU
-  title: ret2csu / call_init Register Setup
-  tags:
-  - rop
-  - ret2csu
-  - register-control
+  - fake-stack
+  - heap-to-stack
 - id: PWN-SROP
   title: Sigreturn-Oriented Programming
   tags:
@@ -311,274 +272,144 @@ guessing:
   - sigreturn
   - syscall
   - rop
-- id: PWN-ONE-GADGET
-  title: Libc one_gadget Execution
-  tags:
-  - libc
-  - one-gadget
-  - rce
+  - register-state
 - id: PWN-PARTIAL-OVERWRITE
-  title: Partial Pointer / Return-Address Overwrite
+  title: Partial Pointer Overwrite / ASLR Retry
   tags:
   - partial-overwrite
   - pointer
-  - aslr
-- id: PWN-PIE-PARTIAL-BRUTEFORCE
-  title: Partial-Address Overwrite with PIE/ASLR Retry
-  tags:
+  - return-address
   - pie
-  - partial-overwrite
+  - aslr
   - bruteforce
-- id: PWN-CANARY-REPLAY
-  title: Leak and Replay Stack Canary
-  tags:
-  - canary
-  - leak
-  - stack-overflow
-- id: PWN-RESTART-MAIN
-  title: Return to main for Multi-Stage Exploitation
-  tags:
-  - rop
-  - multi-stage
-  - main
-- id: PWN-STACK-ALIGN
-  title: Stack Alignment before libc Calls
-  tags:
-  - rop
-  - stack
-  - alignment
-- id: PWN-STACKCHK-GOT-HIJACK
-  title: Redirect __stack_chk_fail through Writable GOT
-  tags:
-  - canary
-  - got
-  - stack-chk-fail
-  - control-flow
 - id: PWN-FUNCTION-POINTER-HIJACK
-  title: Function-Pointer Hijacking
+  title: Function-Pointer / VTable Hijacking
   tags:
   - function-pointer
+  - vtable
+  - virtual-function
   - arbitrary-write
   - control-flow
-- id: PWN-EXISTING-PRINT-GADGET
-  title: Reuse Existing Print Routine as an Arbitrary Memory Leak
-  tags:
-  - rop
-  - information-leak
-  - existing-function
-  - cxx
 - id: PWN-FMTSTR
-  title: Format String Vulnerability
+  title: Format String Vulnerability Probe
   tags:
   - format-string
   - printf
   - memory
+  - vulnerability
 - id: PWN-FMT-LEAK
-  title: Format-String Stack / Address Leak
+  title: Format-String Leak / Arbitrary Read
   tags:
   - format-string
   - leak
   - stack
-- id: PWN-FMT-ARBITRARY-READ
-  title: Format-String Arbitrary Read
-  tags:
-  - format-string
   - arbitrary-read
+  - percent-p
   - percent-s
 - id: PWN-FMT-ARBITRARY-WRITE
-  title: Format-String Arbitrary Write with %n
+  title: Format-String Arbitrary / Partial Write
   tags:
   - format-string
   - arbitrary-write
   - percent-n
-- id: PWN-FMT-PARTIAL-WRITE
-  title: Format-String Partial Writes with %hn / %hhn
-  tags:
-  - format-string
-  - partial-write
   - hn
   - hhn
-- id: PWN-FMT-POINTER-CHAIN
-  title: Format-String Pointer-Chain Retargeting
-  tags:
-  - format-string
+  - partial-write
   - pointer-chain
-  - stack
-- id: PWN-FMT-RET-OVERWRITE
-  title: Format-String Return-Address Overwrite
-  tags:
-  - format-string
   - return-address
-  - control-flow
-- id: PWN-FMT-GOT-OVERWRITE
-  title: Format-String GOT Overwrite
-  tags:
-  - format-string
   - got
-  - arbitrary-write
 - id: PWN-SECCOMP-ORW
-  title: Seccomp Bypass with Open-Read-Write
+  title: Seccomp-Constrained ORW / Allowed-Syscall Exploitation
   tags:
   - seccomp
   - orw
   - syscall
   - file-read
-- id: PWN-SECCOMP-X32
-  title: Seccomp Architecture-Check Bypass via x32 Syscalls
+  - allowlist
+- id: PWN-SECCOMP-ARCH-BYPASS
+  title: Seccomp Architecture-Check Bypass
   tags:
   - seccomp
-  - x32
-  - syscall
   - architecture
-- id: PWN-SECCOMP-IA32
-  title: Seccomp Architecture-Check Bypass via IA32 int 0x80
-  tags:
-  - seccomp
+  - x32
   - ia32
   - int80
   - syscall
 - id: PWN-SECCOMP-SIDECHANNEL
-  title: Seccomp-Constrained Side-Channel Exfiltration
+  title: Seccomp / Fork Side-Channel Oracle
   tags:
   - seccomp
   - side-channel
   - oracle
   - exfiltration
-- id: PWN-FORK-EXIT-ORACLE
-  title: Forked-Child Exit-Code Memory Oracle
-  tags:
   - fork
+  - exit-code
   - shellcode
-  - oracle
   - leak
 - id: PWN-TCACHE-POISON
-  title: Tcache Poisoning / Forward-Pointer Retargeting
+  title: Tcache Poisoning / Metadata Manipulation
   tags:
   - heap
   - tcache
   - poisoning
-  - fake-chunk
-- id: PWN-TCACHE-DUP
-  title: Tcache Duplicate-Chunk Primitive
-  tags:
-  - heap
-  - tcache
+  - forward-pointer
   - double-free
   - dup
-- id: PWN-TCACHE-KEY-BYPASS
-  title: Tcache Double-Free-Key Bypass
-  tags:
-  - heap
-  - tcache
-  - key
-  - double-free
-- id: PWN-TCACHE-COUNT-CORRUPTION
-  title: Tcache Count Manipulation
-  tags:
-  - heap
-  - tcache
+  - key-bypass
   - count
   - metadata
-- id: PWN-TCACHE-METADATA-SIDE-EFFECT
-  title: Exploit Tcache Metadata as a State-Change Primitive
-  tags:
-  - heap
-  - tcache
-  - metadata
-  - logic
-- id: PWN-TCACHE-REUSE-SECRET
-  title: Tcache Reuse to Redirect or Recover Secret Buffers
-  tags:
-  - heap
-  - tcache
   - reuse
+  - fake-chunk
   - secret
-- id: PWN-TCACHE-TWO-STAGE-LEAK
-  title: Two-Stage Heap Secret Leak across Chunk Offsets
-  tags:
-  - heap
-  - tcache
-  - leak
-  - multi-stage
 - id: PWN-FASTBIN-DUP
-  title: Fastbin Dup
+  title: Fastbin Dup / Fastbin Fake-Chunk Exploitation
   tags:
   - heap
   - fastbin
   - double-free
   - fake-chunk
 - id: PWN-HEAP-OVERLAP
-  title: Overlapping Chunks
+  title: Heap Metadata Corruption / Overlapping Chunks
   tags:
   - heap
   - overlap
   - chunk
-- id: PWN-CHUNK-SIZE-CORRUPTION
-  title: Heap Chunk-Size / PREV_INUSE Corruption
-  tags:
-  - heap
   - chunk-size
   - prev-inuse
-  - metadata
-- id: PWN-FAKE-CHUNK
-  title: Fake Chunk Construction
-  tags:
-  - heap
   - fake-chunk
-  - allocator
-- id: PWN-CONSOLIDATE
-  title: Heap Consolidation Abuse
-  tags:
-  - heap
   - consolidation
   - allocator
 - id: PWN-SAFE-LINKING-BYPASS
-  title: Safe-Linking Pointer Recovery and Re-Encoding
+  title: Safe-Linking Pointer Recovery / Re-Encoding
   tags:
   - heap
   - safe-linking
   - pointer-mangling
   - tcache
+  - heap-base
 - id: PWN-HEAP-HOOK-FREE
-  title: Overwrite __free_hook on Legacy glibc
+  title: Legacy glibc Heap-Hook Overwrite
   tags:
   - heap
   - libc
   - free-hook
-  - arbitrary-write
-- id: PWN-HEAP-HOOK-MALLOC
-  title: Overwrite __malloc_hook on Legacy glibc
-  tags:
-  - heap
-  - libc
   - malloc-hook
   - arbitrary-write
-- id: PWN-HEAP-GOT-WRITE
-  title: Heap Primitive to GOT Overwrite
-  tags:
-  - heap
-  - got
-  - arbitrary-write
-- id: PWN-VTABLE-HIJACK
-  title: VTable / Virtual-Function Hijacking
-  tags:
-  - heap
-  - vtable
-  - function-pointer
-  - control-flow
-- id: PWN-FINI-ARRAY
-  title: .fini_array / dl_fini Control-Flow Hijack
-  tags:
-  - fini-array
-  - dl-fini
-  - arbitrary-write
-  - control-flow
+  - legacy-glibc
 - id: PWN-EXIT-HOOK
-  title: Exit-Handler / atexit Hijacking
+  title: Libc / Loader Deferred-Control-Flow Hijacking
   tags:
   - libc
+  - loader
   - exit-hook
   - atexit
+  - fini-array
+  - dl-fini
+  - link-map
+  - tls
+  - dtor-list
+  - jmp-buf
+  - pointer-mangling
   - control-flow
 - id: PWN-FSOP
   title: File Stream Oriented Programming
@@ -587,31 +418,4 @@ guessing:
   - fsop
   - stdio
   - libc
-- id: PWN-LINK-MAP
-  title: ld.so link_map Structure Corruption
-  tags:
-  - ld-so
-  - link-map
-  - arbitrary-write
-  - control-flow
-- id: PWN-TLS-DTOR
-  title: TLS dtor_list Overwrite
-  tags:
-  - tls
-  - dtor-list
-  - arbitrary-write
-  - control-flow
-- id: PWN-JMPBUF
-  title: jmp_buf / Mangled-Pointer Hijacking
-  tags:
-  - libc
-  - jmp-buf
-  - pointer-mangling
-  - control-flow
-- id: PWN-HEAP-TO-STACK-ROP
-  title: Heap Arbitrary Write to Stack ROP
-  tags:
-  - heap
-  - stack
-  - rop
-  - arbitrary-write
+  - file-structure

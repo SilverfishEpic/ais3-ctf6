@@ -1,7 +1,7 @@
 id: rev
 version: 1
-description: Reverse-engineering challenge memory template distilled from Linux ELF RE, advanced anti-analysis RE, and Windows
-  malware RE course material.
+description: Reverse-engineering challenge memory template distilled from Linux ELF RE, advanced anti-analysis RE, and Windows malware RE course
+  material Guessing catalog v2 is deliberately coarsened to independently actionable technique families.
 classifier_hints:
 - rev
 - reverse engineering
@@ -47,303 +47,186 @@ assumption_sections:
 - next_checks
 - general
 guessing:
-- id: REV-API-BREAKPOINT
-  title: Break on Important API Calls
+- id: REV-FOOTHOLD
+  title: Static / Dynamic Foothold Discovery
   tags:
+  - static-analysis
   - dynamic-analysis
-  - debugger
   - api
-  - foothold
-- id: REV-MAGIC-SIGNATURE
-  title: Search Magic Bytes and Algorithm Signatures
-  tags:
-  - static-analysis
-  - magic-bytes
-  - signature
-  - crypto
-- id: REV-SOURCE-MATCH
-  title: Match Linked Code against Open Source or BinDiff
-  tags:
-  - static-analysis
-  - source-matching
-  - bindiff
-  - library
-- id: REV-DEBUG-STRINGS
-  title: Use Debug Messages and Strings as Footholds
-  tags:
-  - static-analysis
+  - breakpoint
   - strings
   - debug-message
   - xref
+  - magic-bytes
+  - signature
+  - source-matching
+  - bindiff
+  - library
 - id: REV-CALLING-CONVENTION
-  title: Recover and Correct Calling Conventions
+  title: Calling-Convention and Stack-Frame Recovery
   tags:
-  - x86-64
   - calling-convention
-  - decompiler
-  - usercall
-- id: REV-STACK-FRAME
-  title: Recover Stack Frames and Local Data
-  tags:
-  - x86-64
   - stack
   - frame
   - locals
+  - decompiler
+  - usercall
+  - x86-64
 - id: REV-STRUCT-RECOVERY
-  title: Manual Structure Recovery from Memory Accesses
+  title: Data-Structure, Type, and C++ Class Recovery
   tags:
   - data-structure
   - struct
   - type-recovery
-  - ida
-- id: REV-VTABLE-RECOVERY
-  title: Recover C++ VTables and Class Hierarchies
-  tags:
   - cpp
   - vtable
   - inheritance
   - class-layout
-- id: REV-JUMP-TABLE
-  title: Recognize Switch Jump Tables
+- id: REV-COMPILER-ARTIFACT
+  title: Compiler Artifact and Optimization Recognition
   tags:
-  - control-flow
+  - compiler
+  - optimization
   - switch
   - jump-table
-  - compiler
-- id: REV-TAIL-CALL
-  title: Recognize Tail-Call Optimization
-  tags:
-  - compiler
-  - optimization
   - tail-call
-- id: REV-LOOP-UNROLL
-  title: Recognize Loop Unrolling
-  tags:
-  - compiler
-  - optimization
   - loop-unroll
-- id: REV-FAST-DIVISION
-  title: Recognize Strength-Reduced Integer Division
-  tags:
-  - compiler
-  - optimization
+  - strength-reduction
   - division
-  - bitwise
-- id: REV-VECTORIZATION
-  title: Recognize SIMD Vectorization
-  tags:
-  - compiler
-  - optimization
   - simd
   - avx
   - sse
 - id: REV-Z3-CONSTRAINT
-  title: Solve Validation Logic with Z3 Constraints
+  title: Constraint Solving and Symbolic Execution
   tags:
   - symbolic
   - smt
   - z3
   - constraints
-- id: REV-ANGR-SYMBOLIC
-  title: Explore Paths with angr Symbolic Execution
-  tags:
-  - symbolic
   - angr
   - claripy
   - path-exploration
-- id: REV-OBF-CONSTANT
-  title: Deobfuscate Computed Constants
+- id: REV-DEOBFUSCATION
+  title: Control-Flow / State-Machine Deobfuscation
   tags:
   - obfuscation
-  - constant
-  - simplification
-- id: REV-OBF-CFG-FLATTEN
-  title: Recover Control-Flow Flattening
-  tags:
-  - obfuscation
+  - constant-folding
+  - computed-constant
   - cfg
   - flattening
   - switch
-- id: REV-OBF-STATE-MACHINE
-  title: Recover State-Machine Obfuscation
-  tags:
-  - obfuscation
   - state-machine
   - control-flow
 - id: REV-RUNTIME-CODE-MAP
-  title: Trace Runtime-Mapped or Decrypted Code
+  title: Trace Runtime-Mapped, Decrypted, or Self-Modifying Code
   tags:
-  - obfuscation
   - runtime-code
+  - dynamic-analysis
   - virtualalloc
   - mmap
   - self-modifying
+  - decryption
 - id: REV-PACKER-DETECT
-  title: Identify Packed Executables
-  tags:
-  - packer
-  - header
-  - segment
-  - code
-- id: REV-PACKER-TOOL
-  title: Use a Known Unpacker when Available
+  title: Packer Identification and Unpacking
   tags:
   - packer
   - unpack
   - upx
   - tooling
-- id: REV-PACKER-DYNAMIC-DUMP
-  title: Dynamically Unpack and Dump Decrypted Memory
-  tags:
-  - packer
   - dynamic-analysis
   - memory-dump
-  - unpack
+  - decryption
 - id: REV-VM-PACKER
-  title: Reverse Virtual-Machine Packers
+  title: VM-Based Protector / Custom Bytecode Recovery
   tags:
   - packer
   - virtual-machine
   - bytecode
   - vmprotect
   - themida
-- id: REV-ANTIDEBUG-TIMING
-  title: Bypass Timing-Based Anti-Debugging
+  - emulation
+- id: REV-ANTI-ANALYSIS
+  title: Anti-Debug / Sandbox-Evasion Detection and Bypass
   tags:
   - anti-debug
+  - anti-attach
+  - sandbox-evasion
   - timing
   - sleep
-  - patch
-  - hook
-- id: REV-ANTIDEBUG-WINAPI
-  title: Bypass Windows API and PEB Debugger Checks
-  tags:
-  - anti-debug
   - windows
   - peb
   - isdebuggerpresent
   - ntqueryinformationprocess
-- id: REV-ANTIATTACH
-  title: Bypass Anti-Attach Logic
-  tags:
-  - anti-debug
-  - anti-attach
-  - dbg-ui
-  - hook
-- id: REV-ANTIDEBUG-EXCEPTION
-  title: Bypass Exception-Based Anti-Debugging
-  tags:
-  - anti-debug
   - exception
   - seh
+  - hook
   - patch
-- id: REV-ANTIDISASM-LINEAR
-  title: Repair Linear-Sweep Anti-Disassembly
+- id: REV-ANTIDISASM
+  title: Anti-Disassembly Recognition and Repair
   tags:
   - anti-disassemble
   - linear-sweep
   - instruction-offset
-  - repair
-- id: REV-ANTIDISASM-CFG
-  title: Repair Control-Flow Anti-Disassembly
-  tags:
-  - anti-disassemble
   - cfg
   - fake-jump
-  - repair
-- id: REV-IDA-RETYPE-CODE
-  title: Undefine and Re-mark Misidentified Code/Data
-  tags:
   - ida
-  - disassembly
   - undefine
   - mark-code
-- id: REV-PE-EAT
-  title: Resolve PE Export Address Table Manually
-  tags:
-  - pe
-  - windows
-  - eat
-  - exports
-- id: REV-PE-IAT
-  title: Analyze or Reconstruct the PE Import Address Table
+  - repair
+- id: REV-PE-API-RESOLUTION
+  title: PE Import / Export and Dynamic API Resolution
   tags:
   - pe
   - windows
   - iat
   - imports
-- id: REV-DYNAMIC-API
-  title: Recover Dynamic API Resolution
-  tags:
-  - windows
-  - peb
   - eat
+  - exports
+  - peb
   - api-hash
-  - defense-evasion
+  - dynamic-api
 - id: REV-EMBEDDED-PE
-  title: Extract an Embedded Next-Stage PE Payload
+  title: Embedded / Multi-Stage Payload Extraction
   tags:
   - pe
   - embedded-payload
   - stage
   - extraction
-- id: REV-SANDBOX-DELAY
-  title: Identify Sleep or Time-Delay Sandbox Evasion
-  tags:
-  - malware
-  - sandbox-evasion
-  - sleep
-  - timing
-- id: REV-MUTEX
-  title: Analyze Malware Mutex Usage
-  tags:
-  - malware
-  - mutex
-  - reinfection
-  - indicator
+  - resource
 - id: REV-PERSISTENCE-STARTUP
-  title: Trace Startup-Folder or Autostart Persistence
+  title: Malware Persistence and Execution Artifacts
   tags:
   - malware
   - persistence
   - startup-folder
   - registry
+  - service
+  - scheduled-task
+  - mutex
+  - reinfection
+  - indicator
 - id: REV-PROCESS-INJECTION
-  title: Recognize Remote-Thread Process Injection
+  title: Process Injection and Reflective / Manual Mapping
   tags:
   - malware
   - process-injection
+  - remote-thread
   - virtualallocex
   - writeprocessmemory
   - createremotethread
-- id: REV-REFLECTIVE-DLL
-  title: Recover Reflective DLL Injection / Manual Mapping
-  tags:
-  - malware
-  - dll
-  - reflective-injection
+  - reflective-dll
+  - manual-mapping
   - relocation
   - iat
 - id: REV-C2-PROTOCOL
-  title: Reverse a Custom C2 Protocol
+  title: Custom C2 Protocol and Exfiltration Data Recovery
   tags:
   - malware
   - network
   - c2
   - protocol
   - wireshark
-- id: REV-C2-DECRYPT
-  title: Recover and Decrypt Exfiltrated C2 Data
-  tags:
-  - malware
-  - network
+  - pcap
   - exfiltration
   - crypto
-  - pcap
-- id: REV-MITRE-MAP
-  title: Map Observed Malware Behavior to ATT&CK Techniques
-  tags:
-  - malware
-  - behavior
-  - mitre-attack
-  - triage
+  - decrypt
