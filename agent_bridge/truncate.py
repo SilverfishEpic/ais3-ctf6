@@ -15,7 +15,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-MARKER = "\n…[中間截斷 {dropped} bytes]…\n"
+# 機器讀的標記，跟 envelope.py 的 [not executed: ...] 一樣用英文 ——
+# contract 與 Summarizer 的共同語言是英文，混語言的標記容易被誤讀。
+MARKER = "\n…[truncated {dropped} bytes]…\n"
 
 
 @dataclass(frozen=True)

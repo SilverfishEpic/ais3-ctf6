@@ -25,7 +25,7 @@ def test_long_text_keeps_head_and_tail() -> None:
     assert result.truncated is True
     assert result.text.startswith("H" * 100)
     assert result.text.endswith("T" * 50)
-    assert "截斷" in result.text
+    assert "truncated" in result.text
     # 原始大小要記真的，不是砍完的大小
     assert result.original_bytes == 1000
     assert len(result.text) < len(text)
