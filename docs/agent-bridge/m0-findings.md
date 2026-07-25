@@ -89,8 +89,16 @@ message/UserMessage → TextBlock("[Request interrupted by user for tool use]")
 message/ResultMessage → subtype=error_during_execution
                         is_error=True
                         stop_reason=tool_use
-                        terminal_reason=aborted_tools     ← 這才是判斷中斷的訊號
+                        terminal_reason=aborted_tools     ← 見下方警告
 ```
+
+> ⚠️ **`terminal_reason` 不是固定值。** 同一個情境錄兩次，一次是 `aborted_tools`
+> （中斷落在工具執行階段），一次是 `aborted_streaming`（落在串流階段）。
+> 不要寫死比對其中一個。
+>
+> `normalize.py` 改成兩個訊號互補：`terminal_reason` 以 `aborted` 開頭，
+> **或**任何一個事件的 `outcome` 是 `interrupted`（那個是靠 tool_result 內容
+> 的固定字串判斷的，比較穩）。
 
 **對 M3 的意義**：規劃書 §14 要求「已完成的 log 仍盡量 ingest」。這做得到 ——
 中斷前跑完的工具在 collector 的 buffer 裡（實測 `ls` 那筆有留下），

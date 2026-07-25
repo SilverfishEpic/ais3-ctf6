@@ -1,0 +1,60 @@
+{
+  "events": [
+    {
+      "content": "format string 漏洞的成因在於程式將「使用者可控的輸入」直接當作格式化函式（如 `printf`、`sprintf`）的格式字串參數，而非以固定格式字串搭配參數傳入，導致輸入中的格式指示符（如 `%x`、`%n`）被函式解讀執行。攻擊者因此可藉 `%x`、`%s` 讀取堆疊或記憶體內容，甚至利用 `%n` 將資料寫入任意位址，造成資訊洩漏或程式流程被劫持。",
+      "kind": "message",
+      "role": "assistant",
+      "seq": 1
+    }
+  ],
+  "run_meta": {
+    "duration_api_ms": 10024,
+    "duration_ms": 7955,
+    "interrupted": false,
+    "is_error": false,
+    "model": "claude-opus-4-8",
+    "num_turns": 1,
+    "scenario": "talk_only",
+    "session_id": "25e5a353-1edf-4943-8a98-ccd680e3dcb4",
+    "skipped": {
+      "RateLimitEvent": 1,
+      "SystemMessage": 1
+    },
+    "stop_reason": "end_turn",
+    "subtype": "success",
+    "terminal_reason": "completed",
+    "thinking_blocks": 0,
+    "tool_calls": 0,
+    "total_cost_usd": 0.052357,
+    "usage": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4096,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "cache_creation_input_tokens": 4096,
+      "cache_read_input_tokens": 12016,
+      "inference_geo": "not_available",
+      "input_tokens": 2,
+      "iterations": [
+        {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 4096,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 4096,
+          "cache_read_input_tokens": 12016,
+          "input_tokens": 2,
+          "output_tokens": 189,
+          "type": "message"
+        }
+      ],
+      "output_tokens": 189,
+      "server_tool_use": {
+        "web_fetch_requests": 0,
+        "web_search_requests": 0
+      },
+      "service_tier": "standard",
+      "speed": "standard"
+    }
+  }
+}

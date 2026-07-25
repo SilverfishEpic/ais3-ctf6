@@ -1,0 +1,49 @@
+# 尚未分類、或分類不出來的題目用這一份。
+#
+# 分節刻意保持中性，因為換到專門題型時，這裡的項目要能對應過去；
+# 對應不到的一律進 general（規劃書 §7.3）。
+#
+# Guessing 只放「不管什麼題型都該先做」的東西 —— 專門技術留給專門模板。
+id: generic
+version: 1
+description: 尚未分類的題目
+
+classifier_hints:
+  - unknown
+  - misc
+
+fact_sections:
+  - target          # 題目給了什麼：網址、檔案、連線資訊
+  - artifacts       # 手上有的東西：binary、封包、原始碼
+  - observed        # 直接觀察到的行為
+  - progress        # 已經確認走得通或走不通的路
+  - general
+
+assumption_sections:
+  - attack_surface  # 看起來可以下手的地方
+  - hypotheses      # 待驗證的猜想
+  - next_checks     # 下一步要確認什麼
+  - general
+
+guessing:
+  - id: RECON-FILES
+    title: 盤點題目給的所有檔案與其類型
+    tags: [recon, baseline]
+  - id: RECON-STRINGS
+    title: 對二進位檔案抽字串找線索
+    tags: [recon, baseline]
+  - id: RECON-METADATA
+    title: 檢查檔案 metadata 與時間戳
+    tags: [recon, forensics]
+  - id: RECON-NETWORK
+    title: 掃描開放連接埠與服務版本
+    tags: [recon, network]
+  - id: FLAG-FORMAT
+    title: 直接搜尋 flag 格式字串
+    tags: [baseline, quickwin]
+  - id: SOURCE-REVIEW
+    title: 若有原始碼，先讀輸入處理與權限判斷
+    tags: [source, baseline]
+  - id: ENCODING
+    title: 嘗試常見編碼還原（base64、hex、URL、ROT）
+    tags: [encoding, quickwin]

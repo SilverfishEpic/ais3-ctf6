@@ -55,6 +55,7 @@ from claude_agent_sdk import (  # noqa: E402
 from agent_bridge.collect import RunCollector, ToolRecord  # noqa: E402
 from agent_bridge.collect import merge_hooks  # noqa: E402
 from agent_bridge.sandbox import ToolPolicy, sandbox_hooks  # noqa: E402
+from agent_bridge.serialize import jsonable  # noqa: E402
 
 FIXTURE_DIR = REPO_ROOT / "fixtures" / "claude"
 WORKSPACE_DIR = REPO_ROOT / ".workspaces"
@@ -138,28 +139,6 @@ SCENARIOS_BY_NAME = {s.name: s for s in SCENARIOS}
 # --------------------------------------------------------------------------
 # 序列化
 # --------------------------------------------------------------------------
-
-
-def jsonable(obj: Any) -> Any:
-    """盡量忠實地把 SDK 物件轉成 JSON。
-
-    dataclass 會多帶一個 `__type__`，因為 content block 全是 dataclass，
-    少了型別名稱就分不出 TextBlock / ThinkingBlock / ToolUseBlock。
-    真的不認識的東西退回 repr()，寧可留個看得懂的字串也不要整份錄音爆掉。
-    """
-    if obj is None or isinstance(obj, (bool, int, float, str)):
-        return obj
-    if isinstance(obj, (list, tuple, set, frozenset)):
-        return [jsonable(x) for x in obj]
-    if isinstance(obj, dict):
-        return {str(k): jsonable(v) for k, v in obj.items()}
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        out = {f.name: jsonable(getattr(obj, f.name)) for f in dataclasses.fields(obj)}
-        out["__type__"] = type(obj).__name__
-        return out
-    if isinstance(obj, Path):
-        return str(obj)
-    return repr(obj)
 
 
 class JsonlRecorder:
