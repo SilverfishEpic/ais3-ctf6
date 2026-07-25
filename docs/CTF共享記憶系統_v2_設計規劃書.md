@@ -571,6 +571,7 @@ Agent run log：
         "seq": 3,
         "role": "tool",
         "kind": "tool_result",
+        "outcome": "succeeded",
         "content": "NX enabled ..."
       }
     ]

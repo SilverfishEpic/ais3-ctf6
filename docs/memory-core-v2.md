@@ -432,7 +432,7 @@ One vendor-neutral envelope for humans and agents:
  "input":  {"type": "run_log", "events": [
    {"seq": 1, "role": "assistant", "kind": "message",     "content": "..."},
    {"seq": 2, "role": "assistant", "kind": "tool_call",   "name": "Bash", "content": "checksec ./chall"},
-   {"seq": 3, "role": "tool",      "kind": "tool_result", "content": "NX enabled..."}]}}
+   {"seq": 3, "role": "tool",      "kind": "tool_result", "outcome": "succeeded", "content": "NX enabled..."}]}}
 ```
 
 Claude SDK classes and other provider event objects are **never** part of the domain model.
@@ -490,7 +490,9 @@ verbatim in the system prompt, and covered by `tests/test_summarizer_policy.py`.
 * **R1** — every proposed Fact cites at least one journal source ID that exists.
 * **R2** — a Fact requires **direct evidence**:
   * `command_result` → direct
-  * `run_log` containing at least one `tool_result` → direct
+  * `run_log` containing at least one executed `tool_result` whose `outcome` is
+    `succeeded` or `failed` → direct
+  * `run_log` with `denied`, `interrupted`, `unknown`, or omitted `outcome` → not direct
   * a **human** `note` → direct
   * an **agent** `note`, or a narrative-only `run_log` → **not** direct
 * **R3** — insufficient evidence means Assumption, or nothing. A Fact proposal failing
@@ -870,7 +872,7 @@ server answers 409, which is the contract working rather than a bug.
 |---|---|
 | `test_store.py` | revision 0 on create; valid YAML after atomic save; no temp files left; stale revision conflicts; corrupt state reported; **a path-shaped challenge id (`..`, `.`) is refused by the store, the journal and the request model alike** |
 | `test_journal.py` | human input verbatim; normalized agent run log preserved with provider metadata; append-only; unique IDs; input journalled even on a no-op ingest |
-| `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; agent tool result can; promotion needs new evidence; IDs stable across updates; no auto-reclassification; **an unavailable classifier falls back to `generic` while a rejected key still surfaces** |
+| `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; only executed agent tool results can; promotion needs new evidence; IDs stable across updates; no auto-reclassification; **an unavailable classifier falls back to `generic` while a rejected key still surfaces** |
 | `test_templates.py` | missing `general` rejected; duplicate technique IDs rejected; `generic` fallback required; reclassification preserves IDs, levels and evidence; unmappable entries land in `general`; `tried` carried over; attribution journalled |
 | `test_guess.py` | catalog comes from the template; `seed` reproducible; `only_untried`; `mark_tried`; follows the challenge's template; asking for more than exists |
 | `test_mutation.py` | reason mandatory; promotion mints a fact ID with a `promoted_from` backlink; **a promoted or removed ID is never handed out again, and the high-water marks survive a reload**; override records actor/reason; move changes only the section; stale revision 409; **no rejected mutation — 409 or 400 — leaves a phantom journal record, a batch is all-or-nothing, and the rehearsal burns no IDs**; no arbitrary patch op |

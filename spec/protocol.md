@@ -55,7 +55,10 @@ Enforced in `memory_core/summarizer.enforce_epistemic_policy` and covered by
 * **R1** — every Fact cites at least one journal source ID that exists.
 * **R2** — a Fact requires **direct evidence**:
   * `command_result` → direct
-  * `run_log` containing at least one `tool_result` event → direct
+  * `run_log` containing at least one executed `tool_result` event with
+    `outcome: succeeded` or `outcome: failed` → direct
+  * `run_log` events with `outcome: denied`, `outcome: interrupted`, `outcome: unknown`,
+    or no `outcome` → not direct
   * a **human** `note` → direct (a first-party observer)
   * an **agent** `note`, or a `run_log` with narrative only → **not** direct
 * **R3** — insufficient evidence means Assumption, or nothing. A Fact proposal failing
@@ -72,7 +75,9 @@ observation ("I ran nmap and port 80 is open") or an inference ("this is probabl
 SQLi"). Only the observation may become a Fact. That distinction is instructed in the
 prompt because no gate can decide it mechanically; what the gate *does* guarantee is the
 asymmetry the design rests on — **a first-party human report is admissible evidence, an
-external agent's narrative never is.** An agent must show a tool result.
+external agent's narrative never is.** An agent must show a tool result whose
+vendor-neutral `outcome` proves the tool actually ran. Legacy tool results without
+`outcome` are treated as `unknown`, not as verified direct evidence.
 
 ---
 
@@ -96,7 +101,12 @@ One vendor-neutral contract for humans and agents alike.
 
 * **note** — `{"type": "note", "content": "..."}`
 * **command_result** — `{"type": "command_result", "command": ["nmap","-sV","target"], "exit_code": 0, "stdout": "...", "stderr": ""}`
-* **run_log** — `{"type": "run_log", "events": [{"seq": 1, "role": "assistant", "kind": "message|tool_call|tool_result", "name": "Bash", "content": "..."}]}`
+* **run_log** — `{"type": "run_log", "events": [{"seq": 1, "role": "assistant", "kind": "message|tool_call|tool_result", "name": "Bash", "content": "...", "outcome": "succeeded|failed|denied|interrupted|unknown"}]}`
+
+`outcome` is meaningful for `tool_result`. It is optional for backward wire
+compatibility, but omitted legacy tool results are treated as `unknown` and cannot grant
+Fact-grade evidence. `succeeded` and `failed` both mean the tool executed and produced an
+observation; `denied`, `interrupted`, and `unknown` do not.
 
 Claude SDK classes and other provider event objects are **never** part of the Memory Core
 domain model. Person 3 owns `Claude events -> AgentRunEvent -> IngestEnvelope`; Person 2
@@ -339,7 +349,7 @@ The agreed end-to-end scenario, implemented offline in `tests/test_e2e_demo_web.
 
 - [x] Fact / Assumption / Guessing semantics agreed
 - [x] `IngestEnvelope` frozen
-- [x] `AgentRunEvent` frozen
+- [x] `AgentRunEvent` frozen, with outcome-aware direct-evidence semantics
 - [x] `MemorySnapshot` frozen
 - [x] Mutation operations frozen
 - [x] Diff schema frozen

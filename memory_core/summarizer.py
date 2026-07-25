@@ -23,7 +23,7 @@ look useful is worse than one that says "not established yet".
 R1. A Fact must cite at least one journal source ID that exists.
 R2. A Fact must be supported by **direct evidence**:
       * ``command_result``                                  -> direct
-      * ``run_log`` containing at least one ``tool_result``  -> direct
+      * ``run_log`` containing an executed ``tool_result``   -> direct
       * a **human** ``note``                                 -> direct
       * an **agent** ``note``/narrative-only ``run_log``      -> NOT direct
     The human-note case deserves comment.  A human note may contain either an
@@ -32,7 +32,9 @@ R2. A Fact must be supported by **direct evidence**:
     Assumption.  That distinction is a judgment call and therefore lives in the prompt,
     not in the gate.  What the gate *can* enforce mechanically is the vendor-neutral
     asymmetry the whole design rests on: a first-party human report is admissible
-    evidence, an external agent's narrative never is.  An agent must show a tool result.
+    evidence, an external agent's narrative never is.  An agent must show a tool result
+    whose vendor-neutral ``outcome`` proves the tool actually ran.  Legacy tool results
+    without an outcome are treated as ``unknown`` and are therefore not direct evidence.
 R3. Insufficient evidence => Assumption, or nothing at all.  A Fact proposal that fails
     R1/R2 is **downgraded to an Assumption**, not silently accepted and not fatal.
 R4. Promotion Assumption -> Fact requires evidence the item did not already carry, and
@@ -124,7 +126,10 @@ def is_direct_evidence(record: SourceRecord) -> bool:
         if not isinstance(events, list):
             return False
         return any(
-            isinstance(event, dict) and event.get("kind") == "tool_result" for event in events
+            isinstance(event, dict)
+            and event.get("kind") == "tool_result"
+            and event.get("outcome", "unknown") in {"succeeded", "failed"}
+            for event in events
         )
     return False
 

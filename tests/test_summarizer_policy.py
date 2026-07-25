@@ -91,18 +91,45 @@ def test_agent_narrative_is_not_direct_evidence() -> None:
     assert is_direct_evidence(record) is False
 
 
-def test_agent_tool_result_is_direct_evidence() -> None:
+@pytest.mark.parametrize("outcome", ["succeeded", "failed"])
+def test_executed_agent_tool_result_is_direct_evidence(outcome: str) -> None:
     record = _record(
         input_type="run_log",
         source={"type": "agent", "provider": "anthropic"},
         content={
             "events": [
                 {"seq": 1, "role": "assistant", "kind": "message", "content": "checking"},
-                {"seq": 2, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                {
+                    "seq": 2,
+                    "role": "tool",
+                    "kind": "tool_result",
+                    "content": "NX enabled",
+                    "outcome": outcome,
+                },
             ]
         },
     )
     assert is_direct_evidence(record) is True
+
+
+@pytest.mark.parametrize("outcome", ["denied", "interrupted", "unknown", None])
+def test_non_executed_or_unknown_agent_tool_result_is_not_direct_evidence(
+    outcome: str | None,
+) -> None:
+    event: dict[str, object] = {
+        "seq": 2,
+        "role": "tool",
+        "kind": "tool_result",
+        "content": "permission denied before execution",
+    }
+    if outcome is not None:
+        event["outcome"] = outcome
+    record = _record(
+        input_type="run_log",
+        source={"type": "agent", "provider": "anthropic"},
+        content={"events": [event]},
+    )
+    assert is_direct_evidence(record) is False
 
 
 # -- R1/R3: unsupported facts are downgraded, not accepted --------------------
@@ -252,7 +279,13 @@ def test_agent_tool_result_can_create_a_fact(service: MemoryService, demo: str) 
                         "name": "Bash",
                         "content": "checksec ./chall",
                     },
-                    {"seq": 3, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                    {
+                        "seq": 3,
+                        "role": "tool",
+                        "kind": "tool_result",
+                        "content": "NX enabled",
+                        "outcome": "succeeded",
+                    },
                 ]
             )
         ),
@@ -260,6 +293,28 @@ def test_agent_tool_result_can_create_a_fact(service: MemoryService, demo: str) 
     assert response.diff.fact_added == ["F001"]
     memory = service.read_memory(demo)
     assert [i.text for _, i in memory_items(memory.fact)] == ["NX is enabled on the target binary."]
+
+
+def test_agent_unknown_tool_result_cannot_create_a_fact(
+    service: MemoryService, demo: str
+) -> None:
+    response = service.ingest(
+        demo,
+        IngestEnvelope.model_validate(
+            agent_run_log(
+                [
+                    {"seq": 1, "role": "assistant", "kind": "message", "content": "checking"},
+                    {"seq": 2, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                ]
+            )
+        ),
+    )
+    assert response.diff.fact_added == []
+    memory = service.read_memory(demo)
+    assert [i.text for _, i in memory_items(memory.fact)] == []
+    assert "NX is enabled on the target binary." in [
+        i.text for _, i in memory_items(memory.assumption)
+    ]
 
 
 def test_ids_are_stable_across_updates(service: MemoryService, demo: str) -> None:

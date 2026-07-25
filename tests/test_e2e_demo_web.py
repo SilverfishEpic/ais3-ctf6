@@ -92,7 +92,13 @@ def test_demo_web_end_to_end(asgi_client: ASGITestClient, runs_dir: Path) -> Non
                     "name": "Bash",
                     "content": "checksec ./chall",
                 },
-                {"seq": 3, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                {
+                    "seq": 3,
+                    "role": "tool",
+                    "kind": "tool_result",
+                    "content": "NX enabled",
+                    "outcome": "succeeded",
+                },
             ]
         ),
     ).json()
