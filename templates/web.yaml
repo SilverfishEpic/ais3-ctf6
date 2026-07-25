@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 id: web
 version: 1
 description: Web security challenge memory template distilled from the Web week 1-3 course material and generalized from the user's historical
@@ -451,3 +452,54 @@ guessing:
   - gadget
   - xss
   - privilege-impact
+=======
+# Minimal web fixture.
+#
+# OWNERSHIP: this exists so Person 3 (Agent Bridge + templates) and Person 2 (CLI) have a
+# second, non-generic template to develop and test reclassification against. It is NOT the
+# real web catalog — Person 3 replaces the `guessing` list with curated content.
+id: web
+version: 1
+description: Web security challenge.
+
+classifier_hints:
+  - HTTP
+  - cookie
+  - API
+  - login
+  - URL
+  - nginx
+
+fact_sections:
+  - target
+  - endpoints
+  - technologies
+  - authentication
+  - validated_behavior
+  - progress
+  - general
+
+assumption_sections:
+  - attack_surface
+  - vulnerability_hypotheses
+  - attack_paths
+  - next_checks
+  - general
+
+guessing:
+  - id: WEB-SQLI
+    title: SQL Injection
+    tags: [database, input]
+  - id: WEB-SSRF
+    title: Server-Side Request Forgery
+    tags: [network, input]
+  - id: WEB-SSTI
+    title: Server-Side Template Injection
+    tags: [render, input]
+  - id: WEB-AUTHZ
+    title: Authorization / access-control confusion
+    tags: [auth]
+  - id: WEB-DESER
+    title: Insecure deserialization
+    tags: [input, rce]
+>>>>>>> 3ccaa55 (memory system build)
