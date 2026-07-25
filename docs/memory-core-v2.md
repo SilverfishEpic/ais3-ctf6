@@ -34,7 +34,7 @@ edits the board during an agent run.
 optimistic concurrency, append-only journal, template registry and reclassification,
 Summarizer protocol with a deterministic offline fake and an AIS3 provider, epistemic
 policy gate, semantic diff, deterministic guessing, controlled mutation, seven-endpoint
-FastAPI surface, generated `spec/`, and 133 offline tests including the agreed end-to-end
+FastAPI surface, generated `spec/`, and 146 offline tests including the agreed end-to-end
 fixture.
 
 ---
@@ -782,7 +782,9 @@ templates/
   generic.yaml    minimal fixture (Person 3 owns the real content)
   web.yaml        minimal fixture, exists so reclassification is testable
 
-scripts/gen_spec.py               regenerates spec/ ; --check fails on drift
+scripts/
+  gen_spec.py                    regenerates spec/ ; --check fails on drift
+  memctl.py                      smoke-test client -- NOT the Human Client
 tests/                            123 offline tests + 2 opt-in live tests
 runs/                             per-challenge state (gitignored)
 ```
@@ -810,11 +812,31 @@ Person 2 and Person 3 do not have to wait for anything:
 same epistemic policy as the real backend — so nobody builds against looser behaviour than
 production.
 
+`scripts/memctl.py` drives that server over plain HTTP and imports nothing from
+`memory_core`, which is the point: it demonstrates that the contract in `spec/` is
+sufficient on its own. It is a **smoke-test client, not the Human Client** — Person 2 owns
+`cli/` and the real `ctfmem` UX, and nothing here should be taken as a design for it.
+
+```bash
+scripts/memctl.py create demo-web --title "Demo Web"
+scripts/memctl.py note demo-web "I ran nmap and port 80 is open."
+scripts/memctl.py capture demo-web -- nmap -sV target
+scripts/memctl.py show demo-web
+scripts/memctl.py query demo-web "which ports are confirmed open?"
+scripts/memctl.py guess demo-web --seed 42
+scripts/memctl.py promote demo-web A001 --reason "verified in a browser"
+scripts/memctl.py template demo-web web --reason "it is a web challenge"
+```
+
+Mutating commands re-read the revision first unless `--expected-revision` pins one. That
+narrows the lost-update window without closing it — if an agent commits in between, the
+server answers 409, which is the contract working rather than a bug.
+
 ---
 
 ## 20. Testing strategy
 
-133 tests, all offline, ~2 seconds.
+146 tests, all offline, ~2 seconds.
 
 | file | covers |
 |---|---|
@@ -830,6 +852,7 @@ production.
 | `test_api.py` | all endpoints via `TestClient`; 400 / 404 / 409 / 422 bodies; published paths |
 | `test_spec_drift.py` | `spec/` matches what the code generates; frozen paths and types present; mutation ops are a closed set; shipped templates validate against the published schema |
 | `test_offline_guarantee.py` | the network guard actually blocks; AIS3 provider parsing, repair budget, endpoint URL; **a rejected key maps to `summarizer_unauthorized` (500) and is not swallowed by the classifier fallback**; a timeout maps to a retryable 502 naming the budget — all with a transport double |
+| `test_memctl.py` | the smoke client's rendering: a promotion shows both ids and no spurious removal, a no-op is not shown as a change, every documented error code carries advice |
 | `test_e2e_demo_web.py` | the agreed 共通設計起點 §10 fixture, over HTTP, reloaded from disk |
 | `test_ais3_live.py` | opt-in only (`-m live`), skipped without a key |
 
@@ -949,7 +972,7 @@ Complete and verified at the end of this task:
 | Semantic diff | done |
 | HTTP API: 7 endpoints + `/healthz` + list | done |
 | Mock server (`--fake-summarizer`) for Person 2/3 | done |
-| Tests | 133 passing offline, 2 opt-in live (verified against the real backend), zero network |
+| Tests | 146 passing offline, 2 opt-in live (verified against the real backend), zero network |
 | `ruff check`, `ruff format --check`, `mypy --strict memory_core` | all clean |
 
 Against 設計規劃書 §20 (MVP acceptance):
