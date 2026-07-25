@@ -277,6 +277,107 @@ def test_rejected_mutation_leaves_no_phantom_journal_record(
     assert before == after
 
 
+@pytest.mark.parametrize(
+    "operation",
+    [
+        {"op": "remove", "id": "F999"},
+        {"op": "replace", "id": "F999", "text": "nope"},
+        {"op": "promote", "id": "F001"},
+        {"op": "demote", "id": "A001"},
+        {"op": "move", "id": "A999", "section": "general"},
+        {"op": "mark_tried", "technique": "WEB-NOSUCHTHING", "tried": True},
+    ],
+)
+def test_invalid_operation_leaves_no_phantom_journal_record(
+    service: MemoryService, demo: str, operation: dict[str, object]
+) -> None:
+    """A 400 must not leave an override in the evidence log either.
+
+    The journal is the audit trail and the replay input for the ablation harness, so a
+    record must mean "this happened" — not "someone asked for this and was refused".
+    """
+
+    revision = _seeded(service, demo)
+    before = len([r for r in service.journal.records(demo) if r.type == "mutation"])
+
+    with pytest.raises(InvalidRequest):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="names something that is not there",
+                operations=[operation],
+            ),
+        )
+
+    assert len([r for r in service.journal.records(demo) if r.type == "mutation"]) == before
+    # A refused mutation is refused whole: no revision burned, no state change.
+    assert service.read_memory(demo).revision == revision
+
+
+def test_a_batch_is_all_or_nothing(service: MemoryService, demo: str) -> None:
+    """One bad operation rolls back the valid ones ahead of it, journal included."""
+
+    revision = _seeded(service, demo)
+    before = len([r for r in service.journal.records(demo) if r.type == "mutation"])
+
+    with pytest.raises(InvalidRequest):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="half of this is fine",
+                operations=[
+                    {"op": "add", "layer": "fact", "section": "general", "text": "real enough"},
+                    {"op": "remove", "id": "F999"},
+                ],
+            ),
+        )
+
+    memory = service.read_memory(demo)
+    assert memory.revision == revision
+    assert all(i.text != "real enough" for items in memory.fact.values() for i in items), (
+        "the valid half of a rejected batch must not survive"
+    )
+    assert len([r for r in service.journal.records(demo) if r.type == "mutation"]) == before
+
+
+def test_rehearsal_does_not_consume_memory_ids(service: MemoryService, demo: str) -> None:
+    """Validating a mutation must not advance the id high-water marks.
+
+    The rehearsal runs the real applier, which allocates ids — against a throwaway copy.
+    If that leaked, every refused mutation would silently punch a hole in the id sequence.
+    """
+
+    revision = _seeded(service, demo)
+    with pytest.raises(InvalidRequest):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="doomed",
+                operations=[
+                    {"op": "add", "layer": "fact", "section": "general", "text": "doomed"},
+                    {"op": "remove", "id": "F999"},
+                ],
+            ),
+        )
+
+    envelope = service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="this one is real",
+            operations=[{"op": "add", "layer": "fact", "section": "general", "text": "kept"}],
+        ),
+    )
+    assert envelope.diff.fact_added == ["F002"], "the refused attempt must not have burned F002"
+
+
 def test_there_is_no_arbitrary_patch_operation() -> None:
     with pytest.raises(ValidationError):
         MemoryMutation(

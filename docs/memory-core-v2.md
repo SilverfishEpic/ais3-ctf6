@@ -247,7 +247,12 @@ Guessing -> "the model thinks it sounds right" -> Fact
   is not an event-sourcing log, and there is no framework behind it.
 * An input is journalled **before** summarization, so a Summarizer failure loses nothing.
 * A mutation is journalled **inside the commit critical section, after the revision check
-  passes**, so a rejected 409 never leaves a phantom override in the evidence log.
+  passes and after the operations have been rehearsed against a copy of the state**. A
+  record therefore means *this happened*, never *this was attempted and refused* — neither
+  a stale revision (409) nor an operation naming something that does not exist (400) can
+  leave a phantom override in the evidence log. The rehearsal runs the real applier rather
+  than a parallel list of preconditions, which would be free to drift from the operations
+  it claims to check.
 
 ---
 
@@ -859,7 +864,7 @@ server answers 409, which is the contract working rather than a bug.
 | `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; agent tool result can; promotion needs new evidence; IDs stable across updates; no auto-reclassification |
 | `test_templates.py` | missing `general` rejected; duplicate technique IDs rejected; `generic` fallback required; reclassification preserves IDs, levels and evidence; unmappable entries land in `general`; `tried` carried over; attribution journalled |
 | `test_guess.py` | catalog comes from the template; `seed` reproducible; `only_untried`; `mark_tried`; follows the challenge's template; asking for more than exists |
-| `test_mutation.py` | reason mandatory; promotion mints a fact ID with a `promoted_from` backlink; **a promoted or removed ID is never handed out again, and the high-water marks survive a reload**; override records actor/reason; move changes only the section; stale revision 409; **rejected mutation leaves no phantom journal record**; no arbitrary patch op |
+| `test_mutation.py` | reason mandatory; promotion mints a fact ID with a `promoted_from` backlink; **a promoted or removed ID is never handed out again, and the high-water marks survive a reload**; override records actor/reason; move changes only the section; stale revision 409; **no rejected mutation — 409 or 400 — leaves a phantom journal record, a batch is all-or-nothing, and the rehearsal burns no IDs**; no arbitrary patch op |
 | `test_concurrency.py` | two clients on one revision — second rejected, no lost update; **human mutation not blocked by an in-flight Summarizer**; bounded rebase then 409 |
 | `test_diff.py` | additions / removals / updates / template change; promotion and demotion reported under the **old** ID with the new one as an addition; `promoted_from` alone is not a promotion; `from` alias on the wire; exact frozen field set |
 | `test_query.py` | references only existing IDs; **invented references dropped**; abstains on an empty board; layer filter; read-only |
