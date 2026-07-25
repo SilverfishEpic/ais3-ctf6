@@ -388,8 +388,8 @@ reclassification behavior against that catalog without hard-coding the full taxo
   classification fails — an unknown template, unparseable output, a backend that is down,
   unreachable or too slow — it falls back to `generic`. An advisory model answer must never
   block challenge creation: the template is a *layout*, not a truth claim, and a wrong one
-  is repaired with one `POST /template`, whereas refusing to create the challenge strands
-  the human with nowhere to put their notes.
+  is repaired with one `POST /v1/challenges/{id}/template`, whereas refusing to create the
+  challenge strands the human with nowhere to put their notes.
 * The single exception is `summarizer_unauthorized`, which is re-raised. A rejected key is
   a server misconfiguration, and swallowing it would create every challenge as `generic`
   indefinitely while looking exactly like a classifier that never matches anything (§12).
@@ -497,8 +497,8 @@ verbatim in the system prompt, and covered by `tests/test_summarizer_policy.py`.
   R1/R2 is **downgraded** to an Assumption; the observation is kept, the certainty is not.
 * **R4** — model-initiated promotion requires *new* direct evidence the item did not
   already carry. A human override without new evidence is legitimate, but goes through
-  `POST /mutate` with an actor and a reason — not through the model pretending it verified
-  something.
+  `POST /v1/challenges/{id}/mutate` with an actor and a reason — not through the model
+  pretending it verified something.
 * **R5** — the Summarizer can neither touch the Guessing catalog nor delete a Fact. Both
   are structurally impossible: `SummaryProposal` has no `guessing` and no `fact_remove`
   field. A Fact the model now doubts can only be **demoted**, which is visible in the diff.
@@ -897,7 +897,7 @@ The architecture makes each research variable independently switchable:
 
 * **Session** — `run_id` / `session_id` / `provider` are recorded but never interpreted, so
   same-session vs new-session is an Agent Bridge variable that Memory Core simply logs.
-* **Memory layer** — `GET /memory?layer=` supports no-memory / fact-only /
+* **Memory layer** — `GET /v1/challenges/{id}/memory?layer=` supports no-memory / fact-only /
   fact+assumption / +guessing conditions without touching the core.
 * **Template** — `generic` vs category-specific is a one-call switch, and reclassification
   preserves truth, so the same challenge can be re-laid-out mid-experiment.

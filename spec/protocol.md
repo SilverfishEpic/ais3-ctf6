@@ -62,7 +62,7 @@ Enforced in `memory_core/summarizer.enforce_epistemic_policy` and covered by
   R1/R2 is **downgraded to an Assumption**, not rejected outright and not accepted.
 * **R4** — Assumption → Fact promotion by the model requires *new* direct evidence the
   item did not already carry. A human override without new evidence is legitimate but
-  must go through `POST /mutate` with an actor and a reason.
+  must go through `POST /v1/challenges/{id}/mutate` with an actor and a reason.
 * **R5** — the Summarizer can neither touch the Guessing catalog nor delete a Fact.
   Both are structurally impossible: `SummaryProposal` has no such fields. A Fact the
   model now doubts can only be *demoted*, which is visible in the diff.
@@ -210,7 +210,8 @@ Invariants:
 
 * A challenge may be classified **once**, at creation, from `initial_input`.
 * Normal ingest never auto-reclassifies.
-* Replacing a template is an explicit client operation: `POST /template`.
+* Replacing a template is an explicit client operation:
+  `POST /v1/challenges/{id}/template`.
 * Reclassification **must**: preserve every Fact/Assumption ID; preserve every epistemic
   level; remap only sections, by exact name, falling back to `general`; replace the
   Guessing catalog; carry `tried` state for technique IDs that still exist; return a
