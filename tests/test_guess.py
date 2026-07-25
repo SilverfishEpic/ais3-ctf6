@@ -58,7 +58,7 @@ def test_only_untried_filters_marked_techniques(service: MemoryService, demo: st
         ),
     )
     untried = service.guess(demo, GuessRequest(count=10, only_untried=True))
-    everything = service.guess(demo, GuessRequest(count=10, only_untried=False))
+    everything = service.guess(demo, GuessRequest(count=50, only_untried=False))
 
     assert technique not in {c.id for c in untried.candidates}
     assert technique in {c.id for c in everything.candidates}
