@@ -70,24 +70,43 @@ def test_evidence_change_is_an_update() -> None:
     assert compute_diff(before, after).fact_updated == ["F001"]
 
 
-def test_promotion_is_reported_once() -> None:
-    """An ID crossing layers is a promotion — never an add plus a remove."""
+def test_promotion_is_reported_under_the_old_id() -> None:
+    """Crossing layers mints a new id; the old one is what `promoted` names.
+
+    The old id must not also show up as a removal — the claim did not go away, it changed
+    epistemic status.
+    """
 
     before = _snapshot(assumptions={"general": [AssumptionItem(id="A017", text="maybe")]})
-    after = _snapshot(facts={"general": [FactItem(id="A017", text="maybe")]})
+    after = _snapshot(facts={"general": [FactItem(id="F002", text="maybe", promoted_from="A017")]})
     diff = compute_diff(before, after)
     assert diff.promoted == ["A017"]
-    assert diff.fact_added == []
+    assert diff.fact_added == ["F002"]
     assert diff.assumption_removed == []
 
 
-def test_demotion_is_reported_once() -> None:
+def test_demotion_is_reported_under_the_old_id() -> None:
     before = _snapshot(facts={"general": [FactItem(id="F002", text="was sure")]})
-    after = _snapshot(assumptions={"general": [AssumptionItem(id="F002", text="was sure")]})
+    after = _snapshot(
+        assumptions={"general": [AssumptionItem(id="A003", text="was sure", promoted_from="F002")]}
+    )
     diff = compute_diff(before, after)
     assert diff.demoted == ["F002"]
-    assert diff.assumption_added == []
+    assert diff.assumption_added == ["A003"]
     assert diff.fact_removed == []
+
+
+def test_a_new_item_merely_citing_an_ancestor_is_not_a_promotion() -> None:
+    """`promoted_from` only means a promotion when the ancestor actually left its layer."""
+
+    before = _snapshot(assumptions={"general": [AssumptionItem(id="A017", text="maybe")]})
+    after = _snapshot(
+        facts={"general": [FactItem(id="F002", text="maybe", promoted_from="A017")]},
+        assumptions={"general": [AssumptionItem(id="A017", text="maybe")]},
+    )
+    diff = compute_diff(before, after)
+    assert diff.promoted == []
+    assert diff.fact_added == ["F002"]
 
 
 def test_template_change_is_reported() -> None:

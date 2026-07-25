@@ -5,7 +5,7 @@
       "description": "Plausible and testable, but not yet sufficiently verified.",
       "properties": {
         "id": {
-          "description": "Immutable identity. The F/A prefix records where the item was first created, NOT where it currently lives: a promoted A017 keeps the id A017 inside the fact layer. Clients must read the epistemic level from the containing map, never from the prefix.",
+          "description": "Stable identity within a layer. The F/A prefix always matches the layer the item currently lives in, so crossing layers mints a new id: promoting A017 produces a new F-item carrying promoted_from='A017'. An id is never reused, even after the item it named is removed or promoted away.",
           "pattern": "^[FA]\\d{3,}$",
           "title": "Id",
           "type": "string"
@@ -64,6 +64,19 @@
           ],
           "default": null,
           "title": "Updated At"
+        },
+        "promoted_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The id this item had in the other layer before a promotion or demotion. Follow the chain to reconstruct an item's epistemic history.",
+          "title": "Promoted From"
         }
       },
       "required": [
@@ -124,7 +137,7 @@
       "description": "Confirmed by direct evidence or an explicit human override.",
       "properties": {
         "id": {
-          "description": "Immutable identity. The F/A prefix records where the item was first created, NOT where it currently lives: a promoted A017 keeps the id A017 inside the fact layer. Clients must read the epistemic level from the containing map, never from the prefix.",
+          "description": "Stable identity within a layer. The F/A prefix always matches the layer the item currently lives in, so crossing layers mints a new id: promoting A017 produces a new F-item carrying promoted_from='A017'. An id is never reused, even after the item it named is removed or promoted away.",
           "pattern": "^[FA]\\d{3,}$",
           "title": "Id",
           "type": "string"
@@ -183,6 +196,19 @@
           ],
           "default": null,
           "title": "Updated At"
+        },
+        "promoted_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The id this item had in the other layer before a promotion or demotion. Follow the chain to reconstruct an item's epistemic history.",
+          "title": "Promoted From"
         }
       },
       "required": [
@@ -266,6 +292,20 @@
           ],
           "default": null,
           "title": "Last Updated At"
+        },
+        "fact_seq": {
+          "default": 0,
+          "description": "High-water mark for allocated F ids. Persisted so that an id is never reused after its item is removed or promoted into the other layer.",
+          "minimum": 0,
+          "title": "Fact Seq",
+          "type": "integer"
+        },
+        "assumption_seq": {
+          "default": 0,
+          "description": "High-water mark for A ids.",
+          "minimum": 0,
+          "title": "Assumption Seq",
+          "type": "integer"
         }
       },
       "title": "SnapshotMeta",

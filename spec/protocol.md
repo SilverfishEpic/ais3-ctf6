@@ -166,13 +166,19 @@ telemetry but never modifies it. UI formatting is not part of the core.
 
 * IDs look like `F001` / `A001` and are assigned **by Memory Core**, never by a client and
   never by the model.
-* An ID is **immutable for the life of the item**, including across promotion, demotion,
-  a section move, and template reclassification.
-* Consequently the `F`/`A` prefix records where an item was *first created*, not where it
-  currently lives: a promoted `A017` keeps the ID `A017` inside the `fact` map.
-  **Read the epistemic level from the containing map, never from the prefix.**
-* Because IDs survive promotion, a promoted item appears only under `diff.promoted` —
-  never as an addition on one side and a removal on the other.
+* The `F`/`A` prefix **always matches the layer the item currently lives in.**
+* An ID is stable for as long as the item stays in its layer: a section move, an
+  evidence/text update and template reclassification all preserve it.
+* **Crossing layers mints a new ID.** Promoting `A017` produces a new fact `F00N` carrying
+  `promoted_from: "A017"`; demoting is the mirror image. Follow `promoted_from` to
+  reconstruct an item's epistemic history.
+* **An ID is never reused**, even after its item is removed or promoted away. `A001` names
+  exactly one claim for the whole life of the challenge, so every evidence reference and
+  journal record minted under it still resolves. The counters are persisted in
+  `meta.fact_seq` / `meta.assumption_seq`.
+* In the diff, a promotion is reported under the **old** ID in `promoted`, while the new ID
+  appears in `fact_added`. The old ID is deliberately **not** listed in
+  `assumption_removed`: the claim did not go away, it changed epistemic status.
 
 ---
 
@@ -234,8 +240,8 @@ Invariants:
 | `add` | create a Fact or Assumption in a section |
 | `replace` | change an item's text / evidence / tags |
 | `remove` | delete an item |
-| `promote` | Assumption → Fact, ID preserved |
-| `demote` | Fact → Assumption, ID preserved |
+| `promote` | Assumption → Fact; new fact ID, `promoted_from` links back |
+| `demote` | Fact → Assumption; new assumption ID, `promoted_from` links back |
 | `move` | change section only; epistemic level untouched |
 | `mark_tried` | flip a Guessing technique's local `tried` flag |
 

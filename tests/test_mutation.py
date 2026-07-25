@@ -35,7 +35,7 @@ def test_at_least_one_operation_is_required() -> None:
         MemoryMutation(expected_revision=0, actor="ctshen", reason="because", operations=[])
 
 
-def test_human_promotion_preserves_the_id_and_records_actor_and_reason(
+def test_human_promotion_mints_a_fact_id_and_records_actor_and_reason(
     service: MemoryService, demo: str
 ) -> None:
     revision = _seeded(service, demo)
@@ -50,22 +50,96 @@ def test_human_promotion_preserves_the_id_and_records_actor_and_reason(
         ),
     )
 
+    # The old id names the promotion; the new id shows up as the fact that now exists.
     assert envelope.diff.promoted == ["A001"]
-    # A promoted item is *only* promoted: never an add on one side and a remove on the other.
-    assert envelope.diff.fact_added == []
+    assert envelope.diff.fact_added == ["F002"]
+    # The claim did not disappear, so it is not reported as a removal.
     assert envelope.diff.assumption_removed == []
 
     memory = service.read_memory(demo)
-    promoted = [i for items in memory.fact.values() for i in items if i.id == "A001"]
+    promoted = [i for items in memory.fact.values() for i in items if i.promoted_from == "A001"]
     assert len(promoted) == 1
+    assert promoted[0].id == "F002"
+    assert promoted[0].text == "The target may expose an HTTP application."
     assert all(i.id != "A001" for items in memory.assumption.values() for i in items)
 
     record = [r for r in service.journal.records(demo) if r.type == "mutation"][-1]
     assert record.actor == "ctshen"
     assert record.reason == "Verified manually in the browser"
     assert record.operations == [{"op": "promote", "id": "A001", "to": "fact"}]
-    # The override itself becomes citable evidence for the item it changed.
+    # The override itself becomes citable evidence for the item it changed, and the
+    # evidence gathered under the old id carries across.
     assert record.id in promoted[0].evidence
+    assert len(promoted[0].evidence) == 2
+
+
+def test_a_promoted_id_is_never_handed_out_again(service: MemoryService, demo: str) -> None:
+    """Otherwise A001 would name two different claims across the journal's history."""
+
+    revision = _seeded(service, demo)
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="verified",
+            operations=[{"op": "promote", "id": "A001"}],
+        ),
+    )
+    # A001 is now gone from the assumption layer; the next assumption must not reclaim it.
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision + 1,
+            actor="ctshen",
+            reason="new hypothesis",
+            operations=[{"op": "add", "layer": "assumption", "text": "maybe SSRF"}],
+        ),
+    )
+    memory = service.read_memory(demo)
+    assumption_ids = [i.id for items in memory.assumption.values() for i in items]
+    assert assumption_ids == ["A002"]
+
+
+def test_a_removed_id_is_never_handed_out_again(service: MemoryService, demo: str) -> None:
+    revision = _seeded(service, demo)
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="duplicate",
+            operations=[{"op": "remove", "id": "F001"}],
+        ),
+    )
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision + 1,
+            actor="ctshen",
+            reason="confirmed something else",
+            operations=[{"op": "add", "layer": "fact", "text": "TCP/22 is open."}],
+        ),
+    )
+    memory = service.read_memory(demo)
+    assert [i.id for items in memory.fact.values() for i in items] == ["F002"]
+
+
+def test_id_high_water_marks_survive_a_reload(service: MemoryService, demo: str) -> None:
+    """The counters are persisted, so a restart cannot resurrect a retired id."""
+
+    revision = _seeded(service, demo)
+    service.mutate(
+        demo,
+        MemoryMutation(
+            expected_revision=revision,
+            actor="ctshen",
+            reason="verified",
+            operations=[{"op": "promote", "id": "A001"}],
+        ),
+    )
+    reloaded = service.store.load(demo)
+    assert (reloaded.meta.fact_seq, reloaded.meta.assumption_seq) == (2, 1)
 
 
 def test_human_override_does_not_need_new_evidence(service: MemoryService, demo: str) -> None:
@@ -96,9 +170,14 @@ def test_demotion_moves_a_fact_back_without_deleting_it(service: MemoryService, 
         ),
     )
     assert envelope.diff.demoted == ["F001"]
+    assert envelope.diff.assumption_added == ["A002"]
     assert envelope.diff.fact_removed == []
     memory = service.read_memory(demo)
-    assert any(i.id == "F001" for items in memory.assumption.values() for i in items)
+    demoted = [
+        i for items in memory.assumption.values() for i in items if i.promoted_from == "F001"
+    ]
+    assert len(demoted) == 1
+    assert demoted[0].text == "TCP/80 is open."
 
 
 def test_move_changes_section_only(service: MemoryService, demo: str) -> None:

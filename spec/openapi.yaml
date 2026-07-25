@@ -560,9 +560,10 @@ components:
           type: string
           pattern: ^[FA]\d{3,}$
           title: Id
-          description: 'Immutable identity. The F/A prefix records where the item was first created, NOT
-            where it currently lives: a promoted A017 keeps the id A017 inside the fact layer. Clients
-            must read the epistemic level from the containing map, never from the prefix.'
+          description: 'Stable identity within a layer. The F/A prefix always matches the layer the item
+            currently lives in, so crossing layers mints a new id: promoting A017 produces a new F-item
+            carrying promoted_from=''A017''. An id is never reused, even after the item it named is removed
+            or promoted away.'
         text:
           type: string
           title: Text
@@ -592,6 +593,13 @@ components:
           - type: string
           - type: 'null'
           title: Updated At
+        promoted_from:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Promoted From
+          description: The id this item had in the other layer before a promotion or demotion. Follow
+            the chain to reconstruct an item's epistemic history.
       additionalProperties: false
       type: object
       required:
@@ -798,9 +806,10 @@ components:
           type: string
           pattern: ^[FA]\d{3,}$
           title: Id
-          description: 'Immutable identity. The F/A prefix records where the item was first created, NOT
-            where it currently lives: a promoted A017 keeps the id A017 inside the fact layer. Clients
-            must read the epistemic level from the containing map, never from the prefix.'
+          description: 'Stable identity within a layer. The F/A prefix always matches the layer the item
+            currently lives in, so crossing layers mints a new id: promoting A017 produces a new F-item
+            carrying promoted_from=''A017''. An id is never reused, even after the item it named is removed
+            or promoted away.'
         text:
           type: string
           title: Text
@@ -830,6 +839,13 @@ components:
           - type: string
           - type: 'null'
           title: Updated At
+        promoted_from:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Promoted From
+          description: The id this item had in the other layer before a promotion or demotion. Follow
+            the chain to reconstruct an item's epistemic history.
       additionalProperties: false
       type: object
       required:

@@ -434,6 +434,43 @@ def _new_item(
     )
 
 
+def _cross_layer(
+    state: MemorySnapshot,
+    *,
+    item: MemoryItem,
+    to_layer: str,
+    section: str,
+    allocator: IdAllocator,
+    extra_evidence: list[str],
+    now: str,
+) -> MemoryItem:
+    """Move an item into the other epistemic layer under a **new** id.
+
+    Because the ``F``/``A`` prefix always matches the layer an item lives in, crossing
+    layers cannot keep the old id.  The previous id is preserved in ``promoted_from``, so
+    the item's epistemic history stays reconstructible and every diff, journal record and
+    evidence reference minted under the old name still resolves to a real event.
+
+    The caller is responsible for having removed the original from its old layer first.
+    """
+
+    moved = _new_item(
+        to_layer,
+        item_id=allocator.next_for_layer(to_layer),
+        text=item.text,
+        evidence=list(item.evidence) + [e for e in extra_evidence if e not in item.evidence],
+        tags=list(item.tags),
+        actor=item.source_actor,
+        now=now,
+    )
+    # created_at records when the claim first entered the whiteboard, not when it changed
+    # layer; that is what updated_at and promoted_from are for.
+    moved.created_at = item.created_at or now
+    moved.promoted_from = item.id
+    _insert(state, to_layer, section, moved)
+    return moved
+
+
 def _pop(state: MemorySnapshot, item_id: str) -> tuple[str, str, MemoryItem] | None:
     """Remove an item wherever it lives and return ``(layer, section, item)``."""
 
@@ -519,23 +556,29 @@ def _apply_proposal(
         if found is None:
             continue
         _, section, item = found
-        for evidence_id in promotion.evidence:
-            if evidence_id not in item.evidence:
-                item.evidence.append(evidence_id)
-        item.updated_at = now
-        _insert(state, "fact", _section_for(template, "fact", promotion.section or section), item)
+        _cross_layer(
+            state,
+            item=item,
+            to_layer="fact",
+            section=_section_for(template, "fact", promotion.section or section),
+            allocator=allocator,
+            extra_evidence=list(promotion.evidence),
+            now=now,
+        )
 
     for demotion in proposal.demote:
         found = _pop(state, demotion.id)
         if found is None:
             continue
         _, section, item = found
-        item.updated_at = now
-        _insert(
+        _cross_layer(
             state,
-            "assumption",
-            _section_for(template, "assumption", demotion.section or section),
-            item,
+            item=item,
+            to_layer="assumption",
+            section=_section_for(template, "assumption", demotion.section or section),
+            allocator=allocator,
+            extra_evidence=[],
+            now=now,
         )
 
     if proposal.challenge_summary is not None:
@@ -605,10 +648,15 @@ def _apply_mutation(
             layer, section, item = found
             if layer == "fact":
                 raise InvalidRequest(f"{operation.id} is already a fact", id=operation.id)
-            item.evidence.append(record.id)
-            item.updated_at = now
-            _insert(
-                state, "fact", _section_for(template, "fact", operation.section or section), item
+            _cross_layer(
+                state,
+                item=item,
+                to_layer="fact",
+                section=_section_for(template, "fact", operation.section or section),
+                allocator=allocator,
+                # The override record is itself the evidence for a human promotion.
+                extra_evidence=[record.id],
+                now=now,
             )
 
         elif isinstance(operation, DemoteOperation):
@@ -618,13 +666,14 @@ def _apply_mutation(
             layer, section, item = found
             if layer == "assumption":
                 raise InvalidRequest(f"{operation.id} is already an assumption", id=operation.id)
-            item.evidence.append(record.id)
-            item.updated_at = now
-            _insert(
+            _cross_layer(
                 state,
-                "assumption",
-                _section_for(template, "assumption", operation.section or section),
-                item,
+                item=item,
+                to_layer="assumption",
+                section=_section_for(template, "assumption", operation.section or section),
+                allocator=allocator,
+                extra_evidence=[record.id],
+                now=now,
             )
 
         elif isinstance(operation, MoveOperation):

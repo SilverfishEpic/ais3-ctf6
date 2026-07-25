@@ -51,6 +51,7 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
         "tags": [],
         "created_at": memory["fact"]["target"][0]["created_at"],
         "updated_at": memory["fact"]["target"][0]["updated_at"],
+        "promoted_from": None,
     }
     assert memory["assumption"]["next_checks"][0]["text"] == (
         "The target may expose an HTTP application."
@@ -79,7 +80,9 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
             "operations": [{"op": "promote", "id": "A001", "to": "fact"}],
         },
     ).json()
+    # Crossing layers mints a new id; `promoted` names the old one it came from.
     assert promoted["diff"]["promoted"] == ["A001"]
+    assert promoted["diff"]["fact_added"] == ["F002"]
     assert promoted["revision_after"] == 2
 
     # 7-8. the agent returns a normalized run log; revision 2 -> 3
@@ -105,7 +108,8 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
         ),
     ).json()
     assert (agent_ingest["revision_before"], agent_ingest["revision_after"]) == (2, 3)
-    assert agent_ingest["diff"]["fact_added"] == ["F002"]
+    # F002 was consumed by the promotion above and is never reissued.
+    assert agent_ingest["diff"]["fact_added"] == ["F003"]
 
     # 10. a stale revision is refused
     stale = client.post(
@@ -124,9 +128,11 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
     raw_state = yaml.safe_load((runs_dir / "demo-web" / "state.yaml").read_text(encoding="utf-8"))
     reloaded = MemorySnapshot.model_validate(raw_state)
     assert reloaded.revision == 3
-    assert {i.id for _, i in reloaded.iter_facts()} == {"F001", "F002", "A001"}
+    assert {i.id for _, i in reloaded.iter_facts()} == {"F001", "F002", "F003"}
     assert reloaded.iter_assumptions() == []
     assert reloaded.challenge.summary is not None
+    # The id high-water marks are persisted, so a restart cannot reissue A001 or F002.
+    assert (reloaded.meta.fact_seq, reloaded.meta.assumption_seq) == (3, 1)
 
     lines = [
         line for line in (runs_dir / "demo-web" / "journal.jsonl").read_text().splitlines() if line
@@ -136,5 +142,8 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
     # The raw human input survives untouched alongside the summary derived from it.
     assert records[0]["content"]["content"] == "I ran nmap and port 80 is open."
 
-    # A promoted item keeps its id inside the fact layer; the prefix is history, not layer.
-    assert any(i.id == "A001" for _, i in reloaded.iter_facts())
+    # The promoted claim lives in the fact layer under a fact id, with a backlink to the
+    # assumption it grew out of — so the F/A prefix always matches the current layer.
+    promoted_item = next(i for _, i in reloaded.iter_facts() if i.promoted_from == "A001")
+    assert promoted_item.id == "F002"
+    assert promoted_item.text == "The target may expose an HTTP application."

@@ -34,7 +34,7 @@ edits the board during an agent run.
 optimistic concurrency, append-only journal, template registry and reclassification,
 Summarizer protocol with a deterministic offline fake and an AIS3 provider, epistemic
 policy gate, semantic diff, deterministic guessing, controlled mutation, seven-endpoint
-FastAPI surface, generated `spec/`, and 123 offline tests including the agreed end-to-end
+FastAPI surface, generated `spec/`, and 127 offline tests including the agreed end-to-end
 fixture.
 
 ---
@@ -311,17 +311,25 @@ Notes:
 
 IDs are `F001` / `A001`, assigned by Memory Core, never by a client and never by the model.
 
-An ID is **immutable for the life of the item**, across promotion, demotion, section moves
-and template reclassification. **[project choice]** The consequence is deliberate: the
-`F`/`A` prefix records where an item was *first created*, not where it currently lives. A
-promoted `A017` keeps the ID `A017` inside the `fact` map.
+**[project choice]** The `F`/`A` prefix always matches the layer the item currently lives
+in. An ID is stable for as long as the item stays in its layer — section moves, text and
+evidence updates, and template reclassification all preserve it — but **crossing layers
+mints a new ID**. Promoting `A017` produces a new fact `F00N` carrying
+`promoted_from: "A017"`; demoting is the mirror image. Follow the `promoted_from` chain to
+reconstruct an item's epistemic history.
 
-> Clients must read the epistemic level from the containing map, never from the prefix.
+**An ID is never reused**, even after its item is removed or promoted away. This is a
+stronger promise than "unique among current items" and it is the one that matters: a reused
+ID would make the same name refer to two different claims across the journal's history,
+silently invalidating every evidence reference and diff minted under the old name. Keeping
+it requires persisted counters, since scanning only live items would happily reissue `F001`
+after the original was deleted — hence `meta.fact_seq` and `meta.assumption_seq`, which
+only ever go up. The scan over live IDs and over `promoted_from` ancestry is retained as a
+floor, so a hand-edited `state.yaml` with a stale counter still cannot collide.
 
-The alternative — minting a new `F` ID on promotion with a `promoted_from` backlink —
-was considered and rejected because it breaks referential stability for every client
-holding the old ID, and it makes a promotion look like an add plus a remove in the diff.
-See §24 (ADR-1).
+The alternative — preserving the ID across a promotion, so that `A017` lives on inside the
+`fact` map — was considered and rejected: it makes the prefix mean "where this was first
+created", which every client then has to know not to trust. See §24 (ADR-1).
 
 ---
 
@@ -588,8 +596,8 @@ operations only:
 | `add` | create a Fact or Assumption in a section |
 | `replace` | change text / evidence / tags |
 | `remove` | delete an item |
-| `promote` | Assumption → Fact, ID preserved |
-| `demote` | Fact → Assumption, ID preserved |
+| `promote` | Assumption → Fact; new fact ID, `promoted_from` links back |
+| `demote` | Fact → Assumption; new assumption ID, `promoted_from` links back |
 | `move` | change section only; epistemic level untouched |
 | `mark_tried` | flip a Guessing technique's local `tried` flag |
 
@@ -629,9 +637,11 @@ Every successful state-changing operation returns:
 Ingest, mutation and reclassification all funnel through the same `compute_diff(before,
 after)`, so a client never has to special-case the operation that produced a diff.
 
-Because IDs survive promotion, an item crossing layers appears **only** under `promoted` (or
-`demoted`) — never as an addition on one side and a removal on the other. A section change
-is an `*_updated`, not a remove-and-add.
+An item crossing layers is reported under its **old** ID in `promoted` (or `demoted`), while
+its **new** ID appears as an ordinary `fact_added` / `assumption_added`. The old ID is
+deliberately kept out of `*_removed`: the claim did not go away, it changed epistemic
+status, and a client rendering removals must not show it as deleted. A section change is an
+`*_updated`, not a remove-and-add.
 
 `template_changed` is `null` or `{"from": "generic@1", "to": "web@1"}`.
 
@@ -774,7 +784,7 @@ production.
 
 ## 20. Testing strategy
 
-123 tests, all offline, ~2 seconds.
+127 tests, all offline, ~2 seconds.
 
 | file | covers |
 |---|---|
@@ -783,9 +793,9 @@ production.
 | `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; agent tool result can; promotion needs new evidence; IDs stable across updates; no auto-reclassification |
 | `test_templates.py` | missing `general` rejected; duplicate technique IDs rejected; `generic` fallback required; reclassification preserves IDs, levels and evidence; unmappable entries land in `general`; `tried` carried over; attribution journalled |
 | `test_guess.py` | catalog comes from the template; `seed` reproducible; `only_untried`; `mark_tried`; follows the challenge's template; asking for more than exists |
-| `test_mutation.py` | reason mandatory; promotion preserves ID; override records actor/reason; demote keeps the item; move changes only the section; stale revision 409; **rejected mutation leaves no phantom journal record**; no arbitrary patch op |
+| `test_mutation.py` | reason mandatory; promotion mints a fact ID with a `promoted_from` backlink; **a promoted or removed ID is never handed out again, and the high-water marks survive a reload**; override records actor/reason; move changes only the section; stale revision 409; **rejected mutation leaves no phantom journal record**; no arbitrary patch op |
 | `test_concurrency.py` | two clients on one revision — second rejected, no lost update; **human mutation not blocked by an in-flight Summarizer**; bounded rebase then 409 |
-| `test_diff.py` | additions / removals / updates / promotion / demotion / template change; `from` alias on the wire; exact frozen field set |
+| `test_diff.py` | additions / removals / updates / template change; promotion and demotion reported under the **old** ID with the new one as an addition; `promoted_from` alone is not a promotion; `from` alias on the wire; exact frozen field set |
 | `test_query.py` | references only existing IDs; **invented references dropped**; abstains on an empty board; layer filter; read-only |
 | `test_api.py` | all endpoints via `TestClient`; 400 / 404 / 409 / 422 bodies; published paths |
 | `test_spec_drift.py` | `spec/` matches what the code generates; frozen paths and types present; mutation ops are a closed set; shipped templates validate against the published schema |
@@ -851,13 +861,18 @@ Not blocking, and intentionally not started:
 
 ## 24. Open questions and ADR candidates
 
-**ADR-1 — Promotion preserves the item ID.** *(decided, worth a team review)*
-A promoted `A017` stays `A017` inside the `fact` map, so the `F`/`A` prefix is creation
-history, not current layer. Chosen for referential stability and for a clean diff
-(`promoted: ["A017"]` is complete information). The alternative — minting a new `F` ID with
-a `promoted_from` backlink — breaks every client holding the old ID and makes a promotion
-look like an add plus a remove. If the team prefers prefix-equals-layer, this is the one
-place to change it.
+**ADR-1 — Promotion mints a new ID; the prefix always matches the current layer.**
+*(decided)*
+Promoting `A017` produces a new fact `F00N` with `promoted_from: "A017"`. The prefix
+therefore never lies about which layer an item is in, and no client has to learn the rule
+"read the level from the containing map, not the name". The cost is that a client holding
+`A017` must follow the diff to find the successor — which is why `promoted` reports the
+**old** ID, so a stale reference is still resolvable from the diff alone.
+
+The consequence worth flagging: this makes ID reuse possible in a way it was not before,
+because a promoted item vacates its number. Hence the persisted high-water marks in
+`meta.fact_seq` / `meta.assumption_seq` (§7). Those also close a pre-existing hole where
+`remove` freed an ID for reissue.
 
 **ADR-2 — `mark_tried` as a seventh mutation operation.** *(decided)*
 Required for `only_untried` to mean anything. Scoped to flipping a flag on a template-owned
@@ -904,7 +919,7 @@ Complete and verified at the end of this task:
 | Semantic diff | done |
 | HTTP API: 7 endpoints + `/healthz` + list | done |
 | Mock server (`--fake-summarizer`) for Person 2/3 | done |
-| Tests | 123 passing offline, 2 opt-in live, zero network |
+| Tests | 127 passing offline, 2 opt-in live, zero network |
 | `ruff check`, `ruff format --check`, `mypy --strict memory_core` | all clean |
 
 Against 設計規劃書 §20 (MVP acceptance):

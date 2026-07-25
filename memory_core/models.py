@@ -170,10 +170,10 @@ class MemoryItem(_Model):
     id: str = Field(
         pattern=r"^[FA]\d{3,}$",
         description=(
-            "Immutable identity. The F/A prefix records where the item was first created, "
-            "NOT where it currently lives: a promoted A017 keeps the id A017 inside the fact "
-            "layer. Clients must read the epistemic level from the containing map, never "
-            "from the prefix."
+            "Stable identity within a layer. The F/A prefix always matches the layer the "
+            "item currently lives in, so crossing layers mints a new id: promoting A017 "
+            "produces a new F-item carrying promoted_from='A017'. An id is never reused, "
+            "even after the item it named is removed or promoted away."
         ),
     )
     text: str
@@ -184,6 +184,13 @@ class MemoryItem(_Model):
     tags: list[str] = Field(default_factory=list)
     created_at: str | None = None
     updated_at: str | None = None
+    promoted_from: str | None = Field(
+        default=None,
+        description=(
+            "The id this item had in the other layer before a promotion or demotion. "
+            "Follow the chain to reconstruct an item's epistemic history."
+        ),
+    )
 
 
 class FactItem(MemoryItem):
@@ -222,6 +229,15 @@ class ChallengeMeta(_Model):
 class SnapshotMeta(_Model):
     last_input_id: str | None = None
     last_updated_at: str | None = None
+    fact_seq: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "High-water mark for allocated F ids. Persisted so that an id is never reused "
+            "after its item is removed or promoted into the other layer."
+        ),
+    )
+    assumption_seq: int = Field(default=0, ge=0, description="High-water mark for A ids.")
 
 
 class MemorySnapshot(_Model):
