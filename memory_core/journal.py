@@ -28,6 +28,7 @@ from .errors import ChallengeNotFound
 from .ids import source_id
 from .locks import LockRegistry
 from .models import IngestEnvelope, MemoryMutation, SourceRecord
+from .store import require_safe_challenge_id
 
 JOURNAL_FILENAME = "journal.jsonl"
 
@@ -44,7 +45,7 @@ class Journal:
         self.locks = locks or LockRegistry()
 
     def path(self, challenge_id: str) -> Path:
-        return self.runs_dir / challenge_id / JOURNAL_FILENAME
+        return self.runs_dir / require_safe_challenge_id(challenge_id) / JOURNAL_FILENAME
 
     def ensure(self, challenge_id: str) -> None:
         path = self.path(challenge_id)

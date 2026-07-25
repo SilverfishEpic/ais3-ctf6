@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from conftest import agent_run_log, human_note
@@ -84,6 +85,34 @@ def test_ingest_on_unknown_challenge_is_404(client: TestClient) -> None:
     response = client.post("/v1/challenges/nope/ingest", json=human_note("hi"))
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "challenge_not_found"
+
+
+def test_a_path_shaped_challenge_id_is_refused(client: TestClient, runs_dir: Path) -> None:
+    """``..`` must not create a challenge outside ``runs/``.
+
+    It used to return 201 and write ``state.yaml`` into the parent of the runs directory,
+    where ``GET /v1/challenges`` could never see it again.
+    """
+
+    response = client.post("/v1/challenges", json={"id": "..", "title": "escape"})
+    assert response.status_code == 422, response.text
+    assert client.post("/v1/challenges", json={"id": ".", "title": "dot"}).status_code == 422
+
+    assert client.get("/v1/challenges").json() == []
+    assert not (runs_dir.parent / "state.yaml").exists()
+    assert list(runs_dir.iterdir()) == []
+
+
+def test_a_path_shaped_id_in_the_url_is_400_not_a_filesystem_read(client: TestClient) -> None:
+    """The same rule on the path parameter, which request-body validation never sees.
+
+    Percent-encoded so the HTTP client cannot helpfully normalize the ``..`` away before
+    it is sent — the server has to be the one that refuses it.
+    """
+
+    response = client.get("/v1/challenges/%2E%2E/memory")
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["code"] == "invalid_request"
 
 
 def test_read_memory_supports_filters(client: TestClient) -> None:

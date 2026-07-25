@@ -307,6 +307,20 @@ Notes:
 * Metadata is intentionally minimal. **[project choice]** There is no confidence score —
   adding a number nobody tests against would be worse than the two honest layers.
 
+### Challenge ids are names, not paths
+
+A challenge id becomes a directory name under `runs/`, so `CHALLENGE_ID_PATTERN` in
+`models.py` restricts the first character specifically to rule out `.` and `..`. Both look
+like ordinary ids and both resolve outside the runs directory — `..` produced a challenge
+whose `state.yaml` landed in the *parent* of `runs/` and which `GET /v1/challenges` could
+then never list.
+
+The rule is enforced twice on purpose. The request model carries it so it appears in
+`spec/openapi.yaml` and clients can see it, and `store.require_safe_challenge_id` re-checks
+at every point a filesystem path is built — because a challenge id also arrives as a **URL
+path parameter**, where body validation never runs. Guarding path construction rather than
+each endpoint means a new endpoint cannot forget.
+
 ### Identity
 
 IDs are `F001` / `A001`, assigned by Memory Core, never by a client and never by the model.
@@ -840,7 +854,7 @@ server answers 409, which is the contract working rather than a bug.
 
 | file | covers |
 |---|---|
-| `test_store.py` | revision 0 on create; valid YAML after atomic save; no temp files left; stale revision conflicts; corrupt state reported |
+| `test_store.py` | revision 0 on create; valid YAML after atomic save; no temp files left; stale revision conflicts; corrupt state reported; **a path-shaped challenge id (`..`, `.`) is refused by the store, the journal and the request model alike** |
 | `test_journal.py` | human input verbatim; normalized agent run log preserved with provider metadata; append-only; unique IDs; input journalled even on a no-op ingest |
 | `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; agent tool result can; promotion needs new evidence; IDs stable across updates; no auto-reclassification |
 | `test_templates.py` | missing `general` rejected; duplicate technique IDs rejected; `generic` fallback required; reclassification preserves IDs, levels and evidence; unmappable entries land in `general`; `tried` carried over; attribution journalled |
@@ -849,7 +863,7 @@ server answers 409, which is the contract working rather than a bug.
 | `test_concurrency.py` | two clients on one revision — second rejected, no lost update; **human mutation not blocked by an in-flight Summarizer**; bounded rebase then 409 |
 | `test_diff.py` | additions / removals / updates / template change; promotion and demotion reported under the **old** ID with the new one as an addition; `promoted_from` alone is not a promotion; `from` alias on the wire; exact frozen field set |
 | `test_query.py` | references only existing IDs; **invented references dropped**; abstains on an empty board; layer filter; read-only |
-| `test_api.py` | all endpoints via `TestClient`; 400 / 404 / 409 / 422 bodies; published paths |
+| `test_api.py` | all endpoints via `TestClient`; 400 / 404 / 409 / 422 bodies; published paths; **a path-shaped id is refused in the body (422) and in the URL (400)** |
 | `test_spec_drift.py` | `spec/` matches what the code generates; frozen paths and types present; mutation ops are a closed set; shipped templates validate against the published schema |
 | `test_offline_guarantee.py` | the network guard actually blocks; AIS3 provider parsing, repair budget, endpoint URL; **a rejected key maps to `summarizer_unauthorized` (500) and is not swallowed by the classifier fallback**; a timeout maps to a retryable 502 naming the budget — all with a transport double |
 | `test_memctl.py` | the smoke client's rendering: a promotion shows both ids and no spurious removal, a no-op is not shown as a change, every documented error code carries advice |

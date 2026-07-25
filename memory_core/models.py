@@ -28,6 +28,7 @@ Summarizer is structurally incapable of touching the technique catalog.
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -45,6 +46,26 @@ _DEFAULT_QUERY_LAYERS: list[MemoryLayer] = ["fact", "assumption"]
 # The section every template must provide so that reclassification can always find a
 # home for an item it cannot map (共通設計起點 §6).
 GENERAL_SECTION = "general"
+
+#: A challenge id becomes a directory name under ``runs/``, so it must be a *name* and
+#: never a path.  The leading character is restricted specifically to rule out ``.`` and
+#: ``..``, which are valid-looking ids that would otherwise resolve outside the runs
+#: directory and create a challenge that ``GET /v1/challenges`` cannot even list.
+#: ``memory_core.store`` re-checks this on every path it builds, so the guarantee does not
+#: depend on request validation alone.
+CHALLENGE_ID_PATTERN = r"^[A-Za-z0-9_-][A-Za-z0-9._-]*$"
+
+_CHALLENGE_ID_RE = re.compile(CHALLENGE_ID_PATTERN)
+
+
+def is_valid_challenge_id(challenge_id: str) -> bool:
+    """Whether ``challenge_id`` is safe to use as a directory name.
+
+    Kept as a predicate rather than a raising validator so this module stays a pure
+    contract definition; the persistence layer decides which error that maps to.
+    """
+
+    return bool(_CHALLENGE_ID_RE.match(challenge_id))
 
 
 class _Model(BaseModel):
@@ -554,7 +575,7 @@ class ClassificationProposal(_Model):
 
 
 class CreateChallengeRequest(_Model):
-    id: str = Field(pattern=r"^[A-Za-z0-9._-]+$")
+    id: str = Field(pattern=CHALLENGE_ID_PATTERN)
     title: str
     initial_input: str | None = Field(
         default=None,
