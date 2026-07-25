@@ -8,33 +8,22 @@ is the only way Person 2 and Person 3 will ever touch Memory Core.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
 from pathlib import Path
 
-import pytest
 import yaml
-from conftest import agent_run_log, human_note
-from fastapi.testclient import TestClient
+from conftest import ASGITestClient, agent_run_log, human_note
 
-from memory_core.api import create_app
 from memory_core.models import MemorySnapshot
-from memory_core.service import MemoryService
 
 
-@pytest.fixture
-def client(service: MemoryService) -> Iterator[TestClient]:
-    with TestClient(create_app(service)) as test_client:
-        yield test_client
-
-
-def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
+def test_demo_web_end_to_end(asgi_client: ASGITestClient, runs_dir: Path) -> None:
     # 1. create the challenge
-    created = client.post("/v1/challenges", json={"id": "demo-web", "title": "Demo Web"})
+    created = asgi_client.post("/v1/challenges", json={"id": "demo-web", "title": "Demo Web"})
     assert created.status_code == 201
     assert created.json()["revision"] == 0
 
     # 2-4. a human reports an observation; F001 + A001 appear; revision 0 -> 1
-    ingested = client.post(
+    ingested = asgi_client.post(
         "/v1/challenges/demo-web/ingest", json=human_note("I ran nmap and port 80 is open.")
     ).json()
     assert (ingested["revision_before"], ingested["revision_after"]) == (0, 1)
@@ -42,7 +31,7 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
     assert ingested["diff"]["assumption_added"] == ["A001"]
 
     # 5. the Human Client can render the board
-    memory = client.get("/v1/challenges/demo-web/memory").json()
+    memory = asgi_client.get("/v1/challenges/demo-web/memory").json()
     assert memory["fact"]["target"][0] == {
         "id": "F001",
         "text": "TCP/80 is open.",
@@ -58,7 +47,7 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
     )
 
     # 6. an agent reads memory before acting
-    answer = client.post(
+    answer = asgi_client.post(
         "/v1/challenges/demo-web/query", json={"question": "which ports are open?"}
     ).json()
     assert answer["references"] == ["F001"]
@@ -66,12 +55,12 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
 
     # 11. a seeded guess is reproducible
     guess_payload = {"count": 2, "only_untried": True, "seed": 42}
-    first = client.post("/v1/challenges/demo-web/guess", json=guess_payload).json()
-    second = client.post("/v1/challenges/demo-web/guess", json=guess_payload).json()
+    first = asgi_client.post("/v1/challenges/demo-web/guess", json=guess_payload).json()
+    second = asgi_client.post("/v1/challenges/demo-web/guess", json=guess_payload).json()
     assert [c["id"] for c in first["candidates"]] == [c["id"] for c in second["candidates"]]
 
     # 9. a human override, carrying the revision it was based on
-    promoted = client.post(
+    promoted = asgi_client.post(
         "/v1/challenges/demo-web/mutate",
         json={
             "expected_revision": 1,
@@ -86,7 +75,7 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
     assert promoted["revision_after"] == 2
 
     # 7-8. the agent returns a normalized run log; revision 2 -> 3
-    agent_ingest = client.post(
+    agent_ingest = asgi_client.post(
         "/v1/challenges/demo-web/ingest",
         json=agent_run_log(
             [
@@ -112,7 +101,7 @@ def test_demo_web_end_to_end(client: TestClient, runs_dir: Path) -> None:
     assert agent_ingest["diff"]["fact_added"] == ["F003"]
 
     # 10. a stale revision is refused
-    stale = client.post(
+    stale = asgi_client.post(
         "/v1/challenges/demo-web/mutate",
         json={
             "expected_revision": 1,

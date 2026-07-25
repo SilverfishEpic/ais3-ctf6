@@ -8,12 +8,15 @@ so any accidental outbound connection fails loudly here.  The opt-in AIS3 check
 
 from __future__ import annotations
 
+import asyncio
 import socket
 from collections.abc import Iterator
 from pathlib import Path
 
+import httpx
 import pytest
 
+from memory_core.api import create_app
 from memory_core.journal import Journal
 from memory_core.locks import LockRegistry
 from memory_core.service import MemoryService
@@ -27,6 +30,29 @@ TEMPLATES_DIR = REPO_ROOT / "templates"
 
 class NetworkBlocked(RuntimeError):
     pass
+
+
+class ASGITestClient:
+    """Synchronous facade over httpx's in-process ASGI transport."""
+
+    def __init__(self, service: MemoryService) -> None:
+        self.app = create_app(service)
+
+    def get(self, url: str, **kwargs: object) -> httpx.Response:
+        return self._request("GET", url, **kwargs)
+
+    def post(self, url: str, **kwargs: object) -> httpx.Response:
+        return self._request("POST", url, **kwargs)
+
+    def _request(self, method: str, url: str, **kwargs: object) -> httpx.Response:
+        async def send() -> httpx.Response:
+            transport = httpx.ASGITransport(app=self.app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://testserver"
+            ) as test_client:
+                return await test_client.request(method, url, **kwargs)
+
+        return asyncio.run(send())
 
 
 @pytest.fixture(autouse=True)
@@ -62,6 +88,11 @@ def service(runs_dir: Path) -> MemoryService:
     return MemoryService.build(
         runs_dir=runs_dir, templates_dir=TEMPLATES_DIR, summarizer=FakeSummarizer()
     )
+
+
+@pytest.fixture
+def asgi_client(service: MemoryService) -> ASGITestClient:
+    return ASGITestClient(service)
 
 
 @pytest.fixture

@@ -120,6 +120,23 @@ class Journal:
             self._append(challenge_id, record)
         return record
 
+    def rollback_marker(self, challenge_id: str) -> int:
+        """Return the current durable end of the journal for all-or-nothing mutations."""
+
+        path = self.path(challenge_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch(exist_ok=True)
+        return path.stat().st_size
+
+    def rollback_to(self, challenge_id: str, marker: int) -> None:
+        """Remove records appended after ``marker`` and fsync the truncated journal."""
+
+        path = self.path(challenge_id)
+        with open(path, "r+b") as handle:
+            handle.truncate(marker)
+            handle.flush()
+            os.fsync(handle.fileno())
+
     def _append(self, challenge_id: str, record: SourceRecord) -> None:
         path = self.path(challenge_id)
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -157,6 +157,7 @@ def enforce_epistemic_policy(
     snapshot: MemorySnapshot,
     is_direct: EvidenceResolver,
     known_source_ids: set[str],
+    current_source_id: str | None = None,
 ) -> PolicyResult:
     """Apply R1-R5 to a raw proposal.
 
@@ -200,13 +201,51 @@ def enforce_epistemic_policy(
             continue
         kept_promotions.append(promotion.model_copy(update={"evidence": fresh}))
 
-    def _clean_updates(
-        updates: Sequence[ProposedUpdate], allowed: set[str], label: str
-    ) -> list[ProposedUpdate]:
+    def _clean_fact_updates(updates: Sequence[ProposedUpdate]) -> list[ProposedUpdate]:
         cleaned: list[ProposedUpdate] = []
         for update in updates:
-            if update.id not in allowed:
-                notes.append(f"dropped {label} update for unknown id {update.id}")
+            found = snapshot.find(update.id)
+            if found is None or found[0] != "fact":
+                notes.append(f"dropped fact update for unknown id {update.id}")
+                continue
+            _, _, item = found
+            citations = [e for e in update.evidence_add if e in known_source_ids]
+            changes_text = update.text is not None and update.text != item.text
+            if changes_text:
+                updated_text = update.text
+                assert updated_text is not None
+                fresh_current = (
+                    current_source_id is not None
+                    and current_source_id in citations
+                    and current_source_id not in item.evidence
+                    and is_direct(current_source_id)
+                )
+                if not fresh_current:
+                    notes.append(
+                        f"downgraded unsafe fact update to assumption: {updated_text[:60]!r}"
+                    )
+                    downgraded.append(
+                        ProposedItem(
+                            section=update.section or GENERAL_SECTION,
+                            text=updated_text,
+                            evidence=citations,
+                        )
+                    )
+                    continue
+            cleaned.append(
+                update.model_copy(
+                    update={
+                        "evidence_add": citations,
+                    }
+                )
+            )
+        return cleaned
+
+    def _clean_assumption_updates(updates: Sequence[ProposedUpdate]) -> list[ProposedUpdate]:
+        cleaned: list[ProposedUpdate] = []
+        for update in updates:
+            if update.id not in assumption_ids:
+                notes.append(f"dropped assumption update for unknown id {update.id}")
                 continue
             cleaned.append(
                 update.model_copy(
@@ -217,8 +256,8 @@ def enforce_epistemic_policy(
             )
         return cleaned
 
-    fact_updates = _clean_updates(proposal.fact_update, fact_ids, "fact")
-    assumption_updates = _clean_updates(proposal.assumption_update, assumption_ids, "assumption")
+    fact_updates = _clean_fact_updates(proposal.fact_update)
+    assumption_updates = _clean_assumption_updates(proposal.assumption_update)
 
     assumption_removals: list[str] = []
     for item_id in proposal.assumption_remove:
