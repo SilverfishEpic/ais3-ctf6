@@ -34,7 +34,7 @@ edits the board during an agent run.
 optimistic concurrency, append-only journal, template registry and reclassification,
 Summarizer protocol with a deterministic offline fake and an AIS3 provider, epistemic
 policy gate, semantic diff, deterministic guessing, controlled mutation, seven-endpoint
-FastAPI surface, generated `spec/`, and 146 offline tests including the agreed end-to-end
+FastAPI surface, generated `spec/`, and 163 offline tests including the agreed end-to-end
 fixture.
 
 ---
@@ -386,8 +386,14 @@ against, per 共通設計起點 §7.
 ## 9. Classification and reclassification
 
 * A challenge may be classified **once**, at creation, from `initial_input`. If
-  classification fails or returns an unknown template, it falls back to `generic` — an
-  advisory model answer must never block challenge creation.
+  classification fails — an unknown template, unparseable output, a backend that is down,
+  unreachable or too slow — it falls back to `generic`. An advisory model answer must never
+  block challenge creation: the template is a *layout*, not a truth claim, and a wrong one
+  is repaired with one `POST /template`, whereas refusing to create the challenge strands
+  the human with nowhere to put their notes.
+* The single exception is `summarizer_unauthorized`, which is re-raised. A rejected key is
+  a server misconfiguration, and swallowing it would create every challenge as `generic`
+  indefinitely while looking exactly like a classifier that never matches anything (§12).
 * **Normal ingest never auto-reclassifies.** Once the template is set, it stays set.
 * Replacing it is an explicit client operation: `POST /v1/challenges/{id}/template`, with
   `expected_revision`, `actor` and `reason`.
@@ -804,7 +810,7 @@ templates/
 scripts/
   gen_spec.py                    regenerates spec/ ; --check fails on drift
   memctl.py                      smoke-test client -- NOT the Human Client
-tests/                            123 offline tests + 2 opt-in live tests
+tests/                            163 offline tests + 2 opt-in live tests
 runs/                             per-challenge state (gitignored)
 ```
 
@@ -855,13 +861,13 @@ server answers 409, which is the contract working rather than a bug.
 
 ## 20. Testing strategy
 
-146 tests, all offline, ~2 seconds.
+163 tests, all offline, ~3 seconds.
 
 | file | covers |
 |---|---|
 | `test_store.py` | revision 0 on create; valid YAML after atomic save; no temp files left; stale revision conflicts; corrupt state reported; **a path-shaped challenge id (`..`, `.`) is refused by the store, the journal and the request model alike** |
 | `test_journal.py` | human input verbatim; normalized agent run log preserved with provider metadata; append-only; unique IDs; input journalled even on a no-op ingest |
-| `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; agent tool result can; promotion needs new evidence; IDs stable across updates; no auto-reclassification |
+| `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; agent tool result can; promotion needs new evidence; IDs stable across updates; no auto-reclassification; **an unavailable classifier falls back to `generic` while a rejected key still surfaces** |
 | `test_templates.py` | missing `general` rejected; duplicate technique IDs rejected; `generic` fallback required; reclassification preserves IDs, levels and evidence; unmappable entries land in `general`; `tried` carried over; attribution journalled |
 | `test_guess.py` | catalog comes from the template; `seed` reproducible; `only_untried`; `mark_tried`; follows the challenge's template; asking for more than exists |
 | `test_mutation.py` | reason mandatory; promotion mints a fact ID with a `promoted_from` backlink; **a promoted or removed ID is never handed out again, and the high-water marks survive a reload**; override records actor/reason; move changes only the section; stale revision 409; **no rejected mutation — 409 or 400 — leaves a phantom journal record, a batch is all-or-nothing, and the rehearsal burns no IDs**; no arbitrary patch op |
@@ -991,7 +997,7 @@ Complete and verified at the end of this task:
 | Semantic diff | done |
 | HTTP API: 7 endpoints + `/healthz` + list | done |
 | Mock server (`--fake-summarizer`) for Person 2/3 | done |
-| Tests | 146 passing offline, 2 opt-in live (verified against the real backend), zero network |
+| Tests | 163 passing offline, 2 opt-in live (verified against the real backend), zero network |
 | `ruff check`, `ruff format --check`, `mypy --strict memory_core` | all clean |
 
 Against 設計規劃書 §20 (MVP acceptance):
