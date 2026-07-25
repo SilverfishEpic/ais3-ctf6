@@ -1,0 +1,349 @@
+id: rev
+version: 1
+description: Reverse-engineering challenge memory template distilled from Linux ELF RE, advanced anti-analysis RE, and Windows
+  malware RE course material.
+classifier_hints:
+- rev
+- reverse engineering
+- binary
+- ELF
+- PE
+- x86-64
+- assembly
+- IDA
+- x64dbg
+- symbolic execution
+- obfuscation
+- packer
+- anti-debug
+- anti-disassemble
+- malware
+fact_sections:
+- target
+- binary_format
+- architecture
+- loader_layout
+- imports_exports
+- functions
+- data_structures
+- control_flow
+- constants_strings
+- runtime_behavior
+- compiler_artifacts
+- anti_analysis
+- malware_behavior
+- progress
+- general
+assumption_sections:
+- program_intent
+- function_roles
+- validation_logic
+- data_model
+- compiler_hypotheses
+- obfuscation_hypotheses
+- anti_analysis_hypotheses
+- malware_capabilities
+- analysis_paths
+- next_checks
+- general
+guessing:
+- id: REV-API-BREAKPOINT
+  title: Break on Important API Calls
+  tags:
+  - dynamic-analysis
+  - debugger
+  - api
+  - foothold
+- id: REV-MAGIC-SIGNATURE
+  title: Search Magic Bytes and Algorithm Signatures
+  tags:
+  - static-analysis
+  - magic-bytes
+  - signature
+  - crypto
+- id: REV-SOURCE-MATCH
+  title: Match Linked Code against Open Source or BinDiff
+  tags:
+  - static-analysis
+  - source-matching
+  - bindiff
+  - library
+- id: REV-DEBUG-STRINGS
+  title: Use Debug Messages and Strings as Footholds
+  tags:
+  - static-analysis
+  - strings
+  - debug-message
+  - xref
+- id: REV-CALLING-CONVENTION
+  title: Recover and Correct Calling Conventions
+  tags:
+  - x86-64
+  - calling-convention
+  - decompiler
+  - usercall
+- id: REV-STACK-FRAME
+  title: Recover Stack Frames and Local Data
+  tags:
+  - x86-64
+  - stack
+  - frame
+  - locals
+- id: REV-STRUCT-RECOVERY
+  title: Manual Structure Recovery from Memory Accesses
+  tags:
+  - data-structure
+  - struct
+  - type-recovery
+  - ida
+- id: REV-VTABLE-RECOVERY
+  title: Recover C++ VTables and Class Hierarchies
+  tags:
+  - cpp
+  - vtable
+  - inheritance
+  - class-layout
+- id: REV-JUMP-TABLE
+  title: Recognize Switch Jump Tables
+  tags:
+  - control-flow
+  - switch
+  - jump-table
+  - compiler
+- id: REV-TAIL-CALL
+  title: Recognize Tail-Call Optimization
+  tags:
+  - compiler
+  - optimization
+  - tail-call
+- id: REV-LOOP-UNROLL
+  title: Recognize Loop Unrolling
+  tags:
+  - compiler
+  - optimization
+  - loop-unroll
+- id: REV-FAST-DIVISION
+  title: Recognize Strength-Reduced Integer Division
+  tags:
+  - compiler
+  - optimization
+  - division
+  - bitwise
+- id: REV-VECTORIZATION
+  title: Recognize SIMD Vectorization
+  tags:
+  - compiler
+  - optimization
+  - simd
+  - avx
+  - sse
+- id: REV-Z3-CONSTRAINT
+  title: Solve Validation Logic with Z3 Constraints
+  tags:
+  - symbolic
+  - smt
+  - z3
+  - constraints
+- id: REV-ANGR-SYMBOLIC
+  title: Explore Paths with angr Symbolic Execution
+  tags:
+  - symbolic
+  - angr
+  - claripy
+  - path-exploration
+- id: REV-OBF-CONSTANT
+  title: Deobfuscate Computed Constants
+  tags:
+  - obfuscation
+  - constant
+  - simplification
+- id: REV-OBF-CFG-FLATTEN
+  title: Recover Control-Flow Flattening
+  tags:
+  - obfuscation
+  - cfg
+  - flattening
+  - switch
+- id: REV-OBF-STATE-MACHINE
+  title: Recover State-Machine Obfuscation
+  tags:
+  - obfuscation
+  - state-machine
+  - control-flow
+- id: REV-RUNTIME-CODE-MAP
+  title: Trace Runtime-Mapped or Decrypted Code
+  tags:
+  - obfuscation
+  - runtime-code
+  - virtualalloc
+  - mmap
+  - self-modifying
+- id: REV-PACKER-DETECT
+  title: Identify Packed Executables
+  tags:
+  - packer
+  - header
+  - segment
+  - code
+- id: REV-PACKER-TOOL
+  title: Use a Known Unpacker when Available
+  tags:
+  - packer
+  - unpack
+  - upx
+  - tooling
+- id: REV-PACKER-DYNAMIC-DUMP
+  title: Dynamically Unpack and Dump Decrypted Memory
+  tags:
+  - packer
+  - dynamic-analysis
+  - memory-dump
+  - unpack
+- id: REV-VM-PACKER
+  title: Reverse Virtual-Machine Packers
+  tags:
+  - packer
+  - virtual-machine
+  - bytecode
+  - vmprotect
+  - themida
+- id: REV-ANTIDEBUG-TIMING
+  title: Bypass Timing-Based Anti-Debugging
+  tags:
+  - anti-debug
+  - timing
+  - sleep
+  - patch
+  - hook
+- id: REV-ANTIDEBUG-WINAPI
+  title: Bypass Windows API and PEB Debugger Checks
+  tags:
+  - anti-debug
+  - windows
+  - peb
+  - isdebuggerpresent
+  - ntqueryinformationprocess
+- id: REV-ANTIATTACH
+  title: Bypass Anti-Attach Logic
+  tags:
+  - anti-debug
+  - anti-attach
+  - dbg-ui
+  - hook
+- id: REV-ANTIDEBUG-EXCEPTION
+  title: Bypass Exception-Based Anti-Debugging
+  tags:
+  - anti-debug
+  - exception
+  - seh
+  - patch
+- id: REV-ANTIDISASM-LINEAR
+  title: Repair Linear-Sweep Anti-Disassembly
+  tags:
+  - anti-disassemble
+  - linear-sweep
+  - instruction-offset
+  - repair
+- id: REV-ANTIDISASM-CFG
+  title: Repair Control-Flow Anti-Disassembly
+  tags:
+  - anti-disassemble
+  - cfg
+  - fake-jump
+  - repair
+- id: REV-IDA-RETYPE-CODE
+  title: Undefine and Re-mark Misidentified Code/Data
+  tags:
+  - ida
+  - disassembly
+  - undefine
+  - mark-code
+- id: REV-PE-EAT
+  title: Resolve PE Export Address Table Manually
+  tags:
+  - pe
+  - windows
+  - eat
+  - exports
+- id: REV-PE-IAT
+  title: Analyze or Reconstruct the PE Import Address Table
+  tags:
+  - pe
+  - windows
+  - iat
+  - imports
+- id: REV-DYNAMIC-API
+  title: Recover Dynamic API Resolution
+  tags:
+  - windows
+  - peb
+  - eat
+  - api-hash
+  - defense-evasion
+- id: REV-EMBEDDED-PE
+  title: Extract an Embedded Next-Stage PE Payload
+  tags:
+  - pe
+  - embedded-payload
+  - stage
+  - extraction
+- id: REV-SANDBOX-DELAY
+  title: Identify Sleep or Time-Delay Sandbox Evasion
+  tags:
+  - malware
+  - sandbox-evasion
+  - sleep
+  - timing
+- id: REV-MUTEX
+  title: Analyze Malware Mutex Usage
+  tags:
+  - malware
+  - mutex
+  - reinfection
+  - indicator
+- id: REV-PERSISTENCE-STARTUP
+  title: Trace Startup-Folder or Autostart Persistence
+  tags:
+  - malware
+  - persistence
+  - startup-folder
+  - registry
+- id: REV-PROCESS-INJECTION
+  title: Recognize Remote-Thread Process Injection
+  tags:
+  - malware
+  - process-injection
+  - virtualallocex
+  - writeprocessmemory
+  - createremotethread
+- id: REV-REFLECTIVE-DLL
+  title: Recover Reflective DLL Injection / Manual Mapping
+  tags:
+  - malware
+  - dll
+  - reflective-injection
+  - relocation
+  - iat
+- id: REV-C2-PROTOCOL
+  title: Reverse a Custom C2 Protocol
+  tags:
+  - malware
+  - network
+  - c2
+  - protocol
+  - wireshark
+- id: REV-C2-DECRYPT
+  title: Recover and Decrypt Exfiltrated C2 Data
+  tags:
+  - malware
+  - network
+  - exfiltration
+  - crypto
+  - pcap
+- id: REV-MITRE-MAP
+  title: Map Observed Malware Behavior to ATT&CK Techniques
+  tags:
+  - malware
+  - behavior
+  - mitre-attack
+  - triage
