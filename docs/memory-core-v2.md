@@ -34,7 +34,7 @@ edits the board during an agent run.
 optimistic concurrency, append-only journal, template registry and reclassification,
 Summarizer protocol with a deterministic offline fake and an AIS3 provider, epistemic
 policy gate, semantic diff, deterministic guessing, controlled mutation, seven-endpoint
-FastAPI surface, generated `spec/`, and 127 offline tests including the agreed end-to-end
+FastAPI surface, generated `spec/`, and 133 offline tests including the agreed end-to-end
 fixture.
 
 ---
@@ -511,6 +511,7 @@ Source: <https://github.com/chunying/ais3-ai-infra>
 AIS3_BASE_URL=https://llm-api.zoolab.org/v1
 AIS3_API_KEY=...
 AIS3_SUMMARIZER_MODEL=ais3/nemotron-3-ultra-550b
+AIS3_TIMEOUT=300          # read timeout in seconds; see "Failure modes" below
 ```
 
 `memory_core/providers/ais3.py` uses only the baseline OpenAI-compatible
@@ -518,8 +519,36 @@ AIS3_SUMMARIZER_MODEL=ais3/nemotron-3-ultra-550b
 structured-output extension is assumed.** The contract is: ask for JSON in the prompt,
 extract it (tolerating code fences and leading prose), validate against the typed model,
 and allow **one bounded repair round-trip** that feeds the validation error back. If that
-fails, raise `proposal_invalid` rather than commit something unvalidated. Transport
-failures surface as `summarizer_unavailable` (502).
+fails, raise `proposal_invalid` rather than commit something unvalidated.
+
+### Failure modes, measured against the real backend
+
+A live probe of `llm-api.zoolab.org` produced two findings that shaped the error handling.
+
+**Latency is dominated by contention, not by input size.** The same two live tests took
+3.2s on one run and 78.4s on the next; a single `summarize` was observed at 57s. The read
+timeout is therefore `AIS3_TIMEOUT`, defaulting to a generous **300s**, while the connect
+timeout stays at 10s so an unreachable host still fails fast. A long read budget is cheap
+here precisely because ingest holds **no lock** during the model call: one slow request
+delays that one ingest and nothing else, whereas a tight timeout throws away work that was
+about to succeed. A timeout surfaces as `summarizer_unavailable` (502) and says so — the
+input is already journalled, so the ingest can simply be retried.
+
+**A rejected key is not an outage.** The backend answers `401` with
+`{"error": {"message": "Authentication Error, No api key passed in.", ...}}`. Reporting that
+as 502 would invite a retry that can never succeed, and reporting it as 401 would suggest
+the *caller* needs to authenticate when in fact the operator of this service has to set
+`AIS3_API_KEY`. It therefore maps to a distinct `summarizer_unauthorized` (500), carrying
+the upstream message in `error.details`. `classify()` and `answer()` degrade gracefully on
+unparseable output but deliberately **do not** swallow this error — otherwise a bad key
+would silently create every challenge as `generic` and nobody would notice.
+
+That upstream text is **redacted before it is stored or returned**. LiteLLM echoes the
+rejected key and its hash straight back — `Received API Key = sk-...rong, Key Hash (Token)
+= 7b31d7a4…` — and that string would otherwise land in an HTTP response body and in logs.
+Its own partial redaction is not something to rely on from an arbitrary proxy, so
+`sk-*` tokens, long hex digests and `Bearer` values are scrubbed on the way through. The
+diagnosis survives; the credential does not.
 
 Secrets live only in the environment; `.env.example` documents the variables and contains
 no key.
@@ -706,7 +735,8 @@ network-filesystem multi-writer, no external DB transaction.
 | `challenge_not_found`, `template_not_found` | 404 | |
 | `challenge_exists`, `revision_conflict` | 409 | |
 | `proposal_invalid` | 422 | Summarizer output failed schema validation after the repair budget |
-| `summarizer_unavailable` | 502 | backend transport failure |
+| `summarizer_unavailable` | 502 | backend down, unreachable or slower than `AIS3_TIMEOUT` — **retryable**, since the input is already journalled |
+| `summarizer_unauthorized` | 500 | the server's AIS3 key was rejected — **not** retryable; deliberately not 502 (which invites a retry that can never work) and not 401 (which would imply the *caller* must authenticate) |
 | `state_corrupt`, `invalid_template`, `internal_error` | 500 | |
 
 FastAPI's own request-body validation failures return its standard 422. Domain errors are
@@ -784,7 +814,7 @@ production.
 
 ## 20. Testing strategy
 
-127 tests, all offline, ~2 seconds.
+133 tests, all offline, ~2 seconds.
 
 | file | covers |
 |---|---|
@@ -799,7 +829,7 @@ production.
 | `test_query.py` | references only existing IDs; **invented references dropped**; abstains on an empty board; layer filter; read-only |
 | `test_api.py` | all endpoints via `TestClient`; 400 / 404 / 409 / 422 bodies; published paths |
 | `test_spec_drift.py` | `spec/` matches what the code generates; frozen paths and types present; mutation ops are a closed set; shipped templates validate against the published schema |
-| `test_offline_guarantee.py` | the network guard actually blocks; AIS3 provider parsing, repair budget, transport failure, endpoint URL — all with a transport double |
+| `test_offline_guarantee.py` | the network guard actually blocks; AIS3 provider parsing, repair budget, endpoint URL; **a rejected key maps to `summarizer_unauthorized` (500) and is not swallowed by the classifier fallback**; a timeout maps to a retryable 502 naming the budget — all with a transport double |
 | `test_e2e_demo_web.py` | the agreed 共通設計起點 §10 fixture, over HTTP, reloaded from disk |
 | `test_ais3_live.py` | opt-in only (`-m live`), skipped without a key |
 
@@ -919,7 +949,7 @@ Complete and verified at the end of this task:
 | Semantic diff | done |
 | HTTP API: 7 endpoints + `/healthz` + list | done |
 | Mock server (`--fake-summarizer`) for Person 2/3 | done |
-| Tests | 127 passing offline, 2 opt-in live, zero network |
+| Tests | 133 passing offline, 2 opt-in live (verified against the real backend), zero network |
 | `ruff check`, `ruff format --check`, `mypy --strict memory_core` | all clean |
 
 Against 設計規劃書 §20 (MVP acceptance):

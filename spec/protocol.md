@@ -281,7 +281,8 @@ GET  /healthz
 | `challenge_not_found`, `template_not_found` | 404 |
 | `challenge_exists`, `revision_conflict` | 409 |
 | `proposal_invalid` | 422 |
-| `summarizer_unavailable` | 502 |
+| `summarizer_unavailable` | 502 | backend down or too slow — **retryable**, the input is already journalled |
+| `summarizer_unauthorized` | 500 | the server's AIS3 key was rejected — **not** retryable, an operator must fix it |
 | `state_corrupt`, `invalid_template`, `internal_error` | 500 |
 
 FastAPI request-body validation failures return its standard 422.

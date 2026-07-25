@@ -102,8 +102,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
-          description: Summarizer backend unavailable
+          description: Summarizer backend unavailable or too slow
           content:
             application/json:
               schema:
@@ -161,8 +167,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
-          description: Summarizer backend unavailable
+          description: Summarizer backend unavailable or too slow
           content:
             application/json:
               schema:
@@ -231,8 +243,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
-          description: Summarizer backend unavailable
+          description: Summarizer backend unavailable or too slow
           content:
             application/json:
               schema:
@@ -289,8 +307,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
-          description: Summarizer backend unavailable
+          description: Summarizer backend unavailable or too slow
           content:
             application/json:
               schema:
@@ -347,8 +371,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
-          description: Summarizer backend unavailable
+          description: Summarizer backend unavailable or too slow
           content:
             application/json:
               schema:
@@ -406,8 +436,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
-          description: Summarizer backend unavailable
+          description: Summarizer backend unavailable or too slow
           content:
             application/json:
               schema:
@@ -464,8 +500,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server misconfigured, e.g. a rejected AIS3 key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
-          description: Summarizer backend unavailable
+          description: Summarizer backend unavailable or too slow
           content:
             application/json:
               schema:

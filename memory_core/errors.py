@@ -63,8 +63,27 @@ class ProposalInvalid(MemoryCoreError):
 
 
 class SummarizerUnavailable(MemoryCoreError):
+    """The Summarizer backend failed to answer: down, unreachable, or too slow.
+
+    Retryable.  The input is already in the journal, so retrying the ingest is safe.
+    """
+
     code = "summarizer_unavailable"
     status = 502
+
+
+class SummarizerUnauthorized(MemoryCoreError):
+    """The Summarizer backend rejected *our* credentials.
+
+    Deliberately **not** a 502 and deliberately not a 401.  502 would tell the client to
+    retry, and this never succeeds on retry.  401 would suggest the caller needs to
+    authenticate to Memory Core, when in fact the operator of this service has to fix an
+    environment variable.  500 says the right thing: the server is misconfigured, a human
+    must intervene, do not retry.
+    """
+
+    code = "summarizer_unauthorized"
+    status = 500
 
 
 class StateCorrupt(MemoryCoreError):
