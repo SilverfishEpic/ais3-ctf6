@@ -1,0 +1,453 @@
+id: web
+version: 1
+description: Web security challenge memory template distilled from the Web week 1-3 course material and generalized from the user's historical
+  Web CTF solving records Guessing catalog v2 is deliberately coarsened to independently actionable technique families.
+classifier_hints:
+- web
+- HTTP
+- HTTPS
+- browser
+- cookie
+- session
+- API
+- REST
+- GraphQL
+- OAuth
+- upload
+- HTML
+- JavaScript
+- PHP
+- Flask
+- Rails
+- Nginx
+- proxy
+- WAF
+- SQL
+- SSRF
+- XSS
+fact_sections:
+- target
+- endpoints
+- technologies
+- http_behavior
+- input_surfaces
+- authentication
+- session_state
+- authorization
+- file_operations
+- server_side_requests
+- client_side_behavior
+- internal_services
+- secrets_artifacts
+- validated_behavior
+- progress
+- general
+assumption_sections:
+- attack_surface
+- trust_boundaries
+- input_hypotheses
+- authentication_hypotheses
+- authorization_hypotheses
+- business_logic_hypotheses
+- injection_hypotheses
+- file_operation_hypotheses
+- ssrf_hypotheses
+- deserialization_hypotheses
+- parser_hypotheses
+- client_side_hypotheses
+- attack_paths
+- next_checks
+- general
+guessing:
+- id: WEB-FINGERPRINT
+  title: Application Surface and Technology Discovery
+  tags:
+  - recon
+  - fingerprinting
+  - stack
+  - routes
+  - hidden-paths
+  - api
+  - openapi
+  - graphql
+  - schema
+  - introspection
+- id: WEB-VCS-LEAK
+  title: Source, Artifact, and Debug Information Disclosure
+  tags:
+  - recon
+  - information-leak
+  - git
+  - svn
+  - backup
+  - swap
+  - deployment-artifact
+  - debug
+  - error
+  - source-map
+  - frontend
+  - source
+- id: WEB-PATH-TRAVERSAL
+  title: Path Traversal and Canonicalization Bypass
+  tags:
+  - file
+  - path
+  - traversal
+  - absolute-path
+  - canonicalization
+  - normalization
+  - decoding
+  - encoding
+- id: WEB-LFI
+  title: Local File Inclusion / PHP Wrapper Exploitation
+  tags:
+  - file
+  - include
+  - lfi
+  - php
+  - wrapper
+  - php-filter
+  - log-poisoning
+  - procfs
+  - environ
+  - session
+  - upload-progress
+  - phpinfo
+  - pear
+  - filter-chain
+  - wrapwrap
+  - rce
+- id: WEB-FILE-UPLOAD-RCE
+  title: File Upload Validation Bypass / Executable Upload
+  tags:
+  - upload
+  - file
+  - rce
+  - webshell
+  - extension
+  - mime
+  - polyglot
+  - parser
+  - validation
+- id: WEB-ARBITRARY-FILE-WRITE
+  title: Arbitrary File Write / Overwrite
+  tags:
+  - file
+  - write
+  - overwrite
+  - predictable-name
+  - code
+  - template
+  - authorized-keys
+  - ssh
+  - persistence
+  - rce
+- id: WEB-CODE-INJECTION
+  title: Server-Side Code / Expression Injection
+  tags:
+  - injection
+  - code
+  - eval
+  - expression
+  - python
+  - format-string
+  - format-map
+  - information-leak
+  - rce
+- id: WEB-SSTI
+  title: Server-Side Template Injection
+  tags:
+  - injection
+  - template
+  - ssti
+  - jinja2
+  - flask
+  - python
+  - erb
+  - smarty
+  - twig
+  - ejs
+  - object-graph
+  - gadget
+  - rce
+- id: WEB-COMMAND-INJECTION
+  title: OS Command / Argument Injection
+  tags:
+  - injection
+  - command
+  - shell
+  - argument
+  - gtfobins
+  - rce
+- id: WEB-SQLI
+  title: SQL Injection
+  tags:
+  - database
+  - sql
+  - injection
+  - union
+  - blind
+  - boolean
+  - time
+  - error
+  - oob
+  - stacked-query
+  - file-read
+  - os-command
+  - rce
+- id: WEB-NOSQL-INJECTION
+  title: NoSQL / Non-SQL Query-Language Injection
+  tags:
+  - database
+  - nosql
+  - query-language
+  - surrealdb
+  - surrealql
+  - injection
+- id: WEB-CRLF-INJECTION
+  title: CRLF / Header Injection
+  tags:
+  - http
+  - crlf
+  - header
+  - injection
+- id: WEB-HPP
+  title: HTTP Parameter Pollution / Duplicate-Parameter Abuse
+  tags:
+  - http
+  - query
+  - parameter
+  - pollution
+  - duplicate-parameter
+- id: WEB-SSRF
+  title: Server-Side Request Forgery and Internal-Service Access
+  tags:
+  - ssrf
+  - server-side
+  - request
+  - blind
+  - oob
+  - dns-callback
+  - file-scheme
+  - protocol
+  - ftp
+  - ldap
+  - dict
+  - gopher
+  - tcp
+  - mysql
+  - redis
+  - php-fpm
+  - fastcgi
+  - webhook
+  - fetch
+  - internal-service
+  - exfiltration
+- id: WEB-SSRF-CLOUD-METADATA
+  title: SSRF to Cloud Metadata / Identity Endpoints
+  tags:
+  - ssrf
+  - cloud
+  - metadata
+  - imds
+  - credential
+  - token
+- id: WEB-SSRF-URL-PARSER
+  title: SSRF Filter / URL-Parsing Bypass
+  tags:
+  - ssrf
+  - filter-bypass
+  - redirect
+  - dns-rebinding
+  - url-parser
+  - ip-encoding
+  - ip-obfuscation
+  - ipv6
+  - ipv4-mapped
+  - https
+  - tls
+- id: WEB-INSECURE-DESERIALIZATION
+  title: Insecure Deserialization / Object-Gadget Exploitation
+  tags:
+  - deserialization
+  - object
+  - gadget
+  - rce
+  - python
+  - pickle
+  - reduce
+  - php
+  - unserialize
+  - pop-chain
+  - phpggc
+  - phar
+  - session
+  - dotnet
+  - reflection
+  - type-loading
+  - tls-validation
+- id: WEB-HTTP-PARSER-DISCREPANCY
+  title: HTTP Parser / Frontend-Backend Interpretation Mismatch
+  tags:
+  - http
+  - parser
+  - proxy
+  - backend
+  - request-line
+  - header
+  - body
+  - multipart
+  - access-control
+  - waf-bypass
+- id: WEB-WAF-NORMALIZATION-BYPASS
+  title: WAF Normalization / Canonicalization Bypass
+  tags:
+  - waf
+  - normalization
+  - canonicalization
+  - encoding
+  - bypass
+- id: WEB-REQUEST-SMUGGLING
+  title: HTTP Request Smuggling / Desynchronization
+  tags:
+  - http
+  - http2
+  - request-smuggling
+  - desync
+  - cl-te
+  - te-cl
+  - h2-cl
+  - h2-te
+  - cl-0
+  - 0-cl
+- id: WEB-AUTHZ-BYPASS
+  title: Broken Authorization / Object or Function Access Control
+  tags:
+  - authorization
+  - access-control
+  - idor
+  - bola
+  - bfla
+  - admin
+  - graphql
+  - hidden-operation
+  - http-method
+  - method-override
+- id: WEB-SESSION-COOKIE-TAMPER
+  title: Session Integrity / Cookie Forgery and State Confusion
+  tags:
+  - session
+  - cookie
+  - tampering
+  - forgery
+  - signature
+  - secret
+  - fixation
+  - state-confusion
+  - integrity
+- id: WEB-OAUTH-ACCOUNT-CONFUSION
+  title: OAuth / OIDC Account-Linking or Identity Confusion
+  tags:
+  - oauth
+  - oidc
+  - authentication
+  - account-linking
+  - identity-confusion
+- id: WEB-PROXY-HEADER-TRUST
+  title: Trusted Reverse-Proxy Header Abuse
+  tags:
+  - proxy
+  - header
+  - trust
+  - ip
+  - authentication
+  - authorization
+- id: WEB-BUSINESS-LOGIC
+  title: Business-Logic / Workflow State Abuse
+  tags:
+  - logic
+  - workflow
+  - state
+  - race
+  - ordering
+- id: WEB-RESPONSE-ORACLE
+  title: Response / Error / Timing Oracle for Secret Extraction
+  tags:
+  - oracle
+  - blind
+  - exfiltration
+  - status-code
+  - error
+  - timing
+- id: WEB-CSRF
+  title: Cross-Site Request Forgery and Same-Site Policy Bypass
+  tags:
+  - browser
+  - csrf
+  - session
+  - samesite
+  - subdomain
+  - token
+  - validation
+- id: WEB-XSS
+  title: Cross-Site Scripting and HTML/DOM Injection
+  tags:
+  - browser
+  - xss
+  - html-injection
+  - reflected
+  - stored
+  - dom
+  - self-xss
+  - context
+  - parser
+  - encoding
+  - length-constraint
+  - mutation
+  - sanitizer
+  - script-gadget
+- id: WEB-CSP-WHITELIST-BYPASS
+  title: Content-Security-Policy Bypass
+  tags:
+  - browser
+  - csp
+  - xss
+  - whitelist
+  - trusted-cdn
+  - open-redirect
+  - path-normalization
+- id: WEB-DOM-CLOBBERING
+  title: DOM Clobbering
+  tags:
+  - browser
+  - dom
+  - clobbering
+  - javascript
+  - gadget
+- id: WEB-CSS-INJECTION
+  title: CSS Injection / CSS-Based Data Exfiltration
+  tags:
+  - browser
+  - css
+  - injection
+  - exfiltration
+  - selector
+  - attribute-selector
+- id: WEB-XSLEAK-TIMING
+  title: Cross-Site Leak / Browser Side-Channel
+  tags:
+  - browser
+  - xs-leak
+  - timing
+  - frame-count
+  - iframe
+  - side-channel
+- id: WEB-PROTOTYPE-POLLUTION
+  title: JavaScript Prototype Pollution and Gadget Abuse
+  tags:
+  - javascript
+  - prototype
+  - pollution
+  - gadget
+  - xss
+  - privilege-impact
