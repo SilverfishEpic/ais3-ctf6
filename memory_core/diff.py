@@ -31,12 +31,37 @@ def _changed(before: tuple[str, MemoryItem], after: tuple[str, MemoryItem]) -> b
     )
 
 
+def _crossed(
+    arrivals: dict[str, tuple[str, MemoryItem]],
+    departed_from: dict[str, tuple[str, MemoryItem]],
+    still_present: set[str],
+) -> list[str]:
+    """Find items that changed layer, reported under their **previous** id.
+
+    Crossing layers mints a new id, so a promotion is recognised by an arrival in the
+    target layer whose ``promoted_from`` names an item that used to be in the source layer
+    and is no longer anywhere.  Reporting the old id keeps ``promoted`` meaningful to a
+    client holding a stale reference; the new id shows up in ``fact_added`` alongside it.
+    """
+
+    return sorted(
+        {
+            item.promoted_from
+            for _, item in arrivals.values()
+            if item.promoted_from
+            and item.promoted_from in departed_from
+            and item.promoted_from not in still_present
+        }
+    )
+
+
 def compute_diff(before: MemorySnapshot, after: MemorySnapshot) -> MemoryDiff:
     """Compare two snapshots.
 
-    Promotion and demotion are detected by an ID crossing between layers.  Because IDs
-    are preserved across a promotion, a promoted item appears **only** under ``promoted``
-    — never as an addition on one side and a removal on the other.
+    Promotion and demotion are reported under the item's **old** id, while the new id
+    appears as an ordinary addition in the target layer.  The old id is deliberately kept
+    out of ``*_removed``: the claim did not go away, it changed epistemic status, and a
+    client that renders removals should not show it as deleted.
     """
 
     before_facts = _index(before.iter_facts())
@@ -44,10 +69,11 @@ def compute_diff(before: MemorySnapshot, after: MemorySnapshot) -> MemoryDiff:
     before_assumptions = _index(before.iter_assumptions())
     after_assumptions = _index(after.iter_assumptions())
 
-    promoted = sorted(set(before_assumptions) & set(after_facts))
-    demoted = sorted(set(before_facts) & set(after_assumptions))
+    surviving = set(after_facts) | set(after_assumptions)
+    promoted = _crossed(after_facts, before_assumptions, surviving)
+    demoted = _crossed(after_assumptions, before_facts, surviving)
 
-    fact_added = sorted(set(after_facts) - set(before_facts) - set(promoted))
+    fact_added = sorted(set(after_facts) - set(before_facts))
     fact_removed = sorted(set(before_facts) - set(after_facts) - set(demoted))
     fact_updated = sorted(
         item_id
@@ -55,7 +81,7 @@ def compute_diff(before: MemorySnapshot, after: MemorySnapshot) -> MemoryDiff:
         if _changed(before_facts[item_id], after_facts[item_id])
     )
 
-    assumption_added = sorted(set(after_assumptions) - set(before_assumptions) - set(demoted))
+    assumption_added = sorted(set(after_assumptions) - set(before_assumptions))
     assumption_removed = sorted(set(before_assumptions) - set(after_assumptions) - set(promoted))
     assumption_updated = sorted(
         item_id

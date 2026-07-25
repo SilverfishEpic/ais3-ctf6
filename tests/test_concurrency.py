@@ -76,7 +76,7 @@ def test_two_clients_on_the_same_revision_cannot_both_win(
 
     # Alice's change stands; Bob was told to re-read rather than silently overwriting it.
     memory = service.read_memory(demo)
-    assert any(i.id == "A001" for items in memory.fact.values() for i in items)
+    assert any(i.promoted_from == "A001" for items in memory.fact.values() for i in items)
     assert memory.revision == revision + 1
 
 
