@@ -3,6 +3,7 @@ name = "ctf-memory-system"
 version = "0.1.0"
 description = "Memory Core and Agent Bridge for the shared CTF whiteboard"
 requires-python = ">=3.12"
+license = { file = "LICENSE" }
 dependencies = [
     "pydantic>=2.7",
     "fastapi>=0.110",
