@@ -86,7 +86,7 @@ def test_unknown_template_raises(registry: TemplateRegistry) -> None:
 
 
 def test_shipped_templates_are_valid(registry: TemplateRegistry) -> None:
-    assert {"generic", "web", "pwn", "rev", "crypto"} <= set(registry.ids())
+    assert set(registry.ids()) == {"crypto", "generic", "pwn", "rev", "web"}
 
 
 # -- reclassification --------------------------------------------------------
@@ -105,7 +105,8 @@ def _snapshot() -> MemorySnapshot:
             "attack_paths": [AssumptionItem(id="A002", text="maybe auth confusion")],
         },
         guessing=GuessingState(
-            catalog="generic@1", state={"GEN-ENUM": GuessingTechniqueState(tried=True)}
+            catalog="generic@1",
+            state={"GEN-ENUMERATION": GuessingTechniqueState(tried=True)},
         ),
     )
 
@@ -141,7 +142,7 @@ def test_reclassification_replaces_the_guessing_catalog(registry: TemplateRegist
     result = reclassify(_snapshot(), registry.get("web"))
     assert result.guessing.catalog == "web@1"
     assert set(result.guessing.state) == {t.id for t in registry.get("web").guessing}
-    assert "GEN-ENUM" not in result.guessing.state  # no longer in the catalog
+    assert "GEN-ENUMERATION" not in result.guessing.state  # no longer in the catalog
 
 
 def test_reclassification_carries_tried_state_for_surviving_techniques(

@@ -57,7 +57,7 @@ def test_only_untried_filters_marked_techniques(service: MemoryService, demo: st
             operations=[{"op": "mark_tried", "technique": technique, "tried": True}],
         ),
     )
-    untried = service.guess(demo, GuessRequest(count=10, only_untried=True))
+    untried = service.guess(demo, GuessRequest(count=50, only_untried=True))
     everything = service.guess(demo, GuessRequest(count=50, only_untried=False))
 
     assert technique not in {c.id for c in untried.candidates}
@@ -77,7 +77,7 @@ def test_marking_an_unknown_technique_is_rejected(service: MemoryService, demo: 
                 expected_revision=0,
                 actor="ctshen",
                 reason="typo",
-                operations=[{"op": "mark_tried", "technique": "WEB-SQLI"}],
+                operations=[{"op": "mark_tried", "technique": "NO-SUCH-TECHNIQUE"}],
             ),
         )
 

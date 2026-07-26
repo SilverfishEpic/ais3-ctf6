@@ -11,6 +11,9 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 - [Contracts](contracts.md) - how clients should use the shared API.
 - [Branch Strategy](branch-strategy.md) - dependency and merge policy.
 - [Roadmap](roadmap.md) - realistic future phases and exit criteria.
+- [Agent Bridge](agent-bridge.md) - Claude adapter, loop behavior, memory skill boundary.
+- [Templates](templates.md) - category catalog ownership and validation.
+- [Agent Bridge real SDK findings](agent-bridge/real-sdk-findings.md) - sanitized replay-shape notes.
 
 ## Historical Design Material
 

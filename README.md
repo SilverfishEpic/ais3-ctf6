@@ -21,13 +21,15 @@ reviewed against `memory-system`, not directly against `main`, until Memory Core
 
 - `memory_core/` - canonical Memory Core implementation.
 - `human_client/` - Human CLI package; exposes the `ctfmem` console command.
+- `agent_bridge/` - Agent Bridge package; owns Claude adapter, loop behavior, and memory skill.
 - `spec/` - normative protocol, OpenAPI, and JSON schemas.
-- `templates/` - minimal Memory Core fixture templates only.
+- `templates/` - curated CTF category catalogs used by Memory Core guessing.
 - `scripts/memctl.py` - developer/admin helper for exercising Memory Core.
 - `docs/` - maintained documentation index, architecture notes, contracts, and roadmap.
 
-Agent Bridge implementations belong on their own branches. Memory Core and Human CLI must
-not contain Claude orchestration, YOLO loops, or full CTF technique catalogs.
+Memory Core is the only semantic-memory writer. Human CLI and Agent Bridge reach it
+through the public HTTP/OpenAPI contract; neither client writes `state.yaml` or
+`journal.jsonl` directly.
 
 ## Human CLI quick start
 
@@ -52,7 +54,7 @@ Use Python 3.12.
 ```bash
 uv run --python 3.12 --extra dev pytest
 uv run --python 3.12 --extra dev ruff check .
-uv run --python 3.12 --extra dev mypy memory_core
+uv run --python 3.12 --extra dev mypy memory_core human_client agent_bridge
 uv run --python 3.12 --extra dev python scripts/gen_spec.py --check
 ```
 

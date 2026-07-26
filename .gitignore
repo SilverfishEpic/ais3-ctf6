@@ -23,6 +23,7 @@ build/
 .ruff_cache/
 *.venv
 .venv/
+.venv-*/
 
 # OS
 .DS_Store
@@ -40,4 +41,12 @@ runs/
 .env.local
 .secrets.env
 .secrets.*
+
 uv.lock
+
+# Agent Bridge local runtime artifacts.
+.workspaces/
+
+# fixtures/ holds real Claude recordings with local paths redacted in place
+# (tools/redact_fixtures.py). They must remain trackable — a synthesized
+# stand-in cannot exercise truncation or give the Summarizer realistic input.
