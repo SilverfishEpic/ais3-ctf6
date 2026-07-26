@@ -1,17 +1,43 @@
-.codex
-.agent
-.claude
-.env
-.env.*
-!.env.example
-.secrets.env
-.secrets.*
-.venv/
+# IDE / editor
+.vscode/
+
+# OpenCode / OMO
+.omo/
+
+# CodeGraph index
+.codegraph/
+*.out
+
+# Patches
+patches/
+
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
 *.egg-info/
+dist/
+build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.venv
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+rounds.jsonl
+transcripts/
 runs/
+
+# Environment
+.env
+.env.*
+!.env.example
+.env.local
+.secrets.env
+.secrets.*
 uv.lock
