@@ -84,7 +84,7 @@ def process(path: Path, *, write: bool) -> tuple[int, bool]:
     # 先確認「不打碼就重寫」能還原成原檔,否則這支腳本會悄悄改壞格式
     lossless = "\n".join(dump(row) for row in rows) + "\n" == original
 
-    redacted, hits = zip(*(walk(row) for row in rows)) if rows else ((), ())
+    redacted, hits = zip(*(walk(row) for row in rows), strict=True) if rows else ((), ())
     total = sum(hits)
 
     if write and total:

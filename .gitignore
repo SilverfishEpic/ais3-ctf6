@@ -1,24 +1,51 @@
-.venv/
-.venv-*/
+# IDE / editor
+.vscode/
+
+# OpenCode / OMO
+.omo/
+
+# CodeGraph index
+.codegraph/
+*.out
+
+# Patches
+patches/
+
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
 *.egg-info/
+dist/
+build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+*.venv
+.venv/
+.venv-*/
 
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+rounds.jsonl
+transcripts/
+runs/
+
+# Environment
 .env
 .env.*
 !.env.example
+.env.local
 .secrets.env
 .secrets.*
 
-runs/
 uv.lock
 
 # Agent Bridge local runtime artifacts.
 .workspaces/
-transcripts/
 
 # fixtures/ holds real Claude recordings with local paths redacted in place
 # (tools/redact_fixtures.py). They must remain trackable — a synthesized

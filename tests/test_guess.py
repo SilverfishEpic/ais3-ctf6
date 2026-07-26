@@ -47,7 +47,7 @@ def test_different_seeds_can_draw_different_sets(service: MemoryService, demo: s
 
 
 def test_only_untried_filters_marked_techniques(service: MemoryService, demo: str) -> None:
-    technique = "GEN-ENUMERATION"
+    technique = service.guess(demo, GuessRequest(count=1, only_untried=False)).candidates[0].id
     service.mutate(
         demo,
         MemoryMutation(

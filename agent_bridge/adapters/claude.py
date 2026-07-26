@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
@@ -25,6 +25,7 @@ from agent_bridge.envelope import build_envelope
 from agent_bridge.normalize import normalize, rows_from_live
 from agent_bridge.protocols import RunResult
 from agent_bridge.sandbox import ToolPolicy, sandbox_hooks
+from agent_bridge.sdk_compat import to_sdk_hooks
 from agent_bridge.truncate import TruncationPolicy
 
 SessionKind = Literal["same", "new"]
@@ -93,8 +94,11 @@ class ClaudeAdapter:
             permission_mode="bypassPermissions",
             # 不載入使用者/專案的 settings，免得實驗被別的環境設定污染
             setting_sources=None,
-            hooks=merge_hooks(sandbox_hooks(self.tool_policy), self._collector.hooks()),
-            mcp_servers=self.mcp_servers,
+            hooks=cast(
+                Any,
+                to_sdk_hooks(merge_hooks(sandbox_hooks(self.tool_policy), self._collector.hooks())),
+            ),
+            mcp_servers=cast(Any, self.mcp_servers),
             max_turns=self.max_turns,
             max_budget_usd=self.max_budget_usd,
             model=self.model,

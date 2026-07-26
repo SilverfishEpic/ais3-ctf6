@@ -323,8 +323,7 @@ class TemplateDefinition(_Model):
     """A CTF category template.
 
     Memory Core owns the loader, the schema and the reclassification algorithm.  The
-    real per-category technique content is Person 3's deliverable; the templates shipped
-    here are minimal fixtures.
+    per-category technique content is supplied by the template component.
     """
 
     id: str = Field(pattern=r"^[a-z0-9_-]+$")

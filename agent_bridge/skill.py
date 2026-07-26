@@ -51,7 +51,7 @@ def build_memory_server(
 ) -> Any:
     """做出一個綁定到特定 challenge 的 MCP server。"""
 
-    @tool(  # type: ignore[untyped-decorator]
+    @tool(
         "memory_show",
         "顯示共享白板目前的完整內容。開場已經給過你一份，這個工具是用來"
         "確認手上的資訊有沒有過期。" + READ_ONLY,
@@ -69,7 +69,7 @@ def build_memory_server(
             candidates = result.get("candidates")
         return _text(render_board(snapshot, policy, guess_candidates=candidates))
 
-    @tool(  # type: ignore[untyped-decorator]
+    @tool(
         "memory_query",
         "用自然語言問白板上已經確認了什麼。回答只會根據白板現況，"
         "不會憑空推論。" + READ_ONLY,
@@ -90,7 +90,7 @@ def build_memory_server(
             answer += f"\n\n（依據：{', '.join(references)}）"
         return _text(answer)
 
-    @tool(  # type: ignore[untyped-decorator]
+    @tool(
         "memory_guess",
         "卡住的時候用。從這個題型的技術清單裡抽幾個還沒試過的方向。"
         "這些是**建議**不是事實，要自己驗證。" + READ_ONLY,

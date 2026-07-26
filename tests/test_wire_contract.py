@@ -125,7 +125,7 @@ def test_every_event_conforms(name: str) -> None:
     for event in envelope(name)["input"]["events"]:
         extra = set(event) - EVENT_KEYS
         assert not extra, f"{name}: 事件多帶了 contract 不允許的欄位 {sorted(extra)}"
-        assert EVENT_REQUIRED <= set(event)
+        assert set(event) >= EVENT_REQUIRED
         assert event["role"] in ROLES
         assert event["kind"] in KINDS
         assert isinstance(event["seq"], int) and event["seq"] >= 1

@@ -20,14 +20,32 @@ reviewed against `memory-system`, not directly against `main`, until Memory Core
 ## Current Components
 
 - `memory_core/` - canonical Memory Core implementation.
+- `human_client/` - Human CLI package; exposes the `ctfmem` console command.
+- `agent_bridge/` - Agent Bridge package; owns Claude adapter, loop behavior, and memory skill.
 - `spec/` - normative protocol, OpenAPI, and JSON schemas.
-- `templates/` - Agent Bridge-owned curated CTF category catalogs on this branch.
+- `templates/` - curated CTF category catalogs used by Memory Core guessing.
 - `scripts/memctl.py` - developer/admin helper for exercising Memory Core.
 - `docs/` - maintained documentation index, architecture notes, contracts, and roadmap.
 
-Human Client implementations belong on their own branch. This branch adds Agent Bridge
-code, Claude orchestration, replay fixtures, and real template catalogs on top of the
-Memory Core baseline.
+Memory Core is the only semantic-memory writer. Human CLI and Agent Bridge reach it
+through the public HTTP/OpenAPI contract; neither client writes `state.yaml` or
+`journal.jsonl` directly.
+
+## Human CLI quick start
+
+`ctfmem` is the human-facing HTTP client for Memory Core. The most reliable invocation is
+through `uv run`:
+
+```bash
+uv run ctfmem --help
+```
+
+If you install the package with `uv pip install -e .`, the executable is installed inside
+the project virtual environment. Use `source .venv/bin/activate` on Linux/macOS or
+`.\.venv\Scripts\Activate.ps1` on Windows PowerShell before calling `ctfmem` directly.
+
+Full installation and Linux/Windows usage notes are in
+[`docs/human-cli.md`](docs/human-cli.md).
 
 ## Local Verification
 
@@ -36,7 +54,7 @@ Use Python 3.12.
 ```bash
 uv run --python 3.12 --extra dev pytest
 uv run --python 3.12 --extra dev ruff check .
-uv run --python 3.12 --extra dev mypy memory_core agent_bridge
+uv run --python 3.12 --extra dev mypy memory_core human_client agent_bridge
 uv run --python 3.12 --extra dev python scripts/gen_spec.py --check
 ```
 
