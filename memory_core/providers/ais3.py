@@ -48,9 +48,11 @@ There are exactly two layers you may write to:
 
 Rules you must obey:
   1. Every fact you propose must cite at least one evidence source id from the input.
-  2. Direct evidence means a tool/command result, or a first-hand human observation
-     ("I ran nmap and port 80 is open"). It does NOT mean an inference, yours or anyone
-     else's. An agent saying "this is probably SQL injection" is never evidence.
+  2. Direct evidence means a human command_result, an agent tool_result whose outcome is
+     succeeded or failed, or a first-hand human observation ("I ran nmap and port 80 is
+     open"). Agent tool_results with denied, interrupted, unknown, or missing outcome
+     are not executed observations. Direct evidence does NOT mean an inference, yours or
+     anyone else's. An agent saying "this is probably SQL injection" is never evidence.
   3. A human's reasoning or guess is an ASSUMPTION, even when it sounds convincing.
      A human's report of something they directly observed may be a FACT.
   4. If the evidence is insufficient, write an ASSUMPTION or write nothing. Do not fill

@@ -61,7 +61,13 @@ def test_ingest_accepts_a_normalized_agent_run_log(asgi_client: ASGITestClient) 
         json=agent_run_log(
             [
                 {"seq": 1, "role": "assistant", "kind": "message", "content": "checking"},
-                {"seq": 2, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                {
+                    "seq": 2,
+                    "role": "tool",
+                    "kind": "tool_result",
+                    "content": "NX enabled",
+                    "outcome": "succeeded",
+                },
             ]
         ),
     )
