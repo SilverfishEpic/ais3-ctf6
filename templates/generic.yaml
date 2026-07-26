@@ -1,40 +1,177 @@
-# Generic fallback template.
-#
-# OWNERSHIP: Memory Core (Person 1) owns the template *schema*, the loader and the
-# reclassification algorithm. The real per-category CTF technique catalogs are Person 3's
-# deliverable. This file is a minimal fixture — do not grow it into a taxonomy here.
-#
-# Invariants enforced by memory_core/templates.py:
-#   - fact_sections must contain 'general'
-#   - assumption_sections must contain 'general'
-#   - guessing technique ids are unique and stable within a template version
 id: generic
 version: 1
-description: Generic CTF challenge with no category-specific layout.
-
-classifier_hints: []
-
+description: Fallback template for CTF challenges that do not match an available category-specific template, are still insufficiently
+  classified, or intentionally span multiple domains. Its Guessing catalog contains only broad, independently actionable cross-domain
+  technique families.
+classifier_hints:
+- misc
+- other
+- unknown
+- uncategorized
+- hybrid
+- multi-domain
+- custom challenge
 fact_sections:
-  - target
-  - artifacts
-  - progress
-  - general
-
+- target
+- artifacts
+- environment
+- interfaces
+- inputs_outputs
+- formats
+- observed_behavior
+- recovered_data
+- validated_relations
+- progress
+- general
 assumption_sections:
-  - attack_paths
-  - next_checks
-  - general
-
+- challenge_model
+- attack_surface
+- data_hypotheses
+- structure_hypotheses
+- behavior_hypotheses
+- attack_paths
+- next_checks
+- general
 guessing:
-  - id: GEN-ENUM
-    title: Enumerate everything the challenge exposes
-    tags: [recon]
-    description: List files, ports, endpoints and metadata before forming a theory.
-  - id: GEN-STRINGS
-    title: Inspect raw content for embedded hints
-    tags: [recon, artifacts]
-    description: strings/xxd/exiftool style inspection of provided artifacts.
-  - id: GEN-SOURCE
-    title: Re-read the provided source or description carefully
-    tags: [recon]
-    description: Challenge text and source often state the intended bug directly.
+- id: GEN-ARTIFACT-TRIAGE
+  title: Artifact and Format Triage
+  tags:
+  - artifact
+  - format
+  - metadata
+  - signature
+  - structure
+- id: GEN-DYNAMIC-OBSERVATION
+  title: Dynamic Observation of Challenge Behavior
+  tags:
+  - runtime
+  - execution
+  - sandbox
+  - trace
+  - behavior
+- id: GEN-ENUMERATION
+  title: Systematic Enumeration of Reachable Objects and Inputs
+  tags:
+  - enumeration
+  - discovery
+  - inputs
+  - objects
+- id: GEN-ENCODING
+  title: Encoding and Representation Decoding
+  tags:
+  - encoding
+  - base64
+  - hex
+  - unicode
+  - representation
+- id: GEN-CONTAINER
+  title: Archive, Compression, and Nested Container Extraction
+  tags:
+  - archive
+  - compression
+  - container
+  - nested
+- id: GEN-CARVING
+  title: Embedded or Concatenated Data Carving
+  tags:
+  - carving
+  - magic
+  - offset
+  - embedded-data
+- id: GEN-TRANSFORM
+  title: Custom Transformation Inversion
+  tags:
+  - transform
+  - decode
+  - pipeline
+  - inversion
+- id: GEN-DIFFERENTIAL
+  title: Differential and Comparative Analysis
+  tags:
+  - diff
+  - comparison
+  - variants
+  - controlled-input
+- id: GEN-PROTOCOL
+  title: Custom Format or Protocol Reverse Engineering
+  tags:
+  - protocol
+  - file-format
+  - parser
+  - serialization
+- id: GEN-STATE-MACHINE
+  title: State-Machine and Sequence Reasoning
+  tags:
+  - state-machine
+  - sequence
+  - workflow
+  - transition
+- id: GEN-CONSTRAINT
+  title: Constraint and Equation Solving
+  tags:
+  - constraint
+  - solver
+  - equation
+  - symbolic
+- id: GEN-BRUTE-FORCE
+  title: Bounded Search and Brute Force
+  tags:
+  - bruteforce
+  - search
+  - parameter
+  - small-space
+- id: GEN-ORACLE
+  title: Error, Timing, or Behavioral Oracle
+  tags:
+  - oracle
+  - error
+  - timing
+  - side-channel
+  - behavior
+- id: GEN-HIDDEN-DATA
+  title: Hidden-Data and Steganographic Extraction
+  tags:
+  - hidden-data
+  - steganography
+  - channel
+  - bit-plane
+- id: GEN-FORENSIC-RECOVERY
+  title: Forensic Artifact Recovery and Correlation
+  tags:
+  - forensics
+  - recovery
+  - timeline
+  - logs
+  - memory
+  - filesystem
+- id: GEN-TRAFFIC
+  title: Network Traffic and Service Analysis
+  tags:
+  - network
+  - pcap
+  - traffic
+  - service
+  - packet
+- id: GEN-OSINT
+  title: External Source and Identifier Correlation
+  tags:
+  - osint
+  - lookup
+  - identifier
+  - correlation
+- id: GEN-SIGNAL
+  title: Hardware and Signal-Trace Analysis
+  tags:
+  - hardware
+  - signal
+  - uart
+  - logic
+  - trace
+- id: GEN-PACKAGE-ASSET
+  title: Package, Resource, and Asset Inspection
+  tags:
+  - package
+  - resource
+  - asset
+  - mobile
+  - game

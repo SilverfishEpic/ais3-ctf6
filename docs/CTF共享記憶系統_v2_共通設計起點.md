@@ -228,12 +228,15 @@ Person 3 負責真實 CTF template 內容。
 Mock server / fixture：
 
 ```text
-POST /ingest
-GET  /memory
-POST /query
-POST /guess
-POST /mutate
-POST /template
+POST /v1/challenges
+GET  /v1/challenges
+POST /v1/challenges/{challenge_id}/ingest
+GET  /v1/challenges/{challenge_id}/memory
+POST /v1/challenges/{challenge_id}/query
+POST /v1/challenges/{challenge_id}/guess
+POST /v1/challenges/{challenge_id}/mutate
+POST /v1/challenges/{challenge_id}/template
+GET  /healthz
 ```
 
 ### Person 2 提供
@@ -263,6 +266,9 @@ FakeAgentAdapter
 ```text
 templates/generic.yaml
 templates/web.yaml
+templates/pwn.yaml
+templates/rev.yaml
+templates/crypto.yaml
 ```
 
 ---

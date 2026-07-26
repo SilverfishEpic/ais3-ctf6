@@ -86,7 +86,7 @@ def test_unknown_template_raises(registry: TemplateRegistry) -> None:
 
 
 def test_shipped_templates_are_valid(registry: TemplateRegistry) -> None:
-    assert registry.ids() == ["generic", "web"]
+    assert {"generic", "web", "pwn", "rev", "crypto"} <= set(registry.ids())
 
 
 # -- reclassification --------------------------------------------------------

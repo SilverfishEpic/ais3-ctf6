@@ -1,7 +1,7 @@
 """Template registry, layout application and reclassification.
 
-Memory Core owns the *contract* and the *algorithm*; Person 3 owns the real per-category
-technique content.  The templates shipped here are minimal fixtures.
+Memory Core owns the *contract* and the *algorithm*; the template component owns the
+per-category technique content.
 
 The governing principle for reclassification (設計規劃書 §7.3):
 

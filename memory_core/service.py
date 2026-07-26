@@ -26,7 +26,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .diff import compute_diff
-from .errors import ChallengeNotFound, InvalidRequest, RevisionConflict, SummarizerUnauthorized
+from .errors import (
+    ChallengeNotFound,
+    InvalidRequest,
+    RevisionConflict,
+    SummarizerUnauthorized,
+    SummarizerUnavailable,
+)
 from .ids import IdAllocator
 from .journal import Journal, utc_now
 from .locks import LockRegistry
@@ -152,10 +158,11 @@ class MemoryService:
                 # misconfiguration, and swallowing it would quietly create every challenge
                 # as `generic` with nobody the wiser (memory-core-v2.md §12).
                 raise
-            except Exception:
-                # Classification is advisory. A backend that is down, slow or incoherent
-                # must not stop a human from opening a challenge — the template can always
-                # be corrected afterwards with POST /template.
+            except SummarizerUnavailable:
+                # Classification is advisory. A backend that is down or too slow must not
+                # stop a human from opening a challenge — the template can always be
+                # corrected afterwards with POST /template. Programming/contract errors
+                # still surface because silently masking them corrupts every new board.
                 template = self.templates.get("generic")
         else:
             template = self.templates.get("generic")
@@ -226,6 +233,7 @@ class MemoryService:
                 snapshot=snapshot,
                 is_direct=evidence_resolver(records),
                 known_source_ids={r.id for r in records},
+                current_source_id=record.id,
             )
             proposal = policy.proposal
 
@@ -361,15 +369,24 @@ class MemoryService:
             )
         template = self.templates.get(self.store.load(challenge_id).challenge.template)
 
+        rollback_marker: int | None = None
+
         def apply(state: MemorySnapshot) -> MemorySnapshot:
+            nonlocal rollback_marker
             # Rehearse on a throwaway copy first.  Running the real applier rather than a
             # parallel validator is deliberate: a separate list of preconditions would be
             # free to drift away from the operations it claims to check.
             _apply_mutation(state.model_copy(deep=True), mutation, _REHEARSAL_RECORD, template)
+            rollback_marker = self.journal.rollback_marker(challenge_id)
             record = self.journal.append_mutation(challenge_id, mutation)
             return _apply_mutation(state, mutation, record, template)
 
-        before, after = self.store.commit(challenge_id, mutation.expected_revision, apply)
+        try:
+            before, after = self.store.commit(challenge_id, mutation.expected_revision, apply)
+        except BaseException:
+            if rollback_marker is not None:
+                self.journal.rollback_to(challenge_id, rollback_marker)
+            raise
         return DiffEnvelope(
             revision_before=before.revision,
             revision_after=after.revision,
@@ -391,7 +408,11 @@ class MemoryService:
             )
         template = self.templates.get(request.template)
 
+        rollback_marker: int | None = None
+
         def apply(state: MemorySnapshot) -> MemorySnapshot:
+            nonlocal rollback_marker
+            rollback_marker = self.journal.rollback_marker(challenge_id)
             self.journal.append_template_change(
                 challenge_id,
                 actor=request.actor,
@@ -403,7 +424,12 @@ class MemoryService:
             updated.meta.last_updated_at = utc_now()
             return updated
 
-        before, after = self.store.commit(challenge_id, request.expected_revision, apply)
+        try:
+            before, after = self.store.commit(challenge_id, request.expected_revision, apply)
+        except BaseException:
+            if rollback_marker is not None:
+                self.journal.rollback_to(challenge_id, rollback_marker)
+            raise
         return DiffEnvelope(
             revision_before=before.revision,
             revision_after=after.revision,
@@ -519,7 +545,9 @@ def _insert(state: MemorySnapshot, layer: str, section: str, item: MemoryItem) -
         )
 
 
-def _apply_update(state: MemorySnapshot, update: ProposedUpdate, now: str) -> None:
+def _apply_update(
+    state: MemorySnapshot, update: ProposedUpdate, now: str, template: TemplateDefinition
+) -> None:
     found = _pop(state, update.id)
     if found is None:
         return
@@ -530,7 +558,8 @@ def _apply_update(state: MemorySnapshot, update: ProposedUpdate, now: str) -> No
         if evidence_id not in item.evidence:
             item.evidence.append(evidence_id)
     item.updated_at = now
-    _insert(state, layer, update.section or section, item)
+    requested = update.section if update.section is not None else section
+    _insert(state, layer, _section_for(template, layer, requested), item)
 
 
 def _apply_proposal(
@@ -570,9 +599,9 @@ def _apply_proposal(
         add("assumption", proposed)
 
     for update in proposal.fact_update:
-        _apply_update(state, update, now)
+        _apply_update(state, update, now, template)
     for update in proposal.assumption_update:
-        _apply_update(state, update, now)
+        _apply_update(state, update, now, template)
 
     for item_id in proposal.assumption_remove:
         _pop(state, item_id)

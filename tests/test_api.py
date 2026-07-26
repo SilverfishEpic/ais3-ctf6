@@ -2,34 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
 
-import pytest
-from conftest import agent_run_log, human_note
-from fastapi.testclient import TestClient
-
-from memory_core.api import create_app
-from memory_core.service import MemoryService
+from conftest import ASGITestClient, agent_run_log, human_note
 
 
-@pytest.fixture
-def client(service: MemoryService) -> Iterator[TestClient]:
-    with TestClient(create_app(service)) as test_client:
-        yield test_client
-
-
-def _create(client: TestClient, challenge_id: str = "demo-web") -> None:
+def _create(client: ASGITestClient, challenge_id: str = "demo-web") -> None:
     response = client.post("/v1/challenges", json={"id": challenge_id, "title": "Demo Web"})
     assert response.status_code == 201, response.text
 
 
-def test_healthz(client: TestClient) -> None:
-    assert client.get("/healthz").json() == {"status": "ok"}
+def test_healthz(asgi_client: ASGITestClient) -> None:
+    assert asgi_client.get("/healthz").json() == {"status": "ok"}
 
 
-def test_create_challenge_returns_revision_zero(client: TestClient) -> None:
-    response = client.post("/v1/challenges", json={"id": "c1", "title": "C1"})
+def test_create_challenge_returns_revision_zero(asgi_client: ASGITestClient) -> None:
+    response = asgi_client.post("/v1/challenges", json={"id": "c1", "title": "C1"})
     assert response.status_code == 201
     assert response.json() == {
         "challenge_id": "c1",
@@ -39,22 +27,22 @@ def test_create_challenge_returns_revision_zero(client: TestClient) -> None:
     }
 
 
-def test_duplicate_challenge_is_409(client: TestClient) -> None:
-    _create(client, "c1")
-    response = client.post("/v1/challenges", json={"id": "c1", "title": "C1"})
+def test_duplicate_challenge_is_409(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client, "c1")
+    response = asgi_client.post("/v1/challenges", json={"id": "c1", "title": "C1"})
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "challenge_exists"
 
 
-def test_list_challenges(client: TestClient) -> None:
-    _create(client, "a")
-    _create(client, "b")
-    assert client.get("/v1/challenges").json() == ["a", "b"]
+def test_list_challenges(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client, "a")
+    _create(asgi_client, "b")
+    assert asgi_client.get("/v1/challenges").json() == ["a", "b"]
 
 
-def test_ingest_returns_a_semantic_diff(client: TestClient) -> None:
-    _create(client)
-    response = client.post(
+def test_ingest_returns_a_semantic_diff(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    response = asgi_client.post(
         "/v1/challenges/demo-web/ingest", json=human_note("I ran nmap and port 80 is open.")
     )
     assert response.status_code == 200
@@ -66,14 +54,20 @@ def test_ingest_returns_a_semantic_diff(client: TestClient) -> None:
     assert body["source_id"].startswith("I-")
 
 
-def test_ingest_accepts_a_normalized_agent_run_log(client: TestClient) -> None:
-    _create(client)
-    response = client.post(
+def test_ingest_accepts_a_normalized_agent_run_log(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    response = asgi_client.post(
         "/v1/challenges/demo-web/ingest",
         json=agent_run_log(
             [
                 {"seq": 1, "role": "assistant", "kind": "message", "content": "checking"},
-                {"seq": 2, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                {
+                    "seq": 2,
+                    "role": "tool",
+                    "kind": "tool_result",
+                    "content": "NX enabled",
+                    "outcome": "succeeded",
+                },
             ]
         ),
     )
@@ -81,68 +75,74 @@ def test_ingest_accepts_a_normalized_agent_run_log(client: TestClient) -> None:
     assert response.json()["diff"]["fact_added"] == ["F001"]
 
 
-def test_ingest_on_unknown_challenge_is_404(client: TestClient) -> None:
-    response = client.post("/v1/challenges/nope/ingest", json=human_note("hi"))
+def test_ingest_on_unknown_challenge_is_404(asgi_client: ASGITestClient) -> None:
+    response = asgi_client.post("/v1/challenges/nope/ingest", json=human_note("hi"))
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "challenge_not_found"
 
 
-def test_a_path_shaped_challenge_id_is_refused(client: TestClient, runs_dir: Path) -> None:
+def test_a_path_shaped_challenge_id_is_refused(
+    asgi_client: ASGITestClient, runs_dir: Path
+) -> None:
     """``..`` must not create a challenge outside ``runs/``.
 
     It used to return 201 and write ``state.yaml`` into the parent of the runs directory,
     where ``GET /v1/challenges`` could never see it again.
     """
 
-    response = client.post("/v1/challenges", json={"id": "..", "title": "escape"})
+    response = asgi_client.post("/v1/challenges", json={"id": "..", "title": "escape"})
     assert response.status_code == 422, response.text
-    assert client.post("/v1/challenges", json={"id": ".", "title": "dot"}).status_code == 422
+    assert asgi_client.post("/v1/challenges", json={"id": ".", "title": "dot"}).status_code == 422
 
-    assert client.get("/v1/challenges").json() == []
+    assert asgi_client.get("/v1/challenges").json() == []
     assert not (runs_dir.parent / "state.yaml").exists()
     assert list(runs_dir.iterdir()) == []
 
 
-def test_a_path_shaped_id_in_the_url_is_400_not_a_filesystem_read(client: TestClient) -> None:
+def test_a_path_shaped_id_in_the_url_is_400_not_a_filesystem_read(
+    asgi_client: ASGITestClient,
+) -> None:
     """The same rule on the path parameter, which request-body validation never sees.
 
     Percent-encoded so the HTTP client cannot helpfully normalize the ``..`` away before
     it is sent — the server has to be the one that refuses it.
     """
 
-    response = client.get("/v1/challenges/%2E%2E/memory")
+    response = asgi_client.get("/v1/challenges/%2E%2E/memory")
     assert response.status_code == 400, response.text
     assert response.json()["error"]["code"] == "invalid_request"
 
 
-def test_read_memory_supports_filters(client: TestClient) -> None:
-    _create(client)
-    client.post("/v1/challenges/demo-web/ingest", json=human_note("port 80 is open"))
+def test_read_memory_supports_filters(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    asgi_client.post("/v1/challenges/demo-web/ingest", json=human_note("port 80 is open"))
 
-    everything = client.get("/v1/challenges/demo-web/memory").json()
+    everything = asgi_client.get("/v1/challenges/demo-web/memory").json()
     assert everything["fact"]["target"][0]["id"] == "F001"
     assert everything["guessing"]["catalog"] == "generic@1"
 
-    facts_only = client.get("/v1/challenges/demo-web/memory", params={"layer": "fact"}).json()
+    facts_only = asgi_client.get(
+        "/v1/challenges/demo-web/memory", params={"layer": "fact"}
+    ).json()
     assert facts_only["assumption"] == {}
     assert facts_only["guessing"] is None
 
-    section = client.get(
+    section = asgi_client.get(
         "/v1/challenges/demo-web/memory", params={"layer": "fact", "section": "target"}
     ).json()
     assert list(section["fact"]) == ["target"]
 
 
-def test_unknown_layer_is_rejected_by_the_schema(client: TestClient) -> None:
-    _create(client)
-    response = client.get("/v1/challenges/demo-web/memory", params={"layer": "guessing2"})
+def test_unknown_layer_is_rejected_by_the_schema(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    response = asgi_client.get("/v1/challenges/demo-web/memory", params={"layer": "guessing2"})
     assert response.status_code == 422
 
 
-def test_query_endpoint(client: TestClient) -> None:
-    _create(client)
-    client.post("/v1/challenges/demo-web/ingest", json=human_note("port 80 is open"))
-    response = client.post(
+def test_query_endpoint(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    asgi_client.post("/v1/challenges/demo-web/ingest", json=human_note("port 80 is open"))
+    response = asgi_client.post(
         "/v1/challenges/demo-web/query", json={"question": "which ports are open?"}
     )
     assert response.status_code == 200
@@ -151,19 +151,19 @@ def test_query_endpoint(client: TestClient) -> None:
     assert body["revision"] == 1
 
 
-def test_guess_endpoint_is_seeded(client: TestClient) -> None:
-    _create(client)
+def test_guess_endpoint_is_seeded(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
     payload = {"count": 2, "only_untried": True, "seed": 1337}
-    first = client.post("/v1/challenges/demo-web/guess", json=payload).json()
-    second = client.post("/v1/challenges/demo-web/guess", json=payload).json()
+    first = asgi_client.post("/v1/challenges/demo-web/guess", json=payload).json()
+    second = asgi_client.post("/v1/challenges/demo-web/guess", json=payload).json()
     assert [c["id"] for c in first["candidates"]] == [c["id"] for c in second["candidates"]]
     assert first["catalog"] == "generic@1"
 
 
-def test_mutate_endpoint(client: TestClient) -> None:
-    _create(client)
-    client.post("/v1/challenges/demo-web/ingest", json=human_note("port 80 is open"))
-    response = client.post(
+def test_mutate_endpoint(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    asgi_client.post("/v1/challenges/demo-web/ingest", json=human_note("port 80 is open"))
+    response = asgi_client.post(
         "/v1/challenges/demo-web/mutate",
         json={
             "expected_revision": 1,
@@ -176,10 +176,10 @@ def test_mutate_endpoint(client: TestClient) -> None:
     assert response.json()["diff"]["promoted"] == ["A001"]
 
 
-def test_stale_mutation_is_409_with_the_current_revision(client: TestClient) -> None:
-    _create(client)
-    client.post("/v1/challenges/demo-web/ingest", json=human_note("port 80 is open"))
-    response = client.post(
+def test_stale_mutation_is_409_with_the_current_revision(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    asgi_client.post("/v1/challenges/demo-web/ingest", json=human_note("port 80 is open"))
+    response = asgi_client.post(
         "/v1/challenges/demo-web/mutate",
         json={
             "expected_revision": 0,
@@ -194,9 +194,9 @@ def test_stale_mutation_is_409_with_the_current_revision(client: TestClient) -> 
     assert body["details"]["current_revision"] == 1
 
 
-def test_mutation_without_a_reason_is_rejected(client: TestClient) -> None:
-    _create(client)
-    response = client.post(
+def test_mutation_without_a_reason_is_rejected(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    response = asgi_client.post(
         "/v1/challenges/demo-web/mutate",
         json={
             "expected_revision": 0,
@@ -208,9 +208,9 @@ def test_mutation_without_a_reason_is_rejected(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_unknown_memory_id_is_400(client: TestClient) -> None:
-    _create(client)
-    response = client.post(
+def test_unknown_memory_id_is_400(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    response = asgi_client.post(
         "/v1/challenges/demo-web/mutate",
         json={
             "expected_revision": 0,
@@ -223,9 +223,9 @@ def test_unknown_memory_id_is_400(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "invalid_request"
 
 
-def test_template_endpoint(client: TestClient) -> None:
-    _create(client)
-    response = client.post(
+def test_template_endpoint(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    response = asgi_client.post(
         "/v1/challenges/demo-web/template",
         json={
             "template": "web",
@@ -238,9 +238,9 @@ def test_template_endpoint(client: TestClient) -> None:
     assert response.json()["diff"]["template_changed"] == {"from": "generic@1", "to": "web@1"}
 
 
-def test_unknown_template_is_404(client: TestClient) -> None:
-    _create(client)
-    response = client.post(
+def test_unknown_template_is_404(asgi_client: ASGITestClient) -> None:
+    _create(asgi_client)
+    response = asgi_client.post(
         "/v1/challenges/demo-web/template",
         json={
             "template": "quantum",
@@ -253,8 +253,8 @@ def test_unknown_template_is_404(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "template_not_found"
 
 
-def test_openapi_document_exposes_the_frozen_endpoints(client: TestClient) -> None:
-    paths = client.get("/openapi.json").json()["paths"]
+def test_openapi_document_exposes_the_frozen_endpoints(asgi_client: ASGITestClient) -> None:
+    paths = asgi_client.get("/openapi.json").json()["paths"]
     assert {
         "/v1/challenges",
         "/v1/challenges/{challenge_id}/ingest",

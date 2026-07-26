@@ -376,10 +376,9 @@ Invariants, validated at load time:
 * A `generic` template must exist, as the classification fallback.
 
 Ownership: Memory Core owns the schema, the loader, and the reclassification algorithm.
-**Person 3 owns the real technique content.** `templates/generic.yaml` and
-`templates/web.yaml` shipped here are minimal fixtures with a header comment saying so —
-`web.yaml` exists specifically so reclassification has a second template to be tested
-against, per 共通設計起點 §7.
+The template component owns the real technique content. The integrated catalog currently
+includes `generic`, `web`, `pwn`, `rev`, and `crypto`; Memory Core tests assert loader and
+reclassification behavior against that catalog without hard-coding the full taxonomy.
 
 ---
 
@@ -389,8 +388,8 @@ against, per 共通設計起點 §7.
   classification fails — an unknown template, unparseable output, a backend that is down,
   unreachable or too slow — it falls back to `generic`. An advisory model answer must never
   block challenge creation: the template is a *layout*, not a truth claim, and a wrong one
-  is repaired with one `POST /template`, whereas refusing to create the challenge strands
-  the human with nowhere to put their notes.
+  is repaired with one `POST /v1/challenges/{id}/template`, whereas refusing to create the
+  challenge strands the human with nowhere to put their notes.
 * The single exception is `summarizer_unauthorized`, which is re-raised. A rejected key is
   a server misconfiguration, and swallowing it would create every challenge as `generic`
   indefinitely while looking exactly like a classifier that never matches anything (§12).
@@ -433,7 +432,7 @@ One vendor-neutral envelope for humans and agents:
  "input":  {"type": "run_log", "events": [
    {"seq": 1, "role": "assistant", "kind": "message",     "content": "..."},
    {"seq": 2, "role": "assistant", "kind": "tool_call",   "name": "Bash", "content": "checksec ./chall"},
-   {"seq": 3, "role": "tool",      "kind": "tool_result", "content": "NX enabled..."}]}}
+   {"seq": 3, "role": "tool",      "kind": "tool_result", "outcome": "succeeded", "content": "NX enabled..."}]}}
 ```
 
 Claude SDK classes and other provider event objects are **never** part of the domain model.
@@ -491,15 +490,17 @@ verbatim in the system prompt, and covered by `tests/test_summarizer_policy.py`.
 * **R1** — every proposed Fact cites at least one journal source ID that exists.
 * **R2** — a Fact requires **direct evidence**:
   * `command_result` → direct
-  * `run_log` containing at least one `tool_result` → direct
+  * `run_log` containing at least one executed `tool_result` whose `outcome` is
+    `succeeded` or `failed` → direct
+  * `run_log` with `denied`, `interrupted`, `unknown`, or omitted `outcome` → not direct
   * a **human** `note` → direct
   * an **agent** `note`, or a narrative-only `run_log` → **not** direct
 * **R3** — insufficient evidence means Assumption, or nothing. A Fact proposal failing
   R1/R2 is **downgraded** to an Assumption; the observation is kept, the certainty is not.
 * **R4** — model-initiated promotion requires *new* direct evidence the item did not
   already carry. A human override without new evidence is legitimate, but goes through
-  `POST /mutate` with an actor and a reason — not through the model pretending it verified
-  something.
+  `POST /v1/challenges/{id}/mutate` with an actor and a reason — not through the model
+  pretending it verified something.
 * **R5** — the Summarizer can neither touch the Guessing catalog nor delete a Fact. Both
   are structurally impossible: `SummaryProposal` has no `guessing` and no `fact_remove`
   field. A Fact the model now doubts can only be **demoted**, which is visible in the diff.
@@ -616,9 +617,10 @@ uses. `spec/protocol.md` carries the semantics a schema cannot express.
 **Framework choice.** FastAPI + Pydantic v2, and nothing else. The justification is
 narrow: Pydantic gives the single canonical typed definition the shared contract requires,
 and FastAPI derives the OpenAPI document from those same types — so the contract Person 2
-and Person 3 build against cannot silently drift from the implementation. No database, no
-broker, no async machinery beyond uvicorn. Handlers are plain `def`, not `async def`, so
-FastAPI runs them in a threadpool where the store's blocking per-challenge locks belong.
+and Person 3 build against cannot silently drift from the implementation. No database and
+no broker. The HTTP handlers are thin `async def` wrappers over the synchronous service;
+the service still owns the short per-challenge critical sections, and tests exercise both
+the service directly and the ASGI boundary.
 
 **Read** is deterministic and model-free: filter by `layer` and `section`, nothing more.
 
@@ -804,8 +806,11 @@ memory_core/
     ais3.py       OpenAI-compatible AIS3 backend
 
 templates/
-  generic.yaml    minimal fixture (Person 3 owns the real content)
-  web.yaml        minimal fixture, exists so reclassification is testable
+  generic.yaml
+  web.yaml
+  pwn.yaml
+  rev.yaml
+  crypto.yaml
 
 scripts/
   gen_spec.py                    regenerates spec/ ; --check fails on drift
@@ -867,14 +872,14 @@ server answers 409, which is the contract working rather than a bug.
 |---|---|
 | `test_store.py` | revision 0 on create; valid YAML after atomic save; no temp files left; stale revision conflicts; corrupt state reported; **a path-shaped challenge id (`..`, `.`) is refused by the store, the journal and the request model alike** |
 | `test_journal.py` | human input verbatim; normalized agent run log preserved with provider metadata; append-only; unique IDs; input journalled even on a no-op ingest |
-| `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; agent tool result can; promotion needs new evidence; IDs stable across updates; no auto-reclassification; **an unavailable classifier falls back to `generic` while a rejected key still surfaces** |
+| `test_summarizer_policy.py` | what counts as direct evidence; unsupported Facts downgraded; agent narrative cannot create a Fact; only executed agent tool results can; promotion needs new evidence; IDs stable across updates; no auto-reclassification; **an unavailable classifier falls back to `generic` while a rejected key still surfaces** |
 | `test_templates.py` | missing `general` rejected; duplicate technique IDs rejected; `generic` fallback required; reclassification preserves IDs, levels and evidence; unmappable entries land in `general`; `tried` carried over; attribution journalled |
 | `test_guess.py` | catalog comes from the template; `seed` reproducible; `only_untried`; `mark_tried`; follows the challenge's template; asking for more than exists |
 | `test_mutation.py` | reason mandatory; promotion mints a fact ID with a `promoted_from` backlink; **a promoted or removed ID is never handed out again, and the high-water marks survive a reload**; override records actor/reason; move changes only the section; stale revision 409; **no rejected mutation — 409 or 400 — leaves a phantom journal record, a batch is all-or-nothing, and the rehearsal burns no IDs**; no arbitrary patch op |
 | `test_concurrency.py` | two clients on one revision — second rejected, no lost update; **human mutation not blocked by an in-flight Summarizer**; bounded rebase then 409 |
 | `test_diff.py` | additions / removals / updates / template change; promotion and demotion reported under the **old** ID with the new one as an addition; `promoted_from` alone is not a promotion; `from` alias on the wire; exact frozen field set |
 | `test_query.py` | references only existing IDs; **invented references dropped**; abstains on an empty board; layer filter; read-only |
-| `test_api.py` | all endpoints via `TestClient`; 400 / 404 / 409 / 422 bodies; published paths; **a path-shaped id is refused in the body (422) and in the URL (400)** |
+| `test_api.py` | all endpoints via in-process ASGI requests; 400 / 404 / 409 / 422 bodies; published paths; **a path-shaped id is refused in the body (422) and in the URL (400)** |
 | `test_spec_drift.py` | `spec/` matches what the code generates; frozen paths and types present; mutation ops are a closed set; shipped templates validate against the published schema |
 | `test_offline_guarantee.py` | the network guard actually blocks; AIS3 provider parsing, repair budget, endpoint URL; **a rejected key maps to `summarizer_unauthorized` (500) and is not swallowed by the classifier fallback**; a timeout maps to a retryable 502 naming the budget — all with a transport double |
 | `test_memctl.py` | the smoke client's rendering: a promotion shows both ids and no spurious removal, a no-op is not shown as a change, every documented error code carries advice |
@@ -894,7 +899,7 @@ The architecture makes each research variable independently switchable:
 
 * **Session** — `run_id` / `session_id` / `provider` are recorded but never interpreted, so
   same-session vs new-session is an Agent Bridge variable that Memory Core simply logs.
-* **Memory layer** — `GET /memory?layer=` supports no-memory / fact-only /
+* **Memory layer** — `GET /v1/challenges/{id}/memory?layer=` supports no-memory / fact-only /
   fact+assumption / +guessing conditions without touching the core.
 * **Template** — `generic` vs category-specific is a one-call switch, and reclassification
   preserves truth, so the same challenge can be re-laid-out mid-experiment.

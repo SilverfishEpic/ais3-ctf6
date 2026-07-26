@@ -5,9 +5,8 @@ handler is a few lines, and the domain errors raised by the service decide the s
 codes.  That is what lets ``tests/`` exercise the same semantics with and without a
 server, and it keeps the OpenAPI document an honest projection of the domain types.
 
-Handlers are plain ``def`` rather than ``async def`` on purpose: FastAPI runs them in a
-threadpool, which is where the store's blocking per-challenge locks belong.  An ``async
-def`` handler would block the event loop during a commit.
+Handlers are thin ``async def`` wrappers.  The service owns the short blocking critical
+sections and the tests exercise the same service methods directly and through ASGI.
 """
 
 from __future__ import annotations
@@ -63,7 +62,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def get_service(request: Request) -> MemoryService:
+async def get_service(request: Request) -> MemoryService:
     service: MemoryService | None = getattr(request.app.state, "service", None)
     if service is None:  # pragma: no cover - misconfiguration guard
         raise RuntimeError("app.state.service was never set; use create_app()")
@@ -83,14 +82,14 @@ def create_app(service: MemoryService) -> FastAPI:
     app.state.service = service
 
     @app.exception_handler(MemoryCoreError)
-    def _domain_error(_: Request, exc: MemoryCoreError) -> JSONResponse:
+    async def _domain_error(_: Request, exc: MemoryCoreError) -> JSONResponse:
         body = ErrorResponse.model_validate(
             {"error": {"code": exc.code, "message": exc.message, "details": exc.details or None}}
         )
         return JSONResponse(status_code=exc.status, content=body.model_dump(mode="json"))
 
     @app.get("/healthz", tags=["meta"], summary="Liveness probe")
-    def healthz() -> dict[str, str]:
+    async def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
     @app.post(
@@ -101,7 +100,7 @@ def create_app(service: MemoryService) -> FastAPI:
         tags=["challenges"],
         summary="Create a challenge at revision 0",
     )
-    def create_challenge(
+    async def create_challenge(
         payload: CreateChallengeRequest, service: ServiceDep
     ) -> CreateChallengeResponse:
         return service.create_challenge(payload)
@@ -112,7 +111,7 @@ def create_app(service: MemoryService) -> FastAPI:
         tags=["challenges"],
         summary="List known challenge ids",
     )
-    def list_challenges(service: ServiceDep) -> list[str]:
+    async def list_challenges(service: ServiceDep) -> list[str]:
         return service.list_challenges()
 
     @app.post(
@@ -128,7 +127,9 @@ def create_app(service: MemoryService) -> FastAPI:
             "fails."
         ),
     )
-    def ingest(challenge_id: str, payload: IngestEnvelope, service: ServiceDep) -> IngestResponse:
+    async def ingest(
+        challenge_id: str, payload: IngestEnvelope, service: ServiceDep
+    ) -> IngestResponse:
         return service.ingest(challenge_id, payload)
 
     @app.get(
@@ -138,7 +139,7 @@ def create_app(service: MemoryService) -> FastAPI:
         tags=["memory"],
         summary="Read the whiteboard with deterministic filters",
     )
-    def read_memory(
+    async def read_memory(
         challenge_id: str,
         service: ServiceDep,
         layer: Annotated[Literal["fact", "assumption", "guessing"] | None, Query()] = None,
@@ -157,7 +158,9 @@ def create_app(service: MemoryService) -> FastAPI:
             "are intersected with the live snapshot, so an invented id cannot reach a client."
         ),
     )
-    def query(challenge_id: str, payload: QueryRequest, service: ServiceDep) -> QueryResponse:
+    async def query(
+        challenge_id: str, payload: QueryRequest, service: ServiceDep
+    ) -> QueryResponse:
         return service.query(challenge_id, payload)
 
     @app.post(
@@ -171,7 +174,9 @@ def create_app(service: MemoryService) -> FastAPI:
             "procedural prior owned by the template, not LLM brainstorming."
         ),
     )
-    def guess(challenge_id: str, payload: GuessRequest, service: ServiceDep) -> GuessResponse:
+    async def guess(
+        challenge_id: str, payload: GuessRequest, service: ServiceDep
+    ) -> GuessResponse:
         return service.guess(challenge_id, payload)
 
     @app.post(
@@ -186,7 +191,9 @@ def create_app(service: MemoryService) -> FastAPI:
             "mandatory and a stale value returns 409."
         ),
     )
-    def mutate(challenge_id: str, payload: MemoryMutation, service: ServiceDep) -> DiffEnvelope:
+    async def mutate(
+        challenge_id: str, payload: MemoryMutation, service: ServiceDep
+    ) -> DiffEnvelope:
         return service.mutate(challenge_id, payload)
 
     @app.post(
@@ -201,7 +208,7 @@ def create_app(service: MemoryService) -> FastAPI:
             "is true."
         ),
     )
-    def set_template(
+    async def set_template(
         challenge_id: str, payload: TemplateChangeRequest, service: ServiceDep
     ) -> DiffEnvelope:
         return service.set_template(challenge_id, payload)

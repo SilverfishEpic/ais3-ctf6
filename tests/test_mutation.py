@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from conftest import human_note
 from pydantic import ValidationError
@@ -376,6 +378,37 @@ def test_rehearsal_does_not_consume_memory_ids(service: MemoryService, demo: str
         ),
     )
     assert envelope.diff.fact_added == ["F002"], "the refused attempt must not have burned F002"
+
+
+def test_state_commit_failure_does_not_leave_committed_phantom_journal(
+    service: MemoryService, demo: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If durable state does not move, the journal must not claim the mutation happened."""
+
+    revision = _seeded(service, demo)
+    before_records = service.journal.records(demo)
+
+    def fail_replace(src: str, dst: str) -> None:
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated replace failure"):
+        service.mutate(
+            demo,
+            MemoryMutation(
+                expected_revision=revision,
+                actor="ctshen",
+                reason="manual correction",
+                operations=[{"op": "replace", "id": "F001", "text": "TCP/80 is closed."}],
+            ),
+        )
+
+    assert [record.id for record in service.journal.records(demo)] == [
+        record.id for record in before_records
+    ]
+    memory = service.read_memory(demo)
+    assert memory.revision == revision
+    assert [item.text for items in memory.fact.values() for item in items] == ["TCP/80 is open."]
 
 
 def test_there_is_no_arbitrary_patch_operation() -> None:

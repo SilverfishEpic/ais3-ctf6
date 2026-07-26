@@ -23,7 +23,7 @@ look useful is worse than one that says "not established yet".
 R1. A Fact must cite at least one journal source ID that exists.
 R2. A Fact must be supported by **direct evidence**:
       * ``command_result``                                  -> direct
-      * ``run_log`` containing at least one ``tool_result``  -> direct
+      * ``run_log`` containing an executed ``tool_result``   -> direct
       * a **human** ``note``                                 -> direct
       * an **agent** ``note``/narrative-only ``run_log``      -> NOT direct
     The human-note case deserves comment.  A human note may contain either an
@@ -32,7 +32,9 @@ R2. A Fact must be supported by **direct evidence**:
     Assumption.  That distinction is a judgment call and therefore lives in the prompt,
     not in the gate.  What the gate *can* enforce mechanically is the vendor-neutral
     asymmetry the whole design rests on: a first-party human report is admissible
-    evidence, an external agent's narrative never is.  An agent must show a tool result.
+    evidence, an external agent's narrative never is.  An agent must show a tool result
+    whose vendor-neutral ``outcome`` proves the tool actually ran.  Legacy tool results
+    without an outcome are treated as ``unknown`` and are therefore not direct evidence.
 R3. Insufficient evidence => Assumption, or nothing at all.  A Fact proposal that fails
     R1/R2 is **downgraded to an Assumption**, not silently accepted and not fatal.
 R4. Promotion Assumption -> Fact requires evidence the item did not already carry, and
@@ -124,7 +126,10 @@ def is_direct_evidence(record: SourceRecord) -> bool:
         if not isinstance(events, list):
             return False
         return any(
-            isinstance(event, dict) and event.get("kind") == "tool_result" for event in events
+            isinstance(event, dict)
+            and event.get("kind") == "tool_result"
+            and event.get("outcome", "unknown") in {"succeeded", "failed"}
+            for event in events
         )
     return False
 
@@ -157,6 +162,7 @@ def enforce_epistemic_policy(
     snapshot: MemorySnapshot,
     is_direct: EvidenceResolver,
     known_source_ids: set[str],
+    current_source_id: str | None = None,
 ) -> PolicyResult:
     """Apply R1-R5 to a raw proposal.
 
@@ -200,13 +206,51 @@ def enforce_epistemic_policy(
             continue
         kept_promotions.append(promotion.model_copy(update={"evidence": fresh}))
 
-    def _clean_updates(
-        updates: Sequence[ProposedUpdate], allowed: set[str], label: str
-    ) -> list[ProposedUpdate]:
+    def _clean_fact_updates(updates: Sequence[ProposedUpdate]) -> list[ProposedUpdate]:
         cleaned: list[ProposedUpdate] = []
         for update in updates:
-            if update.id not in allowed:
-                notes.append(f"dropped {label} update for unknown id {update.id}")
+            found = snapshot.find(update.id)
+            if found is None or found[0] != "fact":
+                notes.append(f"dropped fact update for unknown id {update.id}")
+                continue
+            _, _, item = found
+            citations = [e for e in update.evidence_add if e in known_source_ids]
+            changes_text = update.text is not None and update.text != item.text
+            if changes_text:
+                updated_text = update.text
+                assert updated_text is not None
+                fresh_current = (
+                    current_source_id is not None
+                    and current_source_id in citations
+                    and current_source_id not in item.evidence
+                    and is_direct(current_source_id)
+                )
+                if not fresh_current:
+                    notes.append(
+                        f"downgraded unsafe fact update to assumption: {updated_text[:60]!r}"
+                    )
+                    downgraded.append(
+                        ProposedItem(
+                            section=update.section or GENERAL_SECTION,
+                            text=updated_text,
+                            evidence=citations,
+                        )
+                    )
+                    continue
+            cleaned.append(
+                update.model_copy(
+                    update={
+                        "evidence_add": citations,
+                    }
+                )
+            )
+        return cleaned
+
+    def _clean_assumption_updates(updates: Sequence[ProposedUpdate]) -> list[ProposedUpdate]:
+        cleaned: list[ProposedUpdate] = []
+        for update in updates:
+            if update.id not in assumption_ids:
+                notes.append(f"dropped assumption update for unknown id {update.id}")
                 continue
             cleaned.append(
                 update.model_copy(
@@ -217,8 +261,8 @@ def enforce_epistemic_policy(
             )
         return cleaned
 
-    fact_updates = _clean_updates(proposal.fact_update, fact_ids, "fact")
-    assumption_updates = _clean_updates(proposal.assumption_update, assumption_ids, "assumption")
+    fact_updates = _clean_fact_updates(proposal.fact_update)
+    assumption_updates = _clean_assumption_updates(proposal.assumption_update)
 
     assumption_removals: list[str] = []
     for item_id in proposal.assumption_remove:

@@ -39,6 +39,11 @@ SCHEMA_VERSION = 2
 #: two, it is owned by the template rather than by the challenge.
 MemoryLayer = Literal["fact", "assumption", "guessing"]
 
+#: Vendor-neutral execution provenance for agent tool results.  A tool_result without
+#: this field is accepted for wire compatibility but is deliberately treated as
+#: ``unknown`` by the evidence policy rather than as verified direct evidence.
+ExecutionOutcome = Literal["succeeded", "failed", "denied", "interrupted", "unknown"]
+
 #: A query searches the epistemic layers by default; Guessing is opt-in because it says
 #: what could be tried, not what is known.
 _DEFAULT_QUERY_LAYERS: list[MemoryLayer] = ["fact", "assumption"]
@@ -98,9 +103,10 @@ class InputSource(_Model):
 class AgentRunEvent(_Model):
     """One normalized event from an external agent run.
 
-    ``kind`` carries the epistemic weight: a ``tool_result`` is direct evidence and may
-    support a Fact, whereas a ``message`` is agent narrative and may only support an
-    Assumption.
+    ``kind`` and ``outcome`` together carry the epistemic weight.  A ``tool_result`` is
+    direct evidence only when its outcome says the tool actually executed
+    (``succeeded`` or ``failed``).  Missing, denied, interrupted or unknown outcomes are
+    not Fact-grade evidence.
     """
 
     seq: int = Field(ge=1)
@@ -108,6 +114,14 @@ class AgentRunEvent(_Model):
     kind: Literal["message", "tool_call", "tool_result"]
     name: str | None = Field(default=None, description="Tool name, for tool_call/tool_result.")
     content: str
+    outcome: ExecutionOutcome | None = Field(
+        default=None,
+        description=(
+            "Execution provenance for tool_result. succeeded/failed mean the tool ran; "
+            "denied/interrupted/unknown do not grant direct-evidence status. Omitted "
+            "legacy tool_result events are treated as unknown."
+        ),
+    )
 
 
 class NoteInput(_Model):
@@ -309,8 +323,7 @@ class TemplateDefinition(_Model):
     """A CTF category template.
 
     Memory Core owns the loader, the schema and the reclassification algorithm.  The
-    real per-category technique content is Person 3's deliverable; the templates shipped
-    here are minimal fixtures.
+    per-category technique content is supplied by the template component.
     """
 
     id: str = Field(pattern=r"^[a-z0-9_-]+$")

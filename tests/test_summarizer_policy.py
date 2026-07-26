@@ -12,20 +12,23 @@ from pathlib import Path
 import pytest
 from conftest import TEMPLATES_DIR, agent_run_log, command_result, human_note
 
-from memory_core.errors import SummarizerUnauthorized, SummarizerUnavailable
+from memory_core.errors import SummarizerUnauthorized, SummarizerUnavailable, TemplateNotFound
 from memory_core.models import (
     AssumptionItem,
     ChallengeMeta,
     ClassificationProposal,
     CreateChallengeRequest,
+    FactItem,
     GuessingState,
     IngestEnvelope,
     MemoryMutation,
     MemorySnapshot,
     ProposedItem,
     ProposedPromotion,
+    ProposedUpdate,
     SourceRecord,
     SummaryProposal,
+    TemplateDefinition,
 )
 from memory_core.service import MemoryService
 from memory_core.summarizer import FakeSummarizer, enforce_epistemic_policy, is_direct_evidence
@@ -88,18 +91,45 @@ def test_agent_narrative_is_not_direct_evidence() -> None:
     assert is_direct_evidence(record) is False
 
 
-def test_agent_tool_result_is_direct_evidence() -> None:
+@pytest.mark.parametrize("outcome", ["succeeded", "failed"])
+def test_executed_agent_tool_result_is_direct_evidence(outcome: str) -> None:
     record = _record(
         input_type="run_log",
         source={"type": "agent", "provider": "anthropic"},
         content={
             "events": [
                 {"seq": 1, "role": "assistant", "kind": "message", "content": "checking"},
-                {"seq": 2, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                {
+                    "seq": 2,
+                    "role": "tool",
+                    "kind": "tool_result",
+                    "content": "NX enabled",
+                    "outcome": outcome,
+                },
             ]
         },
     )
     assert is_direct_evidence(record) is True
+
+
+@pytest.mark.parametrize("outcome", ["denied", "interrupted", "unknown", None])
+def test_non_executed_or_unknown_agent_tool_result_is_not_direct_evidence(
+    outcome: str | None,
+) -> None:
+    event: dict[str, object] = {
+        "seq": 2,
+        "role": "tool",
+        "kind": "tool_result",
+        "content": "permission denied before execution",
+    }
+    if outcome is not None:
+        event["outcome"] = outcome
+    record = _record(
+        input_type="run_log",
+        source={"type": "agent", "provider": "anthropic"},
+        content={"events": [event]},
+    )
+    assert is_direct_evidence(record) is False
 
 
 # -- R1/R3: unsupported facts are downgraded, not accepted --------------------
@@ -249,7 +279,13 @@ def test_agent_tool_result_can_create_a_fact(service: MemoryService, demo: str) 
                         "name": "Bash",
                         "content": "checksec ./chall",
                     },
-                    {"seq": 3, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                    {
+                        "seq": 3,
+                        "role": "tool",
+                        "kind": "tool_result",
+                        "content": "NX enabled",
+                        "outcome": "succeeded",
+                    },
                 ]
             )
         ),
@@ -257,6 +293,28 @@ def test_agent_tool_result_can_create_a_fact(service: MemoryService, demo: str) 
     assert response.diff.fact_added == ["F001"]
     memory = service.read_memory(demo)
     assert [i.text for _, i in memory_items(memory.fact)] == ["NX is enabled on the target binary."]
+
+
+def test_agent_unknown_tool_result_cannot_create_a_fact(
+    service: MemoryService, demo: str
+) -> None:
+    response = service.ingest(
+        demo,
+        IngestEnvelope.model_validate(
+            agent_run_log(
+                [
+                    {"seq": 1, "role": "assistant", "kind": "message", "content": "checking"},
+                    {"seq": 2, "role": "tool", "kind": "tool_result", "content": "NX enabled"},
+                ]
+            )
+        ),
+    )
+    assert response.diff.fact_added == []
+    memory = service.read_memory(demo)
+    assert [i.text for _, i in memory_items(memory.fact)] == []
+    assert "NX is enabled on the target binary." in [
+        i.text for _, i in memory_items(memory.assumption)
+    ]
 
 
 def test_ids_are_stable_across_updates(service: MemoryService, demo: str) -> None:
@@ -318,6 +376,178 @@ class _UnauthorizedClassifier(FakeSummarizer):
         raise SummarizerUnauthorized("bad key")
 
 
+class _BuggyClassifier(FakeSummarizer):
+    def classify(self, **kwargs: object) -> ClassificationProposal:
+        raise ValueError("bug in classifier")
+
+
+class _UnknownTemplateClassifier(FakeSummarizer):
+    def classify(self, **kwargs: object) -> ClassificationProposal:
+        return ClassificationProposal(template="does-not-exist")
+
+
+class _ProposalSummarizer(FakeSummarizer):
+    def __init__(self, proposal: SummaryProposal) -> None:
+        self.proposal = proposal
+
+    def summarize(
+        self,
+        *,
+        state: MemorySnapshot,
+        source_record: SourceRecord,
+        template: TemplateDefinition,
+    ) -> SummaryProposal:
+        return self.proposal
+
+
+def _seed_fact(service: MemoryService, challenge_id: str) -> FactItem:
+    response = service.ingest(
+        challenge_id,
+        IngestEnvelope.model_validate(command_result(["nmap"], "8080/tcp open http")),
+    )
+    assert response.diff.fact_added == ["F001"]
+    return [item for _, item in memory_items(service.read_memory(challenge_id).fact)][0]
+
+
+def test_narrative_only_fact_update_cannot_rewrite_directly_supported_fact(
+    runs_dir: Path,
+) -> None:
+    service = _service_with(FakeSummarizer(), runs_dir)
+    service.create_challenge(CreateChallengeRequest(id="c", title="C"))
+    original = _seed_fact(service, "c")
+
+    service.summarizer = _ProposalSummarizer(
+        SummaryProposal(
+            fact_update=[
+                ProposedUpdate(
+                    id="F001",
+                    text="TCP/8080 is closed.",
+                    evidence_add=[original.evidence[0]],
+                )
+            ]
+        )
+    )
+    response = service.ingest(
+        "c",
+        IngestEnvelope.model_validate(
+            agent_run_log(
+                [
+                    {
+                        "seq": 1,
+                        "role": "assistant",
+                        "kind": "message",
+                        "content": "I think port 8080 is probably closed.",
+                    }
+                ]
+            )
+        ),
+    )
+
+    memory = service.read_memory("c")
+    facts = [item for _, item in memory_items(memory.fact)]
+    assumptions = [item for _, item in memory_items(memory.assumption)]
+    assert facts[0].id == "F001"
+    assert facts[0].text == "TCP/8080 is open."
+    assert facts[0].evidence == original.evidence
+    assert response.diff.fact_updated == []
+    assert "TCP/8080 is closed." in [item.text for item in assumptions]
+
+
+def test_fact_update_with_fresh_direct_evidence_can_correct_fact(runs_dir: Path) -> None:
+    service = _service_with(FakeSummarizer(), runs_dir)
+    service.create_challenge(CreateChallengeRequest(id="c", title="C"))
+    original = _seed_fact(service, "c")
+
+    class CurrentEvidenceUpdate(FakeSummarizer):
+        def summarize(
+            self,
+            *,
+            state: MemorySnapshot,
+            source_record: SourceRecord,
+            template: TemplateDefinition,
+        ) -> SummaryProposal:
+            return SummaryProposal(
+                fact_update=[
+                    ProposedUpdate(
+                        id="F001",
+                        text="TCP/8080 is closed.",
+                        evidence_add=[source_record.id],
+                    )
+                ]
+            )
+
+    service.summarizer = CurrentEvidenceUpdate()
+    response = service.ingest(
+        "c",
+        IngestEnvelope.model_validate(command_result(["nmap"], "8080/tcp closed")),
+    )
+
+    fact = [item for _, item in memory_items(service.read_memory("c").fact)][0]
+    assert response.diff.fact_updated == ["F001"]
+    assert fact.text == "TCP/8080 is closed."
+    assert fact.evidence[0] == original.evidence[0]
+    assert len(fact.evidence) == 2
+
+
+def test_fact_update_cannot_reuse_unrelated_old_direct_evidence(runs_dir: Path) -> None:
+    service = _service_with(FakeSummarizer(), runs_dir)
+    service.create_challenge(CreateChallengeRequest(id="c", title="C"))
+    _seed_fact(service, "c")
+    old_other = service.ingest(
+        "c", IngestEnvelope.model_validate(command_result(["nmap"], "22/tcp open ssh"))
+    ).source_id
+
+    service.summarizer = _ProposalSummarizer(
+        SummaryProposal(
+            fact_update=[
+                ProposedUpdate(id="F001", text="TCP/8080 is closed.", evidence_add=[old_other])
+            ]
+        )
+    )
+    service.ingest(
+        "c",
+        IngestEnvelope.model_validate(
+            agent_run_log(
+                [
+                    {
+                        "seq": 1,
+                        "role": "assistant",
+                        "kind": "message",
+                        "content": "I think 8080 is closed.",
+                    }
+                ]
+            )
+        ),
+    )
+
+    facts = [item for _, item in memory_items(service.read_memory("c").fact)]
+    assert facts[0].text == "TCP/8080 is open."
+
+
+@pytest.mark.parametrize("section", ["attacker_section", "../../weird", ""])
+@pytest.mark.parametrize(
+    ("field", "item_id", "container_name"),
+    [("fact_update", "F001", "fact"), ("assumption_update", "A001", "assumption")],
+)
+def test_proposed_update_sections_are_template_constrained(
+    runs_dir: Path, section: str, field: str, item_id: str, container_name: str
+) -> None:
+    service = _service_with(FakeSummarizer(), runs_dir)
+    service.create_challenge(CreateChallengeRequest(id="c", title="C"))
+    _seed_fact(service, "c")
+
+    proposal = SummaryProposal.model_validate({field: [{"id": item_id, "section": section}]})
+    service.summarizer = _ProposalSummarizer(proposal)
+    service.ingest("c", IngestEnvelope.model_validate(human_note("move it")))
+
+    memory = service.read_memory("c")
+    container = getattr(memory, container_name)
+    assert "attacker_section" not in container
+    assert "../../weird" not in container
+    assert "" not in container
+    assert any(item.id == item_id for item in container["general"])
+
+
 def _service_with(summarizer: object, runs_dir: Path) -> MemoryService:
     return MemoryService.build(
         runs_dir=runs_dir,
@@ -352,6 +582,22 @@ def test_a_rejected_key_still_surfaces_from_creation(runs_dir: Path) -> None:
 
     service = _service_with(_UnauthorizedClassifier(), runs_dir)
     with pytest.raises(SummarizerUnauthorized):
+        service.create_challenge(
+            CreateChallengeRequest(id="c", title="C", initial_input="an HTTP login form")
+        )
+
+
+def test_programming_error_in_classifier_is_not_silently_generic(runs_dir: Path) -> None:
+    service = _service_with(_BuggyClassifier(), runs_dir)
+    with pytest.raises(ValueError, match="bug in classifier"):
+        service.create_challenge(
+            CreateChallengeRequest(id="c", title="C", initial_input="an HTTP login form")
+        )
+
+
+def test_unknown_template_from_classifier_is_not_silently_generic(runs_dir: Path) -> None:
+    service = _service_with(_UnknownTemplateClassifier(), runs_dir)
+    with pytest.raises(TemplateNotFound):
         service.create_challenge(
             CreateChallengeRequest(id="c", title="C", initial_input="an HTTP login form")
         )
