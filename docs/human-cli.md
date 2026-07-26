@@ -43,7 +43,232 @@ ctfmem
 
 無參數時只顯示 help，不啟動 shell、不修改 shell profile、不安裝 background recorder。
 
-## 4. 全域參數與環境變數
+## 4. 安裝與執行方式
+
+`ctfmem` 是 Python console entry point，由 `pyproject.toml` 的 `[project.scripts]` 宣告。
+
+### 4.1 推薦方式：`uv run`
+
+在 repository root 直接執行：
+
+```bash
+uv run ctfmem --help
+```
+
+這是 Linux、macOS、Windows PowerShell 都最穩定的用法，因為 `uv run` 會自動使用專案虛擬環境。
+
+### 4.2 Editable install
+
+若要把 entry point 安裝到專案 `.venv`：
+
+```bash
+uv pip install -e .
+```
+
+安裝後可用：
+
+```bash
+uv run ctfmem --help
+```
+
+如果直接輸入 `ctfmem` 出現找不到指令，代表 `.venv/bin` 沒在 shell `PATH`。確認位置：
+
+```bash
+uv run python -c 'import shutil; print(shutil.which("ctfmem"))'
+```
+
+典型輸出：
+
+```text
+/path/to/ais3-ctf6/.venv/bin/ctfmem
+```
+
+### 4.3 Linux / zsh / bash 直接使用 `ctfmem`
+
+只在目前 shell 啟用：
+
+```bash
+source .venv/bin/activate
+ctfmem --help
+```
+
+或只把目前專案 `.venv/bin` 暫時加入 `PATH`：
+
+```bash
+export PATH="$PWD/.venv/bin:$PATH"
+ctfmem --help
+```
+
+不建議把某個專案的 `.venv/bin` 永久寫死到全域 `~/.zshrc`，避免在其他專案誤用這份 venv。若需要自動載入，建議使用 `direnv`。
+
+### 4.4 Windows PowerShell 直接使用 `ctfmem`
+
+在 repository root：
+
+```powershell
+uv pip install -e .
+uv run ctfmem --help
+```
+
+若要啟用 venv 後直接輸入 `ctfmem`：
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+ctfmem --help
+```
+
+若 PowerShell 阻擋啟用 script，需調整目前使用者的 execution policy：
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+也可以不啟用 venv，直接呼叫完整路徑：
+
+```powershell
+.\.venv\Scripts\ctfmem.exe --help
+```
+
+## 5. 啟動 Memory Core server
+
+`ctfmem` 只連線到 Memory Core HTTP API。AIS3 key 只屬於 Memory Core server process，不應提供給 `ctfmem`。
+
+### 5.1 Linux / zsh / bash
+
+```bash
+set -a
+. ./.env.local
+set +a
+
+uv run python -m memory_core \
+  --runs ./runs \
+  --templates ./templates \
+  --host 127.0.0.1 \
+  --port 8000
+```
+
+### 5.2 Windows PowerShell
+
+PowerShell 不會直接 source POSIX `.env`。可用下列方式載入簡單的 `KEY=value` 格式：
+
+```powershell
+Get-Content .env.local | ForEach-Object {
+  if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+    [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), "Process")
+  }
+}
+
+uv run python -m memory_core `
+  --runs ./runs `
+  --templates ./templates `
+  --host 127.0.0.1 `
+  --port 8000
+```
+
+## 6. Linux / Windows 基本使用
+
+另開一個 console 設定 Human CLI 連線資訊。
+
+Linux / zsh / bash：
+
+```bash
+export CTFMEM_API_URL=http://127.0.0.1:8000
+export CTFMEM_CHALLENGE=demo-web
+export CTFMEM_ACTOR=ctshen
+```
+
+Windows PowerShell：
+
+```powershell
+$env:CTFMEM_API_URL = "http://127.0.0.1:8000"
+$env:CTFMEM_CHALLENGE = "demo-web"
+$env:CTFMEM_ACTOR = "ctshen"
+```
+
+建立 challenge：
+
+```bash
+uv run ctfmem challenge create demo-web --title "Demo Web"
+```
+
+送出筆記：
+
+```bash
+uv run ctfmem note "I ran nmap and 80/tcp is open."
+```
+
+stdin 筆記：
+
+Linux / zsh / bash：
+
+```bash
+printf '%s\n' "The login page sets a sid cookie." | uv run ctfmem note -
+```
+
+Windows PowerShell：
+
+```powershell
+"The login page sets a sid cookie." | uv run ctfmem note -
+```
+
+執行並擷取外部命令：
+
+```bash
+uv run ctfmem capture -- curl -i http://target/login
+```
+
+Windows PowerShell 使用系統 curl 時建議明確呼叫 `curl.exe`：
+
+```powershell
+uv run ctfmem capture -- curl.exe -i http://target/login
+```
+
+查看 memory：
+
+```bash
+uv run ctfmem show
+```
+
+查詢：
+
+```bash
+uv run ctfmem query "目前已確認哪些服務？"
+```
+
+Guessing：
+
+```bash
+uv run ctfmem guess --count 3 --seed 42 --only-untried
+```
+
+人工 mutation：
+
+```bash
+uv run ctfmem mutate add assumption \
+  --section attack_paths \
+  --text "The sid cookie may be weakly signed." \
+  --reason "Need manual testing" \
+  --revision 1
+```
+
+Windows PowerShell：
+
+```powershell
+uv run ctfmem mutate add assumption `
+  --section attack_paths `
+  --text "The sid cookie may be weakly signed." `
+  --reason "Need manual testing" `
+  --revision 1
+```
+
+JSON mode：
+
+```bash
+uv run ctfmem --json show
+uv run ctfmem --json query "目前有哪些 Fact？"
+```
+
+## 7. 全域參數與環境變數
 
 全域參數：
 
@@ -74,7 +299,7 @@ CLI argument > environment variable > documented default / error
 
 沒有 challenge 的命令必須明確報錯，不可默默套用未知題目。
 
-## 5. 命令樹
+## 8. 命令樹
 
 ```text
 ctfmem
@@ -100,7 +325,7 @@ ctfmem
     └── set
 ```
 
-## 6. I/O 語意
+## 9. I/O 語意
 
 ### `note`
 
@@ -169,7 +394,7 @@ reason
 
 收到 409 時停止，不自動抓新 revision 重送。
 
-## 7. JSON output
+## 10. JSON output
 
 所有主要命令支援 `--json`。
 
@@ -181,7 +406,7 @@ reason
 - 保留原始 OpenAPI 欄位名稱。
 - error JSON 可供 script 判斷。
 
-## 8. Exit code contract
+## 11. Exit code contract
 
 | Exit code | 意義 |
 |---:|---|
@@ -194,7 +419,7 @@ reason
 | `7` | Core／Summarizer／provider server error |
 | `8` | 本機 command capture 啟動失敗 |
 
-## 9. MVP 不做
+## 12. MVP 不做
 
 - shell profile injection
 - `PROMPT_COMMAND` interception
@@ -209,7 +434,7 @@ reason
 - local template catalog editing
 - direct AIS3 calls
 
-## 10. 驗收準則
+## 13. 驗收準則
 
 - `uv run --extra dev pytest`
 - `uv run --extra dev ruff check .`

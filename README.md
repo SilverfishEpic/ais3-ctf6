@@ -20,14 +20,30 @@ reviewed against `memory-system`, not directly against `main`, until Memory Core
 ## Current Components
 
 - `memory_core/` - canonical Memory Core implementation.
+- `human_client/` - Human CLI package; exposes the `ctfmem` console command.
 - `spec/` - normative protocol, OpenAPI, and JSON schemas.
 - `templates/` - minimal Memory Core fixture templates only.
 - `scripts/memctl.py` - developer/admin helper for exercising Memory Core.
 - `docs/` - maintained documentation index, architecture notes, contracts, and roadmap.
 
-Human Client and Agent Bridge implementations belong on their own branches. Memory Core
-must not contain terminal automation, Claude orchestration, YOLO loops, or full CTF
-technique catalogs.
+Agent Bridge implementations belong on their own branches. Memory Core and Human CLI must
+not contain Claude orchestration, YOLO loops, or full CTF technique catalogs.
+
+## Human CLI quick start
+
+`ctfmem` is the human-facing HTTP client for Memory Core. The most reliable invocation is
+through `uv run`:
+
+```bash
+uv run ctfmem --help
+```
+
+If you install the package with `uv pip install -e .`, the executable is installed inside
+the project virtual environment. Use `source .venv/bin/activate` on Linux/macOS or
+`.\.venv\Scripts\Activate.ps1` on Windows PowerShell before calling `ctfmem` directly.
+
+Full installation and Linux/Windows usage notes are in
+[`docs/human-cli.md`](docs/human-cli.md).
 
 ## Local Verification
 

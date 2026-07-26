@@ -7,6 +7,7 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 
 - [Architecture](architecture.md) - component ownership and non-goals.
 - [Memory Core](memory-core.md) - service responsibilities and verification.
+- [Human CLI (`ctfmem`)](human-cli.md) - installation, Linux/Windows usage, command contract, and acceptance criteria.
 - [Contracts](contracts.md) - how clients should use the shared API.
 - [Branch Strategy](branch-strategy.md) - dependency and merge policy.
 - [Roadmap](roadmap.md) - realistic future phases and exit criteria.
