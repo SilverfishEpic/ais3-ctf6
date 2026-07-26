@@ -60,6 +60,9 @@ class PowerShellNoteApp:
             "--challenge",
             default=os.getenv("MEMORY_CORE_CHALLENGE", "human-cli-notes"),
         )
+        parser.add_argument("--auto", action="store_true", help="Auto mode: run command + capture + show diff in one round")
+        parser.add_argument("--no-diff", action="store_true", help="Suppress diff output")
+        parser.add_argument("--one-line", action="store_true", help="Compact one-line diff format")
         parser.add_argument("--shell", default=os.getenv("AI_SHELL"))
         parser.add_argument("--json", action="store_true", help="Output in JSON format")
         args = parser.parse_args()
@@ -92,6 +95,16 @@ class PowerShellNoteApp:
             )
             if self.args.json:
                 print(json.dumps(resp, ensure_ascii=False, indent=2))
+            else:
+                rev = resp.get("revision_after", "?")
+                source_id = resp.get("source_id", "?")
+                diff = resp.get("diff", {})
+                summary = resp.get("summary", "")
+                print(f"[autonote] rev {rev}  source: {source_id}")
+                if summary:
+                    print(f"  Summary: {summary}")
+                if not self.args.no_diff:
+                    self._render_diff(diff)
         except RuntimeError as exc:
             print(f"[autonote] {exc}", file=sys.stderr)
             return 3
@@ -118,14 +131,14 @@ class PowerShellNoteApp:
                 print(json.dumps(resp, ensure_ascii=False, indent=2))
             else:
                 rev = resp.get("revision_after", "?")
+                source_id = resp.get("source_id", "?")
                 diff = resp.get("diff", {})
                 summary = resp.get("summary", "")
-                print(f"  Revision: {rev}")
+                print(f"  Revision: {rev}  source: {source_id}")
                 if summary:
                     print(f"  Summary: {summary}")
-                added = len(diff.get("fact_added", [])) + len(diff.get("assumption_added", []))
-                if added:
-                    print(f"  Added: {added} item(s)")
+                if not self.args.no_diff:
+                    self._render_diff(diff)
         except RuntimeError as exc:
             print(f"[note] {exc}", file=sys.stderr)
             return 3
@@ -217,14 +230,14 @@ class PowerShellNoteApp:
                 print(json.dumps(resp, ensure_ascii=False, indent=2))
             else:
                 rev = resp.get("revision_after", "?")
+                source_id = resp.get("source_id", "?")
                 diff = resp.get("diff", {})
                 summary = resp.get("summary", "")
-                print(f"\n[capture] Ingested into Memory Core (rev {rev})")
+                print(f"\n[capture] Ingested into Memory Core (rev {rev}  source: {source_id})")
                 if summary:
                     print(f"  Summary: {summary}")
-                added = len(diff.get("fact_added", [])) + len(diff.get("assumption_added", []))
-                if added:
-                    print(f"  Added: {added} item(s)")
+                if not self.args.no_diff:
+                    self._render_diff(diff)
         except RuntimeError as exc:
             print(f"\n[capture] Ingest failed: {exc}", file=sys.stderr)
             return 3
@@ -376,6 +389,133 @@ class PowerShellNoteApp:
                 if len(untried) > 10:
                     print(f"    ... and {len(untried) - 10} more")
 
+    _DIFF_LABELS = {
+        "fact_added": "+",
+        "fact_updated": "~",
+        "fact_removed": "-",
+        "assumption_added": "+",
+        "assumption_updated": "~",
+        "assumption_removed": "-",
+        "promoted": "↑",
+        "demoted": "↓",
+    }
+
+    # map diff key → human-readable layer name
+    _DIFF_LAYER = {
+        "fact_added": "Fact",
+        "fact_updated": "Fact",
+        "fact_removed": "Fact",
+        "assumption_added": "Assumption",
+        "assumption_updated": "Assumption",
+        "assumption_removed": "Assumption",
+        "promoted": "Ass→Fact",
+        "demoted": "Fact→Ass",
+    }
+
+    def _render_diff(self, diff: dict) -> None:
+        """Render a MemoryDiff dict in standard multi-line format."""
+        if self.args.one_line:
+            self._render_diff_oneline(diff)
+            return
+
+        print("  Diff:")
+        total = 0
+        for key in ("fact_added", "fact_updated", "fact_removed",
+                    "assumption_added", "assumption_updated", "assumption_removed",
+                    "promoted", "demoted"):
+            items = diff.get(key, [])
+            if not items:
+                continue
+            prefix = self._DIFF_LABELS.get(key, "?")
+            layer = self._DIFF_LAYER.get(key, "")
+            total += len(items)
+            for item_id in items:
+                print(f"    {prefix} {item_id:<8} {layer}")
+
+        if diff.get("template_changed"):
+            tc = diff["template_changed"]
+            print(f"    * template  {tc.get('from', '?')} → {tc.get('to', '?')}")
+            total += 1
+
+        if total == 0:
+            print("    (no changes)")
+
+    def _render_diff_oneline(self, diff: dict) -> None:
+        """Render diff as a single compact line."""
+        parts = []
+        for key, label in [("fact_added", "+F"), ("fact_updated", "~F"), ("fact_removed", "-F"),
+                           ("assumption_added", "+A"), ("assumption_updated", "~A"),
+                           ("assumption_removed", "-A"),
+                           ("promoted", "↑"), ("demoted", "↓")]:
+            n = len(diff.get(key, []))
+            if n:
+                parts.append(f"{label}{n}")
+        if diff.get("template_changed"):
+            parts.append("*template")
+        if not parts:
+            print("  Diff: (no changes)")
+        else:
+            print(f"  Diff: {' '.join(parts)}")
+
+    def auto_mode(self) -> int:
+        """Full auto round: run a command, capture output, ingest with diff.
+
+        One round = execute → ingest → show diff.  The diff is computed by the
+        server on-the-fly (never persisted) and streamed back in the response.
+        """
+        command = self.args.command_text.strip()
+        if not command:
+            print("[auto] No command provided.", file=sys.stderr)
+            return 1
+
+        # 1. Execute
+        print(f"[auto] $ {command}")
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=self.args.cwd,
+            )
+        except Exception as exc:
+            print(f"[auto] Execution failed: {exc}", file=sys.stderr)
+            return 2
+
+        if result.stdout:
+            print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+
+        # 2. Ingest into Memory Core
+        try:
+            resp = self.bridge.ingest_command(
+                command=command,
+                cwd=self.args.cwd,
+                exit_code=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )
+        except RuntimeError as exc:
+            print(f"[auto] Ingest failed: {exc}", file=sys.stderr)
+            return 3
+
+        # 3. Show result with diff
+        if self.args.json:
+            print(json.dumps(resp, ensure_ascii=False, indent=2))
+        else:
+            rev = resp.get("revision_after", "?")
+            source_id = resp.get("source_id", "?")
+            diff = resp.get("diff", {})
+            summary = resp.get("summary", "")
+            print(f"[auto] Ingested into Memory Core (rev {rev}  source: {source_id})")
+            if summary:
+                print(f"  Summary: {summary}")
+            if not self.args.no_diff:
+                self._render_diff(diff)
+
+        return 0
+
     def launch_shell(self) -> int:
         shell = self.args.shell or self.find_powershell()
         profile_script = self.script_dir / "core" / "human_cli" / "note_shell_profile.ps1"
@@ -400,6 +540,8 @@ class PowerShellNoteApp:
         return subprocess.call(command)
 
     def run(self) -> int:
+        if self.args.auto:
+            return self.auto_mode()
         if self.args.send_note:
             return self.send_note()
         if self.args.auto_note:
