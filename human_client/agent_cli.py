@@ -33,6 +33,15 @@ from .errors import CONNECTION_ERROR, OK, SERVER_ERROR, USAGE_ERROR
 from .render import emit_json, render_diff, render_error
 
 AGENT_ERROR = 8
+POLICY_ALIASES = {
+    "full": "full",
+    "facts": "fact_only",
+    "fact_only": "fact_only",
+    "facts-assumptions": "fact_and_assumption",
+    "fact_and_assumption": "fact_and_assumption",
+    "none": "no_memory",
+    "no_memory": "no_memory",
+}
 
 
 def add_agent_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -50,8 +59,13 @@ def add_agent_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     run.add_argument("--idle-turns", type=int, default=3)
     run.add_argument(
         "--memory-policy",
-        choices=["full", "fact_only", "fact_and_assumption", "no_memory"],
+        choices=sorted(POLICY_ALIASES),
         default="full",
+        help=(
+            "Memory exposure policy for the agent. Preferred values are "
+            "full, facts, facts-assumptions, none; legacy internal names are "
+            "also accepted."
+        ),
     )
     run.add_argument("--guess-seed", type=int)
     run.add_argument("--fake-agent", metavar="SCENARIO")
@@ -181,13 +195,13 @@ def cmd_agent_status(args: argparse.Namespace, config: ClientConfig, _client: ob
         payload = {
             "challenge": challenge,
             "status": "not_started",
-            "runtime_dir": str(runtime_dir(challenge, args.runtime_dir)),
-            "stop_file": str(stop_file(challenge, args.runtime_dir)),
         }
     else:
         payload["running"] = process_is_running(payload.get("pid"))
         if payload.get("status") == "running" and not payload["running"]:
             payload["status"] = "stale"
+    payload.setdefault("runtime_dir", str(runtime_dir(challenge, args.runtime_dir)))
+    payload.setdefault("stop_file", str(stop_file(challenge, args.runtime_dir)))
 
     if config.json_output:
         emit_json({"ok": True, **payload})
@@ -233,7 +247,8 @@ def _build_adapter(
 
 
 def _memory_policy(args: argparse.Namespace) -> MemoryPolicy:
-    policy = BY_NAME.get(args.memory_policy, FULL)
+    policy_name = POLICY_ALIASES.get(args.memory_policy, "full")
+    policy = BY_NAME.get(policy_name, FULL)
     if args.no_memory_skill:
         policy = policy.with_(skill_enabled=False)
     if args.guess_seed is not None:

@@ -165,3 +165,72 @@ def test_agent_status_reports_completed_run(
 
     assert "Agent: completed" in out
     assert "Turns: 1" in out
+
+
+def test_agent_accepts_human_readable_memory_policy_alias(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = cli.main(
+        [
+            "--json",
+            "--challenge",
+            "demo-web",
+            "agent",
+            "run",
+            "--fake-agent",
+            "talk_only",
+            "--memory-policy",
+            "facts-assumptions",
+            "--runtime-dir",
+            str(tmp_path),
+            "說明目前狀態",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code == OK
+    assert json.loads(captured.out)["ok"] is True
+
+
+def test_agent_status_json_keeps_runtime_fields_after_completed_run(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert (
+        cli.main(
+            [
+                "--challenge",
+                "demo-web",
+                "agent",
+                "run",
+                "--fake-agent",
+                "talk_only",
+                "--runtime-dir",
+                str(tmp_path),
+                "說明目前狀態",
+            ]
+        )
+        == OK
+    )
+    capsys.readouterr()
+
+    assert (
+        cli.main(
+            [
+                "--json",
+                "--challenge",
+                "demo-web",
+                "agent",
+                "status",
+                "--runtime-dir",
+                str(tmp_path),
+            ]
+        )
+        == OK
+    )
+    payload: dict[str, Any] = json.loads(capsys.readouterr().out)
+
+    assert payload["status"] == "completed"
+    assert payload["runtime_dir"].endswith("demo-web")
+    assert payload["stop_file"].endswith("demo-web/agent.stop")

@@ -318,6 +318,25 @@ uv run ctfmem --challenge demo-web agent run \
   "把題目解完"
 ```
 
+Memory exposure policy：
+
+```bash
+uv run ctfmem --challenge demo-web agent run \
+  --memory-policy facts-assumptions \
+  "根據目前記憶繼續分析"
+```
+
+建議使用的人類可讀值：
+
+```text
+full
+facts
+facts-assumptions
+none
+```
+
+舊的內部值 `fact_only`、`fact_and_assumption`、`no_memory` 仍保留相容。
+
 Stop / status：
 
 ```bash

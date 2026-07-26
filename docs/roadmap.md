@@ -6,13 +6,19 @@ documentation.
 
 ## Current Status
 
-Memory Core has a working v2 contract, persistence, fake Summarizer, AIS3 provider,
-revision safety, semantic diffs, query, deterministic Guessing, and minimal fixture
-templates. Human Client and Agent Bridge remain dependent work streams.
+Memory Core, Human CLI, and Agent Bridge are integrated on `main`. The current
+implementation provides the v2 HTTP contract, persistence, fake Summarizer, AIS3
+provider, revision safety, semantic diffs, query, deterministic Guessing, curated
+template catalogs, `ctfmem`, and `ctfmem agent`.
+
+Remaining work is follow-up hardening and feature expansion: richer Agent Bridge
+runtime telemetry, optional operator cockpit/TUI, explicit terminal-session ingestion
+after design review, broader evaluation/ablation, and persistence scaling only if
+measurement requires it.
 
 ## Phase 0 - Contract And Core Hardening
 
-Owner: Memory Core. Branch: `memory-system`.
+Owner: Memory Core. Historical branch: `memory-system`.
 
 Entry criteria: current `main` baseline and agreed v2 architecture.
 
@@ -28,7 +34,7 @@ Non-goals: Human CLI, Claude orchestration, real category catalogs.
 
 ## Phase 1 - Stable Human CLI
 
-Owner: Human Client. Branch: `mixin`, based on `memory-system`.
+Owner: Human Client. Historical branch: `mixin`.
 
 Exit criteria:
 
@@ -42,7 +48,7 @@ Non-goals: TUI, terminal recorder, Summarizer access.
 
 ## Phase 2 - Agent Bridge Normal Mode
 
-Owner: Agent Bridge. Branch: `redesign/agent-bridge-v2`, based on `memory-system`.
+Owner: Agent Bridge. Historical branch: `redesign/agent-bridge-v2`.
 
 Exit criteria:
 
