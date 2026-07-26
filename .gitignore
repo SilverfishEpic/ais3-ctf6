@@ -2,6 +2,10 @@
 .agent
 .claude
 .env
+.env.*
+!.env.example
+.secrets.env
+.secrets.*
 .venv/
 __pycache__/
 *.py[cod]
