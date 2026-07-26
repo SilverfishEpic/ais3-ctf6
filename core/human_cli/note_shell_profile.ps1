@@ -116,6 +116,100 @@ function note {
             return
         }
 
+        # ── note query [challenge_id] [--layer X] [--section Y] ─────────
+        if ($first -eq 'query') {
+            $queryArgs = @("--query", "--cwd", $cwd)
+            $remaining = $Text[1..($Text.Count - 1)]
+            $challengeSet = $false
+            $i = 0
+            while ($i -lt $remaining.Count) {
+                $arg = $remaining[$i]
+                if ($arg -eq '--layer' -and ($i + 1) -lt $remaining.Count) {
+                    $queryArgs += "--query-layer"
+                    $queryArgs += $remaining[$i + 1]
+                    $i += 2
+                } elseif ($arg -eq '--section' -and ($i + 1) -lt $remaining.Count) {
+                    $queryArgs += "--query-section"
+                    $queryArgs += $remaining[$i + 1]
+                    $i += 2
+                } elseif ($arg -eq '--json') {
+                    $queryArgs += "--json"
+                    $i += 1
+                } elseif (-not $challengeSet) {
+                    $queryArgs += "--query-challenge"
+                    $queryArgs += $arg
+                    $challengeSet = $true
+                    $i += 1
+                } else {
+                    $i += 1
+                }
+            }
+            & $PythonExe $HelperScript @queryArgs
+            return
+        }
+
+        # ── note list ────────────────────────────────────────────────────
+        if ($first -eq 'list') {
+            $listArgs = @("--list-challenges")
+            if ($Text.Count -ge 2 -and $Text[1] -eq '--json') {
+                $listArgs += "--json"
+            }
+            & $PythonExe $HelperScript @listArgs
+            return
+        }
+
+        # ── note capture <command> ───────────────────────────────────────
+        if ($first -eq 'capture') {
+            if ($Text.Count -lt 2) {
+                Write-Host "[capture] Usage: note capture <command>" -ForegroundColor Red
+                return
+            }
+            $cmdText = ($Text[1..($Text.Count - 1)]) -join ' '
+            $captureArgs = @("--capture", "--command-text", $cmdText, "--cwd", $cwd)
+            & $PythonExe $HelperScript @captureArgs
+            return
+        }
+
+        # ── note read [file_path] ────────────────────────────────────────
+        if ($first -eq 'read') {
+            $readArgs = @("--read", "--cwd", $cwd)
+            if ($Text.Count -ge 2) {
+                $readArgs += "--file-path"
+                $readArgs += $Text[1]
+            }
+            if ($Text.Count -ge 3 -and $Text[2] -eq '--json') {
+                $readArgs += "--json"
+            }
+            & $PythonExe $HelperScript @readArgs
+            return
+        }
+
+        # ── note guess [--count N] [--seed N] ────────────────────────────
+        if ($first -eq 'guess') {
+            $guessArgs = @("--guess", "--cwd", $cwd)
+            $remaining = $Text[1..($Text.Count - 1)]
+            $i = 0
+            while ($i -lt $remaining.Count) {
+                $arg = $remaining[$i]
+                if ($arg -eq '--count' -and ($i + 1) -lt $remaining.Count) {
+                    $guessArgs += "--guess-count"
+                    $guessArgs += $remaining[$i + 1]
+                    $i += 2
+                } elseif ($arg -eq '--seed' -and ($i + 1) -lt $remaining.Count) {
+                    $guessArgs += "--guess-seed"
+                    $guessArgs += $remaining[$i + 1]
+                    $i += 2
+                } elseif ($arg -eq '--json') {
+                    $guessArgs += "--json"
+                    $i += 1
+                } else {
+                    $i += 1
+                }
+            }
+            & $PythonExe $HelperScript @guessArgs
+            return
+        }
+
         # ── note select [-N] ───────────────────────────────────────────
         if ($first -eq 'select') {
             $count = 10  # default
@@ -295,6 +389,12 @@ Write-Host "  resume         - Re-enable auto-note after skip"
 Write-Host "  note auto on   - Turn auto-note on"
 Write-Host "  note auto off  - Turn auto-note off"
 Write-Host "  note select -N - Pick from the last N commands to create an overview note"
+Write-Host "  note query [id] [--layer fact|assumption|guessing] [--section name]"
+Write-Host "                 - Query challenge memory from Memory Core"
+Write-Host "  note list      - List all known challenges"
+Write-Host "  note capture <cmd> - Execute command, capture output, and ingest into Memory Core"
+Write-Host "  note read [path]   - Read and display state.yaml (default: current challenge)"
+Write-Host "  note guess [--count N] [--seed N] - Get technique suggestions from template"
 Write-Host "  note '...'     - Send a manual AI note"
 Write-Host "  note           - Enter multi-line note mode (/done to finish)"
 Write-Host "Command history saved to $script:NoteRoundsFile"

@@ -580,6 +580,19 @@ components:
         content:
           type: string
           title: Content
+        outcome:
+          anyOf:
+          - type: string
+            enum:
+            - succeeded
+            - failed
+            - denied
+            - interrupted
+            - unknown
+          - type: 'null'
+          title: Outcome
+          description: Execution provenance for tool_result. succeeded/failed mean the tool ran; denied/interrupted/unknown
+            do not grant direct-evidence status. Omitted legacy tool_result events are treated as unknown.
       additionalProperties: false
       type: object
       required:
@@ -591,11 +604,13 @@ components:
       description: 'One normalized event from an external agent run.
 
 
-        ``kind`` carries the epistemic weight: a ``tool_result`` is direct evidence and may
+        ``kind`` and ``outcome`` together carry the epistemic weight.  A ``tool_result`` is
 
-        support a Fact, whereas a ``message`` is agent narrative and may only support an
+        direct evidence only when its outcome says the tool actually executed
 
-        Assumption.'
+        (``succeeded`` or ``failed``).  Missing, denied, interrupted or unknown outcomes are
+
+        not Fact-grade evidence.'
     AssumptionItem:
       properties:
         id:

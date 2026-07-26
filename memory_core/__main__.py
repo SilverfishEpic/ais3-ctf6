@@ -17,8 +17,10 @@ promises exactly one writing process; multi-worker is an explicit non-goal.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 import uvicorn
 
@@ -29,11 +31,21 @@ from .service import MemoryService
 from .summarizer import FakeSummarizer, Summarizer
 
 
+def _default_port_from_env() -> int:
+    """Read default port from MEMORY_CORE_URL if set, else 8000."""
+    url = os.environ.get("MEMORY_CORE_URL", "")
+    if url:
+        parsed = urlparse(url)
+        if parsed.port:
+            return parsed.port
+    return 8000
+
+
 def main(argv: list[str] | None = None) -> int:
     settings = Settings.from_env()
     parser = argparse.ArgumentParser(prog="memory_core", description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=_default_port_from_env())
     parser.add_argument("--runs", type=Path, default=settings.runs_dir)
     parser.add_argument("--templates", type=Path, default=settings.templates_dir)
     parser.add_argument(

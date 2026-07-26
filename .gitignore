@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # IDE / editor
 .vscode/
 
@@ -7,17 +6,23 @@
 
 # CodeGraph index
 .codegraph/
+*.out
 
 # Patches
 patches/
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.egg-info/
 dist/
 build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.venv
+.venv/
 
 # OS
 .DS_Store
@@ -26,20 +31,9 @@ Thumbs.db
 # Runtime data
 rounds.jsonl
 transcripts/
+runs/
 
 # Environment
 .env
 .env.local
-*.venv
-=======
-.venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-runs/
-.env
 uv.lock
->>>>>>> 3ccaa55 (memory system build)
