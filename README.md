@@ -48,6 +48,20 @@ the project virtual environment. Use `source .venv/bin/activate` on Linux/macOS 
 Full installation and Linux/Windows usage notes are in
 [`docs/human-cli.md`](docs/human-cli.md).
 
+## License
+
+This project is licensed under the Smoking Elephant Slop Public License,
+Version 1.0.
+
+SESPL-1.0 is a custom permissive license. It is not OSI-approved and is not
+listed in the SPDX License List. For tooling purposes, use:
+
+```text
+LicenseRef-SESPL-1.0
+```
+
+See [LICENSE](LICENSE) and [docs/license.md](docs/license.md).
+
 ## Local Verification
 
 Use Python 3.12.
