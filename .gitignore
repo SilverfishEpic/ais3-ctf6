@@ -35,5 +35,9 @@ runs/
 
 # Environment
 .env
+.env.*
+!.env.example
 .env.local
+.secrets.env
+.secrets.*
 uv.lock
