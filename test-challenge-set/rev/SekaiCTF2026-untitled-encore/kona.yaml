@@ -1,0 +1,19 @@
+# Reference: https://github.com/project-sekai-ctf/konata
+challenges:
+  - category: rev
+    name: Untitled Encore
+    author: sahuang
+    releaseTime: "2026-06-27T08:00:00Z"
+    description: |
+      Yes, you can no longer make PJSK content with Sonolus.
+
+      No, I will not ask you to play with Sonolus...
+    tags:
+      - ⭐⭐
+      - SEKAI
+    attachments:
+      files:
+        - "dist/"
+      stripComponents: 1
+    flags:
+      rctf: 'SEKAI{eBPF_my_B3l0v3d}'

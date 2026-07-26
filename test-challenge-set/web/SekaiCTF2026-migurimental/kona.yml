@@ -1,0 +1,87 @@
+# Reference: https://github.com/project-sekai-ctf/konata
+challenges:
+  - id: web_migurimental
+    category: web
+    name: Migurimental
+    releaseTime: "2026-06-28T08:00:00Z"
+    author: beluga
+    description: |
+      Poor migu lost her leek 🥀🥀
+
+      > [!NOTE]
+      > This is a 0day challenge and we are hoping you keep th{is|ese} 0day{|s} to yourself until the vulnerabilit{y|ies} {is|are} patched.
+    tags:
+      - ⭐
+      - SEKAI
+      - 0day
+    attachments:
+      files:
+        - "challenge/"
+      exclude:
+        - "challenge/flag.txt"
+      stripComponents: 1
+      additional:
+        - path: flag.txt
+          strContent: "SEKAI{dummy_flag}"
+    flags:
+      rctf:
+        file: challenge/flag.txt
+    endpoints:
+      - type: https
+        endpoint: "{{ challenge.name | lower }}.{{ config.domains['static'] }}"
+      - type: https
+        endpoint: "{{ challenge.name | lower }}-2.{{ config.domains['static'] }}"
+
+deployment:
+  images:
+    - path: challenge
+      name: "{{ challenges[0].name | lower }}"
+      tag: latest
+      registryName: challenges
+      platform: linux/amd64
+
+  kubernetesInlineManifests:
+    - clusterName: main
+      documents:
+        - apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: '{{ challenges[0].name | lower }}'
+        - apiVersion: sctf.es3n1n.io/v1alpha1
+          kind: Challenge
+          metadata:
+            name: "{{ challenges[0].name | lower }}"
+            namespace: "{{ challenges[0].name | lower }}"
+          spec:
+            releaseTime: "2026-06-28T08:00:00Z"
+            pods:
+              - name: challenge
+                replicas: 1
+                spec:
+                  containers:
+                    - name: challenge
+                      image: "{{ images[challenges[0].name | lower] }}"
+                      ports:
+                        - name: backstage1
+                          containerPort: 8080
+                        - name: backstage2
+                          containerPort: 8081
+                      resources:
+                        requests: { cpu: 25m, memory: 64Mi }
+                        limits: { cpu: 2, memory: 2Gi }
+                      securityContext:
+                        runAsNonRoot: true
+                        runAsUser: 1000
+                        runAsGroup: 1000
+                        allowPrivilegeEscalation: false
+                        seccompProfile:
+                          type: RuntimeDefault
+                        capabilities:
+                          drop: ["ALL"]
+                exposed:
+                  - protocol: HTTPS
+                    subdomain: "{{ challenges[0].name | lower }}"
+                    targetPort: 8080
+                  - protocol: HTTPS
+                    subdomain: "{{ challenges[0].name | lower }}-2"
+                    targetPort: 8081
