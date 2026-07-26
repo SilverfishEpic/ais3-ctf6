@@ -1,0 +1,75 @@
+# Reference: https://github.com/project-sekai-ctf/konata
+challenges:
+  - category: pwn
+    name: echo-chamber
+    author: unvariant
+    description: |
+      What if we just... disabled the tcache entirely?
+
+    releaseTime: '2026-06-28T08:00:00Z'
+
+    tags:
+      - ⭐⭐⭐
+
+    attachments:
+      files:
+        - "challenge/"
+      exclude:
+        - "challenge/flag.txt"
+      additional:
+        - path: flag.txt
+          strContent: "SEKAI{dummy_flag}"
+      stripComponents: 1
+
+    flags:
+      rctf:
+        file: 'challenge/flag.txt'
+    
+    instancerConfig:
+      instancer: k8s
+      challengeIntegrationId: "{{ challenge.name | lower }}"
+      timeoutMilliseconds: 1800000
+      expose:
+        - kind: tcp-ssl
+          hostPrefix: "{{ challenge.name | lower }}"
+          containerName: app
+          containerPort: 9999
+      config:
+        pods:
+          - name: app
+            ports:
+              - protocol: TCP
+                port: 9999
+            spec:
+              containers:
+                - name: app
+                  image: "{{ images[challenge.name | lower] }}"
+                  resources:
+                    limits:
+                      cpu: '1'
+                      memory: 1Gi
+                    requests:
+                      cpu: 25m
+                      memory: 64Mi
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                      drop: ["ALL"]
+                  readinessProbe:
+                    tcpSocket:
+                      port: 9999
+                    initialDelaySeconds: 5
+                    periodSeconds: 3
+              restartPolicy: Always
+              terminationGracePeriodSeconds: 0
+              automountServiceAccountToken: false
+              enableServiceLinks: false
+            egress: false
+
+deployment:
+  images:
+    - path: challenge
+      name: "{{ challenges[0].name | lower }}"
+      tag: latest
+      registry_name: instancer-challenges
+      platform: linux/amd64

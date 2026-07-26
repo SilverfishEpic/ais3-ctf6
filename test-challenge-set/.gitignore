@@ -1,0 +1,9 @@
+# Challenge directories are verbatim upstream copies and must be tracked as-is.
+# The repo-root ignores target Python build output, but the same names carry
+# real meaning here: `dist/` is the files handed to players, and several
+# challenges ship `.env`, `build/`, or `*.out` artifacts as part of the task.
+!dist/
+!build/
+!*.out
+!.env
+!.env.*
