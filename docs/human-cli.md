@@ -268,7 +268,86 @@ uv run ctfmem --json show
 uv run ctfmem --json query "目前有哪些 Fact？"
 ```
 
-## 7. 全域參數與環境變數
+## 7. Agent Bridge 入口
+
+`ctfmem agent` 是 Human CLI 對 Agent Bridge 的統一入口。Human CLI 只負責
+CLI parsing、設定與輸出；實際 agent 編排仍由 `agent_bridge.AgentLoop` 與
+adapter 實作。
+
+實際路徑：
+
+```text
+ctfmem agent run
+  ↓
+AgentLoop
+  ↓
+ClaudeAdapter 或 FakeAgentAdapter
+  ↓
+normalized run log
+  ↓
+Memory Core /ingest
+```
+
+離線 fake-agent 驗證：
+
+```bash
+uv run ctfmem --challenge demo-web agent run \
+  --fake-agent multi_tool \
+  "繼續分析"
+```
+
+真 Claude normal run：
+
+```bash
+uv run ctfmem --challenge demo-web agent run \
+  --workspace . \
+  --mode normal \
+  --session same \
+  "繼續分析"
+```
+
+YOLO run：
+
+```bash
+uv run ctfmem --challenge demo-web agent run \
+  --mode yolo \
+  --session same \
+  --max-turns 10 \
+  --max-cost-usd 5 \
+  --idle-turns 3 \
+  "把題目解完"
+```
+
+Stop / status：
+
+```bash
+uv run ctfmem --challenge demo-web agent stop
+uv run ctfmem --challenge demo-web agent status
+```
+
+第一版不啟動 daemon。`agent stop` 寫入 challenge-local stop file，`agent run`
+在 loop 中偵測後優雅停止，已完成的 partial events 仍會送進 Memory Core。
+
+預設 runtime 目錄：
+
+```text
+.ctfmem/<challenge>/
+├── agent.stop
+└── agent-status.json
+```
+
+`.ctfmem/` 是 Human CLI / Agent Bridge 的本機 runtime metadata，不屬於 Memory
+Core persistence，也不應 commit。
+
+JSON mode：
+
+```bash
+uv run ctfmem --json --challenge demo-web agent run \
+  --fake-agent single_tool \
+  "查一下"
+```
+
+## 8. 全域參數與環境變數
 
 全域參數：
 
@@ -299,7 +378,7 @@ CLI argument > environment variable > documented default / error
 
 沒有 challenge 的命令必須明確報錯，不可默默套用未知題目。
 
-## 8. 命令樹
+## 9. 命令樹
 
 ```text
 ctfmem
@@ -321,11 +400,15 @@ ctfmem
 │   └── move
 ├── guessing
 │   └── mark-tried
-└── template
-    └── set
+├── template
+│   └── set
+└── agent
+    ├── run
+    ├── stop
+    └── status
 ```
 
-## 9. I/O 語意
+## 10. I/O 語意
 
 ### `note`
 
@@ -394,7 +477,7 @@ reason
 
 收到 409 時停止，不自動抓新 revision 重送。
 
-## 10. JSON output
+## 11. JSON output
 
 所有主要命令支援 `--json`。
 
@@ -406,7 +489,7 @@ reason
 - 保留原始 OpenAPI 欄位名稱。
 - error JSON 可供 script 判斷。
 
-## 11. Exit code contract
+## 12. Exit code contract
 
 | Exit code | 意義 |
 |---:|---|
@@ -419,7 +502,7 @@ reason
 | `7` | Core／Summarizer／provider server error |
 | `8` | 本機 command capture 啟動失敗 |
 
-## 12. MVP 不做
+## 13. MVP 不做
 
 - shell profile injection
 - `PROMPT_COMMAND` interception
@@ -434,7 +517,7 @@ reason
 - local template catalog editing
 - direct AIS3 calls
 
-## 13. 驗收準則
+## 14. 驗收準則
 
 - `uv run --extra dev pytest`
 - `uv run --extra dev ruff check .`
