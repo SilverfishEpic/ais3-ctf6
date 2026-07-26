@@ -60,8 +60,15 @@ class AgentAdapter(Protocol):
 class MemoryClient(Protocol):
     """Memory Core 的最小介面。
 
-    這一層**只讀與 ingest**。白板的語意寫入永遠由 Memory Core 自己做，
-    人類的 mutate 走 Person 2 的 CLI，不從這裡走。
+    這一層**只讀與 ingest**。白板的語意寫入永遠由 Memory Core 自己做。
+
+    `mutate` 與 `set_template` **刻意不在這個介面裡**,即使
+    `HttpMemoryClient` 兩個都實作了。它們是人類 override 的路(規劃書 §8.6、
+    §10.1),`AgentLoop` 只認這個 Protocol,所以它在結構上就沒有能力改白板 ——
+    這比寫一行「請不要呼叫」可靠。
+
+    要用那兩個方法的是 `tools/integration_check.py`(扮演人類跑起點文件 §10 的
+    第 9、10 步),它直接持有 `HttpMemoryClient`,不透過這個介面。
     """
 
     async def create_challenge(
