@@ -90,7 +90,7 @@ async def main_async(args: argparse.Namespace) -> int:
         print(f"用真的 Claude，工作區 {workspace}")
     else:
         adapter = FakeAgentAdapter(args.scenario)
-        print(f"用假 Agent，重播錄音 {args.scenario}")
+        print(f"用假 Agent，重播執行紀錄 {args.scenario}")
 
     loop = AgentLoop(
         adapter=adapter,

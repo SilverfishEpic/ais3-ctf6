@@ -13,7 +13,7 @@ Hook 在工具真的執行之前跑，而且多個 hook 同時掛的時候 deny 
 它就從「沙箱」退化成「防手滑的護欄」。真的要跑 CTF 免不了要放這些，所以
 M2 接真題目時必須另外決定隔離層（容器 / WSL 分身），不能只靠這個檔案。
 
-M0 預設用最小的唯讀 recon 名單，因為錄音只需要跑得動幾個安全指令。
+M0 預設用最小的唯讀 recon 名單，因為執行紀錄只需要跑得動幾個安全指令。
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ WRAPPER_COMMANDS: frozenset[str] = frozenset({
 # 只讀不寫的內建工具
 READ_ONLY_TOOLS: frozenset[str] = frozenset({"Read", "Glob", "Grep"})
 
-# M0 錄音用的預設工具集
+# M0 錄製用的預設工具集
 DEFAULT_TOOLS: frozenset[str] = READ_ONLY_TOOLS | frozenset({"Bash", "TodoWrite"})
 
 # M0 預設的 Bash 執行檔名單：純觀察，不改動任何東西，也不能執行任意程式碼

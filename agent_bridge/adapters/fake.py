@@ -1,8 +1,8 @@
-"""FakeAgentAdapter —— 重播錄音，不需要 Claude、不需要 API key、不花錢。
+"""FakeAgentAdapter —— 重播執行紀錄，不需要 Claude、不需要 API key、不花錢。
 
 **這是交付給 Person 1 和 Person 2 的東西。**
 
-重點是它吐出來的 `IngestEnvelope` 內容來自**真的 Claude 錄音**，不是編的。
+重點是它吐出來的 `IngestEnvelope` 內容來自**真的 Claude 執行紀錄**，不是編的。
 編出來的乾淨資料會讓 Summarizer 對著現實中不存在的理想輸入調 prompt，
 接上真的就爆。
 
@@ -15,7 +15,7 @@
 
 給 P2（CLI）：一樣，`ctfmem agent run` 底下換成這個就能離線開發。
 
-可用的錄音（`FakeAgentAdapter.available()` 會列出來）：
+可用的執行紀錄（`FakeAgentAdapter.available()` 會列出來）：
 
 ===============  ==================================================
 talk_only        只有文字，沒有工具
@@ -45,7 +45,7 @@ DEFAULT_FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "claude
 
 
 class FakeAgentAdapter:
-    """符合 `AgentAdapter` 介面，但內容來自錄音。"""
+    """符合 `AgentAdapter` 介面，但內容來自執行紀錄。"""
 
     def __init__(
         self,
@@ -89,8 +89,8 @@ class FakeAgentAdapter:
     def load_run(self) -> NormalizedRun:
         path = self.fixture_dir / f"{self.scenario}.jsonl"
         if not path.exists():
-            available = ", ".join(self.available(self.fixture_dir)) or "（沒有錄音檔）"
-            raise FileNotFoundError(f"找不到錄音 {path}。可用的：{available}")
+            available = ", ".join(self.available(self.fixture_dir)) or "（沒有紀錄檔）"
+            raise FileNotFoundError(f"找不到執行紀錄 {path}。可用的：{available}")
         return normalize(load_rows(path), policy=self.policy)
 
     @staticmethod

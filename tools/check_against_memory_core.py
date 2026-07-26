@@ -11,7 +11,7 @@
 
     python tools/check_against_memory_core.py --base-url http://127.0.0.1:8777
 
-每一份錄音都會建一個 challenge、POST 一次 ingest，並印出 Memory Core 的回應。
+每一份執行紀錄都會建一個 challenge、POST 一次 ingest，並印出 Memory Core 的回應。
 只要有一份被退，就代表我的轉換不合約。
 """
 

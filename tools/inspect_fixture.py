@@ -1,4 +1,4 @@
-"""把錄音檔用人看得懂的方式印出來。
+"""把紀錄檔用人看得懂的方式印出來。
 
 錄完之後要能一眼確認錄到的東西對不對，M1 寫轉換時也要一直回頭看形狀。
 
@@ -119,7 +119,7 @@ def summarize(path: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="檢視錄音檔")
+    parser = argparse.ArgumentParser(description="檢視紀錄檔")
     parser.add_argument("name", nargs="?", help="fixture 名稱；不給就全部列摘要")
     parser.add_argument("--all-fields", action="store_true", help="印出完整 JSON")
     args = parser.parse_args()

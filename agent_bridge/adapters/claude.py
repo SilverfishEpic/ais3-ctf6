@@ -1,7 +1,7 @@
 """真的跑 Claude Agent SDK。
 
-**這是生產路徑** —— `rows_from_live()` 唯一被實際呼叫的地方，也是 M0 那六份錄音
-最終要對得上的東西。錄音走 `tools/record_run.py`，這裡走同一組 hook、同一個
+**這是生產路徑** —— `rows_from_live()` 唯一被實際呼叫的地方，也是 M0 那六份執行紀錄
+最終要對得上的東西。錄製走 `tools/record_run.py`，這裡走同一組 hook、同一個
 `jsonable()`、同一個 `normalize()`，所以 fixture 測到的形狀就是這裡產生的形狀。
 
 session 模式（規劃書 §15，第二個實驗變因）
@@ -123,7 +123,7 @@ class ClaudeAdapter:
         async for message in client.receive_response():
             messages.append(message)
 
-        # 這一行就是生產路徑：把 SDK 訊息與 hook 紀錄組成跟錄音檔一樣的列
+        # 這一行就是生產路徑：把 SDK 訊息與 hook 紀錄組成跟紀錄檔一樣的列
         rows = rows_from_live(messages, self._collector.drain())
         run = normalize(rows, policy=self.truncation)
         envelope = build_envelope(
