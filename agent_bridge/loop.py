@@ -90,7 +90,8 @@ class StopSignal:
     `ctfmem agent stop` 是另一個 process，但規格明講不要常駐服務，
     所以用一個檔案當旗標，迴圈在每圈之間看一眼。同時掛 SIGINT。
 
-    檔案路徑要跟 Person 2 對齊 —— 這是我還缺的最後一個答案。
+    CLI 透過 `agent_bridge.runtime` 建立 challenge-local 路徑；預設位置是
+    `.ctfmem/<challenge>/agent.stop`。
     """
 
     def __init__(self, path: str | Path | None = None) -> None:

@@ -21,6 +21,14 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.hypothesis/
+.dmypy.json
+dmypy.json
+.pyre/
 *.venv
 .venv/
 .venv-*/
@@ -30,9 +38,15 @@ build/
 Thumbs.db
 
 # Runtime data
+.ctfmem/
+agent.stop
+agent-status.json
 rounds.jsonl
 transcripts/
 runs/
+*.log
+*.pid
+*.tmp
 
 # Environment
 .env

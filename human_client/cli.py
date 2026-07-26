@@ -5,6 +5,7 @@ import sys
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from .agent_cli import add_agent_parser
 from .capture import run_capture
 from .client import MemoryCoreClient
 from .config import ClientConfig, config_from_args, require_challenge
@@ -120,6 +121,8 @@ def build_parser() -> argparse.ArgumentParser:
     set_template.add_argument("--revision", type=int, required=True)
     set_template.add_argument("--reason", required=True)
     set_template.set_defaults(handler=cmd_template_set)
+
+    add_agent_parser(sub)
     return parser
 
 
