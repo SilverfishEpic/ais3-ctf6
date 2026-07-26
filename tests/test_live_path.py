@@ -1,6 +1,6 @@
 """生產路徑的回歸測試。
 
-背景：`rows_from_live()` 曾經是死程式碼 —— 錄音走 `JsonlRecorder.write()`，
+背景：`rows_from_live()` 曾經是死程式碼 —— 錄製走 `JsonlRecorder.write()`，
 「正式執行」走 `rows_from_live()`，**兩條各自獨立的組列程式碼，只有一條被測到**。
 當時「fixture 測到的就是生產路徑」這句話其實是假的。
 
@@ -96,7 +96,7 @@ def test_live_rows_have_the_keys_normalize_reads() -> None:
 
 @pytest.mark.parametrize("fixture", ["single_tool", "multi_tool"])
 def test_hook_row_data_matches_the_recorded_shape(fixture: str) -> None:
-    """hook 那一列的 data 欄位，錄音與正式執行必須一模一樣。
+    """hook 那一列的 data 欄位，錄製與正式執行必須一模一樣。
 
     兩邊都是 `jsonable(ToolRecord)`，這個測試就是防止哪天有人只改一邊。
     """
@@ -144,7 +144,7 @@ def test_live_rows_normalize_into_the_expected_events() -> None:
 
 
 def test_hook_position_in_the_row_list_does_not_matter() -> None:
-    """`rows_from_live` 把 hook 全排在訊息後面，錄音檔是照時間交錯的。
+    """`rows_from_live` 把 hook 全排在訊息後面，紀錄檔是照時間交錯的。
 
     兩種排法必須得到同一個結果，否則生產路徑與 fixture 就不等價了。
     """

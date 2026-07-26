@@ -57,7 +57,7 @@ class RunCollector:
         ...  # 跑一輪
         records = collector.drain()   # 取出並清空，準備打包送 ingest
 
-    `on_record` 可以拿來即時落地（錄音腳本就是這樣用的）。
+    `on_record` 可以拿來即時落地（錄製腳本就是這樣用的）。
     """
 
     def __init__(

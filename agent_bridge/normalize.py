@@ -2,8 +2,8 @@
 
 依規劃書 §8.2 的形狀，加上三個依實測提出的欄位（見下方「給 P1 的提案」）。
 
-輸入是「錄音列」—— `{"kind": ..., "type": ..., "data": ...}` 的序列。
-正式執行與重播錄音都組成同一種列，所以 `fixtures/claude/*.jsonl` 測到的
+輸入是「紀錄列」—— `{"kind": ..., "type": ..., "data": ...}` 的序列。
+正式執行與重播執行紀錄都組成同一種列，所以 `fixtures/claude/*.jsonl` 測到的
 就是生產路徑，不是另一條平行的程式碼。
 
 實際的訊息形狀請看 `docs/agent-bridge/m0-findings.md`，那份是對真 SDK 錄出來的。
@@ -77,12 +77,12 @@ class NormalizedRun:
 
 
 # ---------------------------------------------------------------------------
-# 組「錄音列」
+# 組「紀錄列」
 # ---------------------------------------------------------------------------
 
 
 def rows_from_live(messages: Sequence[Any], tool_records: Sequence[ToolRecord]) -> list[JsonDict]:
-    """正式執行用：把 SDK 訊息與 hook 紀錄組成跟錄音檔一樣的列。"""
+    """正式執行用：把 SDK 訊息與 hook 紀錄組成跟紀錄檔一樣的列。"""
     rows: list[JsonDict] = [
         {"kind": "message", "type": type(m).__name__, "data": jsonable(m)} for m in messages
     ]
@@ -93,7 +93,7 @@ def rows_from_live(messages: Sequence[Any], tool_records: Sequence[ToolRecord]) 
 
 
 def load_rows(path: str | Path) -> list[JsonDict]:
-    """重播用：讀一份錄音檔。"""
+    """重播用：讀一份紀錄檔。"""
     text = Path(path).read_text(encoding="utf-8")
     return [json.loads(line) for line in text.splitlines() if line.strip()]
 

@@ -1,6 +1,6 @@
 """編排：注入順序、停損、中止（決定 3、4、7、8）。
 
-全部離線 —— 假 adapter 重播真錄音，假 Memory Core 回可控的 diff。
+全部離線 —— 假 adapter 重播真實執行紀錄，假 Memory Core 回可控的 diff。
 """
 
 from __future__ import annotations
@@ -185,7 +185,7 @@ def test_stops_at_max_turns() -> None:
 
 def test_stops_at_cost_limit() -> None:
     async def scenario():
-        # multi_tool 這份錄音每輪約 $0.083
+        # multi_tool 這份紀錄每輪約 $0.083
         loop, _, _ = await make(
             limits=LoopLimits(max_turns=99, max_cost_usd=0.1, idle_turns_before_stop=99)
         )

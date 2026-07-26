@@ -1,6 +1,6 @@
 """把 SDK 物件轉成純 JSON 結構。
 
-錄音與正式執行都走這個函式，所以 `fixtures/claude/*.jsonl` 裡的形狀
+錄製與正式執行都走這個函式，所以 `fixtures/claude/*.jsonl` 裡的形狀
 就是 `normalize.py` 在正式執行時看到的形狀 —— 測試才真的等於生產路徑。
 """
 
@@ -17,7 +17,7 @@ def jsonable(obj: Any) -> Any:
     dataclass 會多帶一個 `__type__`：content block 全是 dataclass，
     少了型別名稱就分不出 TextBlock / ThinkingBlock / ToolUseBlock。
 
-    真的不認識的東西退回 repr()，寧可留一個看得懂的字串，也不要讓整份錄音爆掉。
+    真的不認識的東西退回 repr()，寧可留一個看得懂的字串，也不要讓整份紀錄爆掉。
     """
     if obj is None or isinstance(obj, (bool, int, float, str)):
         return obj

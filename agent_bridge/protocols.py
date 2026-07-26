@@ -1,7 +1,7 @@
 """介面定義 —— 整個 bridge 的樞紐。
 
 Agent 那頭只認 `AgentAdapter`，記憶那頭只認 `MemoryClient`，
-所以「重播錄音 / 真的跑 Claude」與「假白板 / 真 Memory Core」可以四種組合自由搭配。
+所以「重播執行紀錄 / 真的跑 Claude」與「假白板 / 真 Memory Core」可以四種組合自由搭配。
 
 `MemoryClient` 的方法對應 `spec/openapi.yaml`（origin/memory-system）的端點。
 回傳值刻意保持成 dict：那些形狀是 Memory Core 擁有的，我這邊不該再定義一次

@@ -1,4 +1,4 @@
-"""M0 錄音腳本：接真的 Claude Agent SDK，把一輪執行的原始輸出整份存成 JSONL。
+"""M0 錄製腳本：接真的 Claude Agent SDK，把一輪執行的原始輸出整份存成 JSONL。
 
 為什麼要有這個
 --------------
@@ -10,7 +10,7 @@
 
 錄的是**原始輸出**，跟 AgentRunEvent 長什麼樣無關，所以完全不需要等 contract freeze。
 
-這份錄音同時是三個東西
+這份紀錄同時是三個東西
 ----------------------
 1. 我寫轉換的依據
 2. 回歸測試的比對基準
@@ -195,7 +195,7 @@ class JsonlRecorder:
 
 
 def make_workspace(name: str) -> Path:
-    """每個情境一份乾淨的工作區，讓錄音盡量可重現。"""
+    """每個情境一份乾淨的工作區，讓錄製結果盡量可重現。"""
     ws = WORKSPACE_DIR / name
     if ws.exists():
         for child in sorted(ws.rglob("*"), reverse=True):
