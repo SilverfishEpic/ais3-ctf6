@@ -1,9 +1,23 @@
 """打真的 Memory Core。
 
-端點以 `spec/openapi.yaml`（origin/memory-system）為準。路徑帶 `/v1/challenges/{id}`
-前綴 —— 兩份設計文件曾經寫得不一樣，凍結的 contract 選了帶前綴的那個。
+端點以 `spec/openapi.yaml` 為準。路徑帶 `/v1/challenges/{id}` 前綴 ——
+兩份設計文件曾經寫得不一樣,凍結的 contract 選了帶前綴的那個。
 
-錯誤處理照 protocol.md §10 的 error model：
+合約的八個端點全部實作了::
+
+    GET  /healthz                          healthz
+    POST /v1/challenges                    create_challenge
+    GET  /v1/challenges/{id}/memory        get_memory
+    POST /v1/challenges/{id}/ingest        ingest
+    POST /v1/challenges/{id}/query         query
+    POST /v1/challenges/{id}/guess         guess
+    POST /v1/challenges/{id}/mutate        mutate        ← 人類 override 的路
+    POST /v1/challenges/{id}/template      set_template  ← 同上
+
+最後兩個**不在 `MemoryClient` Protocol 裡**,所以 `AgentLoop` 拿不到它們。
+理由見 `protocols.py` 的 `MemoryClient` docstring。
+
+錯誤處理照 protocol.md §10 的 error model::
 
     {"error": {"code": "revision_conflict", "message": "...", "details": {...}}}
 """
@@ -89,6 +103,61 @@ class HttpMemoryClient:
         if seed is not None:
             body["seed"] = seed
         return await self._request("POST", f"/v1/challenges/{challenge_id}/guess", json=body)
+
+    async def mutate(
+        self,
+        challenge_id: str,
+        *,
+        expected_revision: int,
+        actor: str,
+        reason: str,
+        operations: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """人工 override(規劃書 §8.6)。
+
+        **Agent Bridge 平常不該呼叫這個** —— 白板內容由 Summarizer 決定,
+        這是人類的路。實作它是為了兩件事:
+
+        1. `tools/integration_check.py` 要跑起點文件 §10 的第 9、10 步
+           (promote 帶 `expected_revision`、stale revision 回 409)
+        2. `mark_tried` 目前也走這條路,而規劃書 §4.3 的 tried 狀態在自動迴圈裡
+           沒有任何人更新 —— 誰負責是 Spec 要裁的,先把管道留著
+
+        `reason` 是合約強制的:override 必須可歸因。
+        revision 不符會拋 `MemoryCoreError`,其 `.is_revision_conflict` 為 True。
+        """
+        body = {
+            "expected_revision": expected_revision,
+            "actor": actor,
+            "reason": reason,
+            "operations": operations,
+        }
+        return await self._request("POST", f"/v1/challenges/{challenge_id}/mutate", json=body)
+
+    async def set_template(
+        self,
+        challenge_id: str,
+        template: str,
+        *,
+        expected_revision: int,
+        actor: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """明確重新分類(規劃書 §7.3、§8.7)。
+
+        消融實驗要比「generic vs 題型專屬」(§19.3)時,建 challenge 時直接指定
+        `template` 比事後改乾淨;這個方法是給「跑到一半發現題型判錯」用的。
+
+        §7.3 保證重新分類**不改變 Fact/Assumption 的 epistemic level**,
+        只重新 map 分節。
+        """
+        body = {
+            "template": template,
+            "expected_revision": expected_revision,
+            "actor": actor,
+            "reason": reason,
+        }
+        return await self._request("POST", f"/v1/challenges/{challenge_id}/template", json=body)
 
     async def healthz(self) -> dict[str, Any]:
         return await self._request("GET", "/healthz")
