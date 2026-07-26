@@ -5,18 +5,20 @@ binary、`strings` 一整包，隨便就是幾百 KB，整包送進 `/ingest` �
 Summarizer 的 context 撐爆。
 
 為什麼一定要標記：`journal.jsonl` 的定位是「原始證據紀錄」。砍了卻不說，
-之後拿 journal 重跑實驗會得到錯的結論。所以每一筆被砍過的內容都帶
-`truncated` 與 `original_bytes`。
+之後拿 journal 重跑實驗會得到錯的結論。
 
-這兩個欄位需要 P1 在 `AgentRunEvent` 上開位置 —— contract 第 2 題。
+`truncated` 與 `original_bytes` 這兩個欄位 `AgentRunEvent` 沒有位置
+（`additionalProperties: false`），所以它們只留在 `NormalizedRun` 本地。
+**線上靠的是寫進 `content` 裡的 `MARKER`** —— Summarizer 看得到那一行，
+就知道自己拿到的不是全部。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-# 機器讀的標記，跟 envelope.py 的 [not executed: ...] 一樣用英文 ——
-# contract 與 Summarizer 的共同語言是英文，混語言的標記容易被誤讀。
+# 機器讀的標記，用英文 —— contract 與 Summarizer 的共同語言是英文，
+# 混語言的標記容易被誤讀。
 MARKER = "\n…[truncated {dropped} bytes]…\n"
 
 

@@ -59,6 +59,7 @@ from agent_bridge.collect import (  # noqa: E402
 )
 from agent_bridge.sandbox import ToolPolicy, sandbox_hooks  # noqa: E402
 from agent_bridge.serialize import jsonable  # noqa: E402
+from tools.redact_fixtures import walk  # noqa: E402
 
 FIXTURE_DIR = REPO_ROOT / "fixtures" / "claude"
 WORKSPACE_DIR = REPO_ROOT / ".workspaces"
@@ -155,6 +156,7 @@ class JsonlRecorder:
         self._fh = path.open("w", encoding="utf-8")
         self._t0 = time.monotonic()
         self._seq = 0
+        self._redacted = 0
         self.path = path
 
     def write(self, kind: str, type_: str, data: Any) -> None:
@@ -167,6 +169,10 @@ class JsonlRecorder:
             "type": type_,
             "data": jsonable(data),
         }
+        # 打碼在**寫入當下**做,不是事後補 —— 事後補的話未打碼的內容已經落地過,
+        # 而且真正外洩的往往是那些沒人想到要回去清的檔案。
+        line, hits = walk(line)
+        self._redacted += hits
         self._fh.write(json.dumps(line, ensure_ascii=False) + "\n")
         self._fh.flush()
 
@@ -176,6 +182,11 @@ class JsonlRecorder:
     @property
     def count(self) -> int:
         return self._seq
+
+    @property
+    def redacted(self) -> int:
+        """打了幾處碼。0 也是有意義的資訊 —— 代表這次沒有路徑落到紀錄裡。"""
+        return self._redacted
 
 
 # --------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 .venv/
+.venv-*/
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -19,4 +20,6 @@ uv.lock
 .workspaces/
 transcripts/
 
-# fixtures/ is the sanitized replay baseline and must remain trackable.
+# fixtures/ holds real Claude recordings with local paths redacted in place
+# (tools/redact_fixtures.py). They must remain trackable — a synthesized
+# stand-in cannot exercise truncation or give the Summarizer realistic input.
