@@ -39,7 +39,7 @@ def app(service: MemoryService) -> FastAPI:
     config = ClientConfig(
         api_url="http://testserver",
         challenge=None,
-        actor="ronny",
+        actor="operator",
         timeout=30.0,
         json_output=False,
         verbose=False,
@@ -113,7 +113,7 @@ def test_the_write_is_attributed_to_the_server_actor_not_the_page(app: FastAPI) 
 
     board = call(app, "GET", "/api/v1/challenges/demo-web/memory").json()
 
-    assert board["fact"]["target"][0]["source_actor"] == "ronny"
+    assert board["fact"]["target"][0]["source_actor"] == "operator"
 
 
 def test_the_board_carries_the_section_layout_the_page_offers(app: FastAPI) -> None:

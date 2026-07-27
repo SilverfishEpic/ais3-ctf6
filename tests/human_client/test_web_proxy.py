@@ -118,7 +118,7 @@ def config() -> ClientConfig:
     return ClientConfig(
         api_url="http://127.0.0.1:8777",
         challenge=None,
-        actor="ronny",
+        actor="operator",
         timeout=30.0,
         json_output=False,
         verbose=False,
@@ -286,7 +286,7 @@ def test_a_note_is_wrapped_in_the_envelope_with_the_server_actor(
     name, kwargs = core.last
     assert name == "ingest_note"
     assert kwargs["content"] == "port 80 is open"
-    assert kwargs["actor"] == "ronny"
+    assert kwargs["actor"] == "operator"
 
 
 def test_a_command_result_keeps_its_exit_code(app: FastAPI, core: RecordingClient) -> None:
@@ -306,7 +306,7 @@ def test_a_command_result_keeps_its_exit_code(app: FastAPI, core: RecordingClien
     assert name == "ingest_command_result"
     assert kwargs["result"]["exit_code"] == 2
     assert kwargs["result"]["stdout"] == ""
-    assert kwargs["actor"] == "ronny"
+    assert kwargs["actor"] == "operator"
 
 
 def test_an_agent_run_log_is_refused_by_this_client(app: FastAPI, core: RecordingClient) -> None:
@@ -334,7 +334,7 @@ def test_a_mutation_cannot_claim_a_different_actor(app: FastAPI, core: Recording
 
     name, kwargs = core.last
     assert name == "mutate"
-    assert kwargs["actor"] == "ronny"
+    assert kwargs["actor"] == "operator"
     assert kwargs["expected_revision"] == 3
     assert kwargs["reason"] == "verified in gdb"
     assert kwargs["operations"] == [{"op": "promote", "id": "A017", "to": "fact"}]
@@ -375,7 +375,7 @@ def test_memory_filters_reach_the_core(app: FastAPI, core: RecordingClient) -> N
 def test_local_config_reports_the_server_side_settings(app: FastAPI) -> None:
     body = call(app, "GET", "/api/local/config").json()
 
-    assert body["actor"] == "ronny"
+    assert body["actor"] == "operator"
     assert body["api_url"] == "http://127.0.0.1:8777"
     assert body["port"] == PORT
 

@@ -48,7 +48,7 @@ def settings(tmp_path: Path) -> AgentSettings:
 
 def argv_for(settings: AgentSettings, body: dict[str, Any]) -> list[str]:
     return web_agent.build_argv(
-        settings, body, api_url=CORE, actor="ronny", challenge_id="demo-web"
+        settings, body, api_url=CORE, actor="operator", challenge_id="demo-web"
     )
 
 
@@ -107,7 +107,7 @@ def test_the_argument_list_parses_with_the_cli_own_parser(settings: AgentSetting
     assert args.mode == "yolo"
     assert args.session == "new"
     assert args.challenge == "demo-web"
-    assert args.actor == "ronny"
+    assert args.actor == "operator"
     assert args.api_url == CORE
     assert args.json is True
 
@@ -197,7 +197,7 @@ def test_start_reports_what_it_launched_and_truncates_the_log(settings: AgentSet
         settings,
         {"prompt": "go"},
         api_url=CORE,
-        actor="ronny",
+        actor="operator",
         challenge_id="demo-web",
         spawn=spawn,
     )
@@ -217,7 +217,7 @@ def test_a_refused_body_never_reaches_the_spawn(settings: AgentSettings) -> None
             settings,
             {"prompt": ""},
             api_url=CORE,
-            actor="ronny",
+            actor="operator",
             challenge_id="demo-web",
             spawn=spawn,
         )
@@ -370,7 +370,7 @@ def agent_app(settings: AgentSettings) -> tuple[FastAPI, list[list[str]]]:
         config=ClientConfig(
             api_url=CORE,
             challenge=None,
-            actor="ronny",
+            actor="operator",
             timeout=30.0,
             json_output=False,
             verbose=False,
