@@ -33,6 +33,16 @@ class MemoryCoreClient:
         if self._owns_client and callable(close):
             close()
 
+    def healthz(self) -> dict[str, Any]:
+        """Liveness probe, the ninth operation of the frozen contract.
+
+        Listed in ``spec/protocol.md`` §10 alongside the eight ``/v1`` operations and
+        published in ``spec/openapi.yaml``, so it belongs on the adapter even though no CLI
+        command needs it.
+        """
+
+        return self._object(self._request("GET", "/healthz", expected={200}))
+
     def create_challenge(
         self,
         challenge_id: str,
