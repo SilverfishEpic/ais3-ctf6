@@ -9,6 +9,7 @@
   --danger: #a11b1b;
   --auto: #2b5c8a;
   --explicit: #6b3fa0;
+  --agent: #0f7a72;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +24,7 @@
     --danger: #ef7b7b;
     --auto: #7fb2e0;
     --explicit: #b995e8;
+    --agent: #5fc9bf;
   }
 }
 
@@ -80,6 +82,30 @@ aside .panel { margin-top: 0; }
 
 .panel.automatic { border-left: 4px solid var(--auto); }
 .panel.explicit { border-left: 4px solid var(--explicit); }
+.panel.agent { border-left: 4px solid var(--agent); }
+.panel.agent h2 { color: var(--agent); }
+
+code {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 0.2em;
+}
+
+.agent-log {
+  max-height: 14rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8em;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.4rem;
+  margin: 0.5rem 0 0;
+}
+
+.running { color: var(--agent); font-weight: 700; }
 
 .explain { color: var(--muted); margin: 0 0 0.75rem; font-size: 0.85em; }
 

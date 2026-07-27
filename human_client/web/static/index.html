@@ -59,6 +59,35 @@
 
   <aside>
 
+    <section id="agent-panel" class="panel agent" hidden>
+      <h2>Agent</h2>
+      <p class="explain">
+        Runs <code>ctfmem agent</code> as a child process. Whatever it learns reaches the
+        whiteboard through the same ingest path a human uses, so the board above is the
+        progress display. <code>ctfmem agent status</code> in a terminal sees this run too.
+      </p>
+      <label class="block">prompt
+        <textarea id="agent-prompt" rows="3" placeholder="Look at the target and tell me what it runs."></textarea>
+      </label>
+      <div class="row">
+        <label>mode <select id="agent-mode"></select></label>
+        <label>session <select id="agent-session"></select></label>
+        <label>memory <select id="agent-policy"></select></label>
+      </div>
+      <div class="row">
+        <label>max turns <input id="agent-turns" type="number" min="1"></label>
+        <label>max cost USD <input id="agent-cost" type="number" min="0" step="0.5"></label>
+        <label>agent <select id="agent-scenario"></select></label>
+      </div>
+      <div class="armed-row">
+        <button id="agent-run" type="button">run</button>
+        <button id="agent-stop" type="button">stop</button>
+      </div>
+      <div id="agent-ceiling" class="muted"></div>
+      <div id="agent-state" class="muted"></div>
+      <pre id="agent-log" class="agent-log" hidden></pre>
+    </section>
+
     <section id="stack-a" class="panel automatic">
       <h2>Observe</h2>
       <p class="explain">

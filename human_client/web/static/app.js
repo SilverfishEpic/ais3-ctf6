@@ -8,6 +8,9 @@
 
 const POLL_MS = 6000;
 
+/* While an agent is working the board is the progress display, so look more often. */
+const FAST_POLL_MS = 2000;
+
 const state = {
   config: null,
   catalog: null,
@@ -18,6 +21,8 @@ const state = {
   busy: false,
   guessReason: "",
   coreUp: null,
+  agent: null,
+  agentStatus: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1082,16 +1087,173 @@ async function submitQuery() {
   host.appendChild(cited);
 }
 
+/* ---------------------------------------------------------------------- agent */
+
+function fillSelect(id, values, firstLabel) {
+  const select = $(id);
+  select.innerHTML = "";
+  if (firstLabel !== undefined) {
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = firstLabel;
+    select.appendChild(first);
+  }
+  for (const value of values) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  }
+}
+
+async function loadAgentOptions() {
+  const result = await api("GET", "/api/local/agent/options");
+  if (!result.ok) return;
+  state.agent = result.body;
+  if (!state.agent.enabled) return;
+
+  $("agent-panel").hidden = false;
+  fillSelect("agent-mode", state.agent.modes);
+  fillSelect("agent-session", state.agent.sessions);
+  fillSelect("agent-policy", state.agent.policies);
+  fillSelect("agent-scenario", state.agent.scenarios, "real Claude");
+  $("agent-turns").value = state.agent.max_turns;
+  $("agent-turns").max = state.agent.max_turns;
+  $("agent-cost").value = state.agent.max_cost_usd;
+  $("agent-cost").max = state.agent.max_cost_usd;
+  $("agent-ceiling").textContent =
+    "ceilings set at launch: " +
+    state.agent.max_turns +
+    " turns, $" +
+    state.agent.max_cost_usd +
+    " · workspace " +
+    state.agent.workspace +
+    " · asking for more than a ceiling silently gets the ceiling";
+}
+
+async function loadAgentStatus() {
+  if (!state.agent || !state.agent.enabled || !state.challengeId) return;
+  const result = await api(
+    "GET",
+    "/api/local/agent/" + encodeURIComponent(state.challengeId) + "/status",
+  );
+  if (!result.ok) {
+    reportError("agent", "Could not read the agent status", result);
+    return;
+  }
+  hideBanner("agent");
+  state.agentStatus = result.body;
+  renderAgentStatus();
+}
+
+function renderAgentStatus() {
+  const host = $("agent-state");
+  const log = $("agent-log");
+  const status = state.agentStatus;
+
+  if (!status) {
+    host.textContent = "";
+    log.hidden = true;
+    return;
+  }
+
+  const running = Boolean(status.running);
+  const bits = [status.status];
+  if (status.mode) bits.push(status.mode + "/" + status.session);
+  if (status.turns !== undefined) {
+    bits.push(status.turns + " turns, " + status.productive_turns + " productive");
+  }
+  if (status.total_cost_usd !== undefined && status.total_cost_usd !== null) {
+    bits.push("$" + Number(status.total_cost_usd).toFixed(4));
+  }
+  if (status.last_revision !== undefined && status.last_revision !== null) {
+    bits.push("last revision r" + status.last_revision);
+  }
+  if (status.stopped_because) bits.push(status.stopped_because);
+  if (status.pid) bits.push("pid " + status.pid);
+
+  host.textContent = bits.join(" · ");
+  host.className = running ? "running" : "muted";
+
+  $("agent-run").disabled = running;
+  $("agent-stop").disabled = !running;
+
+  log.hidden = !status.log;
+  log.textContent = status.log || "";
+}
+
+async function submitAgentRun() {
+  const body = {
+    prompt: $("agent-prompt").value,
+    mode: $("agent-mode").value,
+    session: $("agent-session").value,
+    memory_policy: $("agent-policy").value,
+    max_turns: Number($("agent-turns").value),
+    max_cost_usd: Number($("agent-cost").value),
+  };
+  const scenario = $("agent-scenario").value;
+  if (scenario) body.fake_agent = scenario;
+
+  const result = await api(
+    "POST",
+    "/api/local/agent/" + encodeURIComponent(state.challengeId) + "/run",
+    body,
+  );
+  if (!result.ok) {
+    reportError("agent", "The agent did not start", result);
+    return;
+  }
+  hideBanner("agent");
+  $("agent-run").disabled = true;
+  showBanner(
+    "agent-started",
+    "info",
+    "Agent started",
+    "pid " +
+      result.body.pid +
+      "\n" +
+      result.body.argv.join(" ") +
+      "\n\nWatch the whiteboard: every turn that finds something ingests it and moves the " +
+      "revision. Stopping this page does not stop the run; use stop, or `ctfmem agent stop`.",
+  );
+  await loadAgentStatus();
+}
+
+async function submitAgentStop() {
+  const result = await api(
+    "POST",
+    "/api/local/agent/" + encodeURIComponent(state.challengeId) + "/stop",
+  );
+  if (!result.ok) {
+    reportError("agent", "Could not request a stop", result);
+    return;
+  }
+  hideBanner("agent-started");
+  showBanner(
+    "agent-stopping",
+    "info",
+    "Stop requested",
+    "The loop checks the stop file between turns, so it finishes the turn it is on and " +
+      "then stops. Its partial work is already on the board.",
+  );
+  await loadAgentStatus();
+}
+
 /* --------------------------------------------------------------------- wiring */
 
 async function selectChallenge(id) {
   state.challengeId = id || null;
   state.guessReason = "";
+  state.agentStatus = null;
+  renderAgentStatus();
   disarm();
   $("challenge-select").value = state.challengeId || "";
   hideBanner("conflict");
   hideBanner("catalog-drift");
+  hideBanner("agent-started");
+  hideBanner("agent-stopping");
   await loadBoard();
+  await loadAgentStatus();
 }
 
 function fillTemplatePickers() {
@@ -1157,6 +1319,9 @@ function wire() {
 
   $("guess-submit").addEventListener("click", submitGuess);
   $("query-submit").addEventListener("click", submitQuery);
+
+  $("agent-run").addEventListener("click", submitAgentRun);
+  $("agent-stop").addEventListener("click", submitAgentStop);
 }
 
 /*
@@ -1165,13 +1330,31 @@ function wire() {
  * only ever re-reads the board.
  */
 async function poll() {
-  if (state.busy || state.armed) return;
+  if (state.busy) return;
   const up = await loadHealth();
   const recovered = up && state.coreUp === false;
   state.coreUp = up;
   if (!up) return;
   if (recovered) await loadChallenges();
+  await loadAgentStatus();
+  if (state.armed) return;
   if (state.challengeId) await loadBoard();
+}
+
+/*
+ * Self-scheduling rather than a fixed interval, so the rate can follow what is happening.
+ * A working agent is worth watching closely; an idle board is not. Agent status refreshes
+ * even while a form is armed, because reading it changes nothing the operator composed.
+ */
+function schedulePoll() {
+  const running = Boolean(state.agentStatus && state.agentStatus.running);
+  setTimeout(
+    async () => {
+      await poll();
+      schedulePoll();
+    },
+    running ? FAST_POLL_MS : POLL_MS,
+  );
 }
 
 async function boot() {
@@ -1183,6 +1366,7 @@ async function boot() {
   const catalog = await api("GET", "/api/local/templates");
   if (catalog.ok) state.catalog = catalog.body;
   fillTemplatePickers();
+  await loadAgentOptions();
   renderHeader();
 
   state.coreUp = await loadHealth();
@@ -1190,7 +1374,7 @@ async function boot() {
   if (state.challenges.length === 1) await selectChallenge(state.challenges[0]);
   renderArmed();
 
-  setInterval(poll, POLL_MS);
+  schedulePoll();
 }
 
 boot();
