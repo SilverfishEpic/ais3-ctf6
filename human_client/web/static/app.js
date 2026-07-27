@@ -16,6 +16,7 @@ const state = {
   board: null,
   armed: null,
   busy: false,
+  guessReason: "",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -167,10 +168,15 @@ function armedRevision(formId) {
   return armed.revision;
 }
 
+/*
+ * The checklist is deliberately absent from this list. Arming protects a form that is
+ * composed over a window of time and submitted later; a checkbox has no such window, so
+ * its expected_revision is simply the one on screen when it was clicked. A concurrent
+ * change still produces a real 409 rather than a self-inflicted stale capture.
+ */
 const ARMED_TARGETS = [
   { form: "op", label: "op-armed", button: "op-submit" },
   { form: "template", label: "tpl-armed", button: "tpl-submit" },
-  { form: "guessing", label: "guessing-armed", button: null },
 ];
 
 function renderArmed() {
@@ -367,12 +373,16 @@ function renderGuessing() {
   const reasonInput = document.createElement("input");
   reasonInput.type = "text";
   reasonInput.id = "guess-reason";
-  reasonInput.addEventListener("input", () => arm("guessing"));
+  reasonInput.value = state.guessReason;
+  reasonInput.addEventListener("input", (event) => {
+    state.guessReason = event.target.value;
+  });
   reason.appendChild(reasonInput);
-  const armedNote = document.createElement("div");
-  armedNote.id = "guessing-armed";
-  armedNote.className = "muted";
-  note.append(reason, armedNote);
+  const against = document.createElement("div");
+  against.id = "guessing-armed";
+  against.className = "muted";
+  against.textContent = "each change is applied against r" + state.board.revision;
+  note.append(reason, against);
 
   if (!ids.length) {
     host.innerHTML = "";
@@ -410,7 +420,6 @@ function renderGuessRow(id, techniqueState, label) {
   noteInput.className = "guess-note";
   noteInput.value = techniqueState.note || "";
   noteInput.placeholder = "note";
-  noteInput.addEventListener("input", () => arm("guessing"));
 
   const save = document.createElement("button");
   save.type = "button";
@@ -735,14 +744,14 @@ async function endWrite() {
   renderArmed();
 }
 
-async function afterMutation(bannerId, label, result, composedRevision) {
+async function afterMutation(bannerId, label, result, composedRevision, formId) {
   if (result.ok) {
     hideBanner(bannerId);
     hideBanner("conflict");
     const envelope = result.body;
     await endWrite();
     renderResult(label, envelope, describeLanding(envelope.diff || {}));
-    disarm();
+    if (formId && state.armed && state.armed.formId === formId) disarm();
     return true;
   }
 
@@ -858,7 +867,7 @@ async function submitMutation() {
       operations: [buildOperation()],
     },
   );
-  const applied = await afterMutation("mutate", $("op").value, result, composed);
+  const applied = await afterMutation("mutate", $("op").value, result, composed, "op");
   if (applied) {
     $("op-text").value = "";
     $("op-evidence").value = "";
@@ -868,7 +877,6 @@ async function submitMutation() {
 }
 
 async function submitMarkTried(technique, tried, note) {
-  const composed = armedRevision("guessing");
   const reasonNode = $("guess-reason");
   const reason = reasonNode ? reasonNode.value : "";
   if (!reason.trim()) {
@@ -882,11 +890,8 @@ async function submitMarkTried(technique, tried, note) {
     await loadBoard();
     return;
   }
-  if (composed === null) {
-    renderArmed();
-    await loadBoard();
-    return;
-  }
+  if (!state.board) return;
+  const composed = state.board.revision;
   beginWrite();
   const result = await api(
     "POST",
@@ -916,7 +921,7 @@ async function submitTemplate() {
       reason: $("tpl-reason").value,
     },
   );
-  const applied = await afterMutation("template", "reclassify", result, composed);
+  const applied = await afterMutation("template", "reclassify", result, composed, "template");
   if (applied) $("tpl-reason").value = "";
 }
 
@@ -1051,6 +1056,7 @@ async function submitQuery() {
 
 async function selectChallenge(id) {
   state.challengeId = id || null;
+  state.guessReason = "";
   disarm();
   $("challenge-select").value = state.challengeId || "";
   hideBanner("conflict");
