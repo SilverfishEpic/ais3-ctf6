@@ -6,6 +6,10 @@ Proposed. This ADR exists because `web GUI` is on an enforced non-goal list, and
 attached to that list requires an ADR before an implementation, not after one. Acceptance
 requires agreement from all three developers, per `docs/memory-core-v2.md`.
 
+Superseded in part by [ADR 0002](0002-web-agent-runs.md): the sentence below stating that
+agent orchestration "is not exposed and will not be" no longer holds. Agent runs are now
+exposed, under the guardrails 0002 records. The rest of this document stands.
+
 ## The Non-Goal This ADR Addresses
 
 `docs/memory-core-v2.md` lists `web GUI` under a heading that reads "Non-goals (enforced,
@@ -76,7 +80,8 @@ page and forwards `/api/*` to Memory Core through the existing `MemoryCoreClient
   template reclassification. Every one of them is an operation `ctfmem` already exposes.
 - **No agent orchestration.** `ctfmem agent run/stop` is deliberately excluded. A web
   endpoint that can start a subprocess on the operator's machine is a different decision
-  with a different threat model, and it is not this one.
+  with a different threat model, and it is not this one. *(Superseded by ADR 0002, which
+  takes that decision explicitly and records the guardrails it comes with.)*
 - **Zero new dependencies.** `fastapi`, `uvicorn`, `httpx`, `pyyaml`, and `pydantic` are
   already declared.
 - **Loopback only, no auth.** `127.0.0.1` is bound by construction; there is no `--host`

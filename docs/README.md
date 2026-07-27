@@ -20,6 +20,9 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 
 - [ADR 0001 - A local human web UI](adr/0001-human-web-ui.md) - why a component on the
   non-goal list was built anyway, and the boundaries it accepts. Proposed, not yet accepted.
+- [ADR 0002 - Agent runs from the web UI](adr/0002-web-agent-runs.md) - supersedes 0001 on
+  agent orchestration; why the web spawns `ctfmem agent run` rather than driving the loop
+  itself, and the guardrails that come with it. Proposed, not yet accepted.
 
 ## Historical Design Material
 
