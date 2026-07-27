@@ -17,6 +17,7 @@ const state = {
   armed: null,
   busy: false,
   guessReason: "",
+  coreUp: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -601,6 +602,17 @@ async function loadBoard() {
     "/api/v1/challenges/" + encodeURIComponent(state.challengeId) + "/memory",
   );
   if (!result.ok) {
+    const described = describeError(result);
+    if (described.source === "Memory Core" && described.code === "challenge_not_found") {
+      await forgetSelection(
+        "Challenge " +
+          state.challengeId +
+          " is not there. Memory Core answered challenge_not_found, which usually means it " +
+          "was started against a different --runs directory than the one that challenge " +
+          "lives in. Nothing was lost; pick a challenge below, or create one.",
+      );
+      return;
+    }
     reportError("board", "Could not read the whiteboard", result);
     return;
   }
@@ -611,6 +623,24 @@ async function loadBoard() {
   renderBoard();
   renderGuessing();
   renderSectionChoices();
+  renderArmed();
+}
+
+/*
+ * Drop a selection the core no longer knows about. Without this the poll re-requests a
+ * dead challenge every few seconds forever, and the picker keeps offering it.
+ */
+async function forgetSelection(message) {
+  state.challengeId = null;
+  state.board = null;
+  state.guessReason = "";
+  disarm();
+  hideBanner("board");
+  showBanner("gone", "warn", "That challenge is not there", message);
+  await loadChallenges();
+  renderHeader();
+  renderBoard();
+  renderGuessing();
   renderArmed();
 }
 
@@ -1099,7 +1129,7 @@ function fillTemplatePickers() {
 function wire() {
   $("challenge-select").addEventListener("change", (event) => selectChallenge(event.target.value));
   $("refresh").addEventListener("click", async () => {
-    await loadHealth();
+    state.coreUp = await loadHealth();
     await loadChallenges();
     await loadBoard();
   });
@@ -1129,9 +1159,19 @@ function wire() {
   $("query-submit").addEventListener("click", submitQuery);
 }
 
+/*
+ * Health first. A core that is down makes every other request a banner, and a core that
+ * came back has to clear the banners its absence left behind - neither happens if the poll
+ * only ever re-reads the board.
+ */
 async function poll() {
-  if (state.busy || state.armed || !state.challengeId) return;
-  await loadBoard();
+  if (state.busy || state.armed) return;
+  const up = await loadHealth();
+  const recovered = up && state.coreUp === false;
+  state.coreUp = up;
+  if (!up) return;
+  if (recovered) await loadChallenges();
+  if (state.challengeId) await loadBoard();
 }
 
 async function boot() {
@@ -1145,7 +1185,7 @@ async function boot() {
   fillTemplatePickers();
   renderHeader();
 
-  await loadHealth();
+  state.coreUp = await loadHealth();
   await loadChallenges();
   if (state.challenges.length === 1) await selectChallenge(state.challenges[0]);
   renderArmed();
