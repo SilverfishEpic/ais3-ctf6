@@ -1,34 +1,23 @@
                 SMOKING ELEPHANT SLOP PUBLIC LICENSE
-                          Version 1.0, July 2026
+                         Version 1.1, July 2026
 
 Based on the Do What The Fuck You Want To Public License, Version 2,
 originally written by Sam Hocevar.
 
-Copyleft (C) 2026 Smoking Elephant Slopper
-
-Everyone is permitted to copy and distribute verbatim or modified copies
-of this license document. Changing it is allowed, provided that the name
-of the license is also changed.
-
-The word "Copyleft" above is a stylistic project marker and does not impose
-reciprocal licensing, source disclosure, or share-alike obligations.
-
-Only the section titled "TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND
-MODIFICATION" and the section titled "NO WARRANTY" are intended to be operative
-legal terms. The preamble is non-binding.
+Copyright © 2026 Smoking Elephant Slopper
 
 ────────────────────────────────────────────────────────────────────────
 
-                    NON-BINDING ELEPHANT PREAMBLE
+                NON-BINDING ELEPHANT PREAMBLE
 
 This project consists of Smoking Elephant Slop:
 
     smoking elephant → 抽菸大象 → 抽象 → absurdly incomprehensible
 
-It may have been generated, regenerated, hallucinated, refactored,
-unrefactored, overengineered, underengineered, or confidently invented
-by one or more artificial intelligence systems under questionable human
-supervision.
+The Software may have been generated, regenerated, hallucinated,
+prompted, vibe-coded, refactored, unrefactored, overengineered,
+underengineered, or confidently invented by one or more artificial
+intelligence systems under questionable human supervision.
 
 The elephant has not reviewed the code.
 
@@ -36,13 +25,30 @@ The elephant does not understand the code.
 
 The maintainers may not understand the code either.
 
-If the software works, this may be interpreted as an undocumented feature.
-If it does not work, this is considered a more faithful implementation of
-the original design.
+If the Software works, this may be interpreted as an undocumented feature.
+If it does not work, this may be considered a more faithful implementation
+of the original design.
 
 This preamble is provided solely for comedy and imposes no conditions,
-restrictions, duties, rituals, dietary requirements, or elephant-related
-obligations upon anyone.
+restrictions, duties, rituals, dietary requirements, reciprocal licensing
+obligations, or elephant-related responsibilities upon anyone.
+
+────────────────────────────────────────────────────────────────────────
+
+                LICENSE DOCUMENT DEDICATION
+
+This License Document is also slop.
+
+To the fullest extent permitted by law, the License Author dedicates this
+License Document to the public domain.
+
+If that does not work where you are, the License Author grants everyone a
+perpetual, worldwide, royalty-free, unconditional license to copy, modify,
+publish, translate, sell, relicense, rename, meme, corrupt, fork, or
+otherwise use this License Document for any purpose.
+
+If you modify this License Document, changing its name would be polite.
+The elephant will not enforce politeness.
 
 ────────────────────────────────────────────────────────────────────────
 
@@ -51,23 +57,61 @@ obligations upon anyone.
 
 0. DO WHATEVER THE FUCK YOU WANT WITH THIS SLOP.
 
+For clarity, you may use, copy, modify, merge, publish, distribute,
+sublicense, sell, commercialize, relicense, delete, rewrite, mock, study,
+compile, run, or otherwise exploit the Software for any purpose.
+
+You do not have to publish source code, preserve notices, give credit,
+use this license for your changes, share alike, explain yourself, or ask
+the elephant for permission.
+
+────────────────────────────────────────────────────────────────────────
+
+                PATENT SLOP DISCLAIMER
+
+The Licensor does not believe this Software contains anything worthy of
+patent protection. If it does, this is presumed to be an accident, a
+statistical hallucination, or evidence that the patent system has become
+dangerously bored.
+
+The Licensor does not intend to seek patents on the Software. The elephant
+has declined to monetize the slop and has returned to smoking.
+
+The Software may have been produced by AI systems trained on unknown data,
+operating through unknown vibes, producing unknown slop. The Licensor has
+not conducted a patent search, does not know whether any generated code
+resembles anything patented by anyone else, and makes no promise that the
+Software does not infringe third-party patent rights.
+
+No patent, trademark, model, training-data, or third-party right is granted
+except to the extent the person applying this License actually has the
+right to grant it.
+
 ────────────────────────────────────────────────────────────────────────
 
                           NO WARRANTY
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, CORRECTNESS, SECURITY,
-COHERENCE, SENTIENCE, OR THE CONTINUED SOBRIETY OF ANY ELEPHANT.
+THE SOFTWARE AND THIS LICENSE DOCUMENT ARE PROVIDED "AS IS", WITHOUT
+WARRANTY OF ANY KIND, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT,
+SECURITY, CORRECTNESS, COHERENCE, PATENT NON-INFRINGEMENT, OR THE
+CONTINUED SOBRIETY OF ANY ELEPHANT.
 
-IN NO EVENT SHALL THE AUTHORS, COPYRIGHT HOLDERS, PROMPT AUTHORS, MODEL
-PROVIDERS, TOKEN PREDICTORS, RANDOM NUMBER GENERATORS, OR ELEPHANTS BE
-LIABLE FOR ANY CLAIM, DAMAGES, DATA LOSS, EXISTENTIAL CONFUSION, SPONTANEOUS
-ABSTRACTION, PRODUCTION OUTAGE, OR OTHER LIABILITY ARISING FROM, OUT OF,
-OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+NO AUTHOR, COPYRIGHT HOLDER, CONTRIBUTOR, PROMPT AUTHOR, MODEL PROVIDER,
+TOKEN PREDICTOR, RANDOM NUMBER GENERATOR, OR ELEPHANT SHALL BE LIABLE FOR
+ANY CLAIM, DAMAGE, DATA LOSS, PRODUCTION OUTAGE, EXISTENTIAL CONFUSION,
+SPONTANEOUS ABSTRACTION, THIRD-PARTY PATENT CLAIM, OR OTHER LIABILITY
+ARISING FROM THE SOFTWARE, THIS LICENSE DOCUMENT, OR THEIR USE.
+
+────────────────────────────────────────────────────────────────────────
+
+                NON-BINDING DISTRIBUTED EPILOGUE
 
 If it breaks, you get to keep both pieces.
 
-If there are more than two pieces, congratulations: the software is now
-distributed.
+If there are more than two pieces, congratulations:
+
+The Software is now distributed.
+
+If the Software has patent value, that value has been released into the
+wild and is no longer the elephant's problem.

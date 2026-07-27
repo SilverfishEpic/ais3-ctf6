@@ -2,9 +2,8 @@
 
 ## Status
 
-Proposed. This ADR exists because `web GUI` is on an enforced non-goal list, and the rule
-attached to that list requires an ADR before an implementation, not after one. Acceptance
-requires agreement from all three developers, per `docs/memory-core-v2.md`.
+Accepted. This ADR exists because `web GUI` is on an enforced non-goal list, and the rule
+attached to that list requires an ADR before an implementation, not after one.
 
 Superseded in part by [ADR 0002](0002-web-agent-runs.md): the sentence below stating that
 agent orchestration "is not exposed and will not be" no longer holds. Agent runs are now
@@ -22,7 +21,9 @@ not aspirational)", and states the agreed rule:
 
 `spec/protocol.md` §14 does not list `web GUI`. That is silence, not a reversal:
 `docs/README.md` demotes a historical document only where it *disagrees* with `spec/`, and
-`spec/` says nothing here. The non-goal therefore stands until this ADR is accepted.
+`spec/` says nothing here. This ADR is the explicit acceptance record for the local,
+single-user Web UI exception and the boundaries that keep it from becoming a second
+system.
 
 ## Observed Problem
 
@@ -142,10 +143,14 @@ implicit in which subcommand was typed.
 
 ## Acceptance
 
-This ADR is accepted when Person 1 and Person 3 agree to it. Two items need an explicit
-answer rather than silence:
+Accepted under these implementation constraints:
 
-1. Person 1: is `GET /v1/templates` the accepted public source for Human Client template
-   picker choices and Guessing labels?
-2. All three: does adding a browser client to the Human Client's surface change the
-   ownership line in `docs/architecture.md`, or is it covered by "future optional TUI work"?
+1. The Web UI is a local, single-user Human Client surface, not a second Memory Core.
+2. Memory Core remains the only semantic-memory writer and the only template loader.
+3. Template picker choices and Guessing labels come from `GET /v1/templates`; the Web UI
+   does not read `templates/*.yaml` directly.
+4. The browser client receives Memory Core errors verbatim and does not redefine the
+   frozen request/response contract.
+5. The server stays loopback-only with no `--host` flag, no CORS requirement, no auth
+   system, no sessions, no multi-user collaboration, and no WebSocket/SSE state channel.
+6. Agent orchestration is governed separately by [ADR 0002](0002-web-agent-runs.md).

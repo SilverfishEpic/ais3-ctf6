@@ -69,13 +69,13 @@ See [`docs/human-webui.md`](docs/human-webui.md), plus
 ## License
 
 This project is licensed under the Smoking Elephant Slop Public License,
-Version 1.0.
+Version 1.1.
 
-SESPL-1.0 is a custom permissive license. It is not OSI-approved and is not
+SESPL-1.1 is a custom permissive license. It is not OSI-approved and is not
 listed in the SPDX License List. For tooling purposes, use:
 
 ```text
-LicenseRef-SESPL-1.0
+LicenseRef-SESPL-1.1
 ```
 
 See [LICENSE](LICENSE) and [docs/license.md](docs/license.md).
