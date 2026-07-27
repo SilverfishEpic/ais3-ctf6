@@ -9,12 +9,12 @@ documentation.
 Memory Core, Human CLI, and Agent Bridge are integrated on `main`. The current
 implementation provides the v2 HTTP contract, persistence, fake Summarizer, AIS3
 provider, revision safety, semantic diffs, query, deterministic Guessing, curated
-template catalogs, `ctfmem`, and `ctfmem agent`.
+template catalogs, `ctfmem`, `ctfmem agent`, and the local `ctfmem-web` cockpit.
 
 Remaining work is follow-up hardening and feature expansion: richer Agent Bridge
-runtime telemetry, optional operator cockpit/TUI, explicit terminal-session ingestion
-after design review, broader evaluation/ablation, and persistence scaling only if
-measurement requires it.
+runtime telemetry, optional TUI or deeper cockpit features, explicit terminal-session
+ingestion after design review, broader evaluation/ablation, and persistence scaling only
+if measurement requires it.
 
 ## Phase 0 - Contract And Core Hardening
 
@@ -85,12 +85,13 @@ Owner: Human Client.
 
 Exit criteria:
 
-- optional TUI;
-- diff timeline;
-- YOLO status display;
-- revision-safe intervention.
+- local `ctfmem-web` surface for whiteboard read/write, query, Guessing, template changes,
+  and revision-safe intervention;
+- same-origin proxy that forwards Memory Core responses without redefining the contract;
+- optional `ctfmem agent run` façade governed by ADR 0002;
+- future optional TUI or richer timeline views only when they add value beyond the web UI.
 
-Non-goal: domain logic inside the TUI.
+Non-goal: domain logic inside the web UI or any future TUI.
 
 ## Phase 6 - Terminal-Session Ingestion
 

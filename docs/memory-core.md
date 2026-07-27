@@ -18,10 +18,12 @@ Human Client product surface and must not grow into agent orchestration.
 
 ## Templates
 
-The `memory-system` branch keeps only minimal fixture templates needed to verify registry,
-classification, reclassification, and Guessing mechanics. Real curated CTF category
-catalogs belong to the Agent Bridge/template work stream and are documented as future
-integration work until reviewed.
+Memory Core owns template loading, validation, deterministic Guessing selection,
+challenge-local tried state, and explicit reclassification semantics. Curated template
+content lives in `templates/` and is validated against `spec/template.schema.json`.
+
+Public clients use `GET /v1/templates` for template picker metadata and Guessing labels.
+They must not read `templates/*.yaml` directly.
 
 ## Verification
 

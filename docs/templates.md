@@ -1,8 +1,9 @@
-# Agent Bridge Template Catalogs
+# Template Catalogs
 
-This branch owns the real curated CTF category catalogs that drive deterministic Guessing.
-Memory Core only requires minimal fixtures to prove registry, classification,
-reclassification, and Guessing mechanics.
+`templates/` contains the curated CTF category catalogs that drive deterministic Guessing.
+Memory Core owns the loader, schema validation, deterministic selection, challenge-local
+tried state, and reclassification semantics. Template content changes should be reviewed as
+contract-affecting data changes because clients render template ids and Guessing labels.
 
 ## Current Catalogs
 
@@ -18,10 +19,11 @@ runtime.
 
 ## Ownership Rules
 
-- Template content changes belong on the Agent Bridge branch.
 - Memory Core owns the loader, schema, deterministic selection, tried state, and
   reclassification semantics.
-- Human Client does not own template content.
+- Human Client and Web UI use `GET /v1/templates` for template picker metadata and Guessing
+  labels; they do not read `templates/*.yaml` directly.
+- Agent Bridge may use template catalogs as read-only Guessing context through Memory Core.
 - Future `forensics` and `misc` catalogs remain roadmap items until implemented and tested.
 
 ## Review Checklist
