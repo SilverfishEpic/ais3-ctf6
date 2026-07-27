@@ -20,6 +20,8 @@ Human Client owns:
 - HTTP API client behavior and CLI UX;
 - human notes, stdin input, command capture, display, query, guess, mutation, template
   commands, and JSON output;
+- the local single-user web UI, which is the same client behavior behind a page rather than
+  a terminal (see `adr/0001-human-web-ui.md`);
 - future optional TUI work.
 
 Agent Bridge owns:
@@ -39,16 +41,21 @@ second semantic-memory representation.
 
 All semantic state changes go through the Memory Core HTTP API.
 
-## Implemented Versus Planned
+## Current Implementation
 
-Implemented on `memory-system`:
+Implemented on `main`:
 
 - Memory Core service, persistence, revision checks, semantic diffs, fake Summarizer, AIS3
-  provider, generated OpenAPI/JSON schemas, and minimal fixture templates.
+  provider, generated OpenAPI/JSON schemas, and curated template catalogs;
+- Human CLI (`ctfmem`) for challenge management, ingest, read/query/guess, mutation,
+  template changes, command capture, and agent run/status/stop;
+- local Human Web UI (`ctfmem-web`) as a same-origin, loopback-only Human Client surface;
+- Agent Bridge normal and YOLO execution, same-session/new-session behavior, memory skill,
+  cancellation, status files, and sanitized offline replay fixtures.
 
-Planned on dependent branches:
+Still planned or explicitly optional:
 
-- stable Human CLI;
-- Agent Bridge normal mode and YOLO/session ablation;
-- real curated template catalogs;
-- optional TUI and terminal-session recorder.
+- optional TUI/cockpit work beyond the current web UI;
+- explicit terminal-session recorder after separate design review;
+- richer per-turn Agent Bridge runtime telemetry;
+- persistence scaling only after measurement shows YAML is insufficient.

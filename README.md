@@ -22,6 +22,7 @@ contract.
 
 - `memory_core/` - canonical Memory Core implementation.
 - `human_client/` - Human CLI package; exposes the `ctfmem` console command.
+- `human_client/web/` - local single-user web UI; exposes the `ctfmem-web` console command.
 - `agent_bridge/` - Agent Bridge package; owns Claude adapter, loop behavior, and memory skill.
 - `spec/` - normative protocol, OpenAPI, and JSON schemas.
 - `templates/` - curated CTF category catalogs used by Memory Core guessing.
@@ -48,16 +49,33 @@ the project virtual environment. Use `source .venv/bin/activate` on Linux/macOS 
 Full installation and Linux/Windows usage notes are in
 [`docs/human-cli.md`](docs/human-cli.md).
 
+## Web UI quick start
+
+`ctfmem-web` serves the same operations as a local page, bound to `127.0.0.1` and
+unauthenticated. Start Memory Core first, then:
+
+```bash
+python -m human_client.web --api-url http://127.0.0.1:8777
+```
+
+Adding `--agent-workspace <dir>` also lets the page start `ctfmem agent` runs, by launching
+the CLI as a child process. Without that flag the capability is off entirely.
+
+See [`docs/human-webui.md`](docs/human-webui.md), plus
+[`docs/adr/0001-human-web-ui.md`](docs/adr/0001-human-web-ui.md) for why this exists despite
+`web GUI` being on the non-goal list, and
+[`docs/adr/0002-web-agent-runs.md`](docs/adr/0002-web-agent-runs.md) for the agent decision.
+
 ## License
 
 This project is licensed under the Smoking Elephant Slop Public License,
-Version 1.0.
+Version 1.1.
 
-SESPL-1.0 is a custom permissive license. It is not OSI-approved and is not
+SESPL-1.1 is a custom permissive license. It is not OSI-approved and is not
 listed in the SPDX License List. For tooling purposes, use:
 
 ```text
-LicenseRef-SESPL-1.0
+LicenseRef-SESPL-1.1
 ```
 
 See [LICENSE](LICENSE) and [docs/license.md](docs/license.md).

@@ -1,37 +1,41 @@
 # Branch Strategy
 
-## Dependency Graph
+Historical component branches (`memory-system`, `mixin`, `redesign/agent-bridge-v2`, and
+related integration branches) have been squash-integrated and archived. Current work should
+branch from the latest `main`.
 
-```text
-main
-  └── memory-system
-        ├── mixin
-        └── redesign/agent-bridge-v2
+## Current Policy
+
+1. Start feature branches from current `main`.
+2. Keep the public contract authoritative:
+   - update `memory_core/models.py` / `memory_core/api.py` first when changing API shape;
+   - regenerate `spec/openapi.yaml`;
+   - keep `spec/protocol.md` aligned with the semantic contract.
+3. Keep component boundaries intact:
+   - Memory Core is the only semantic-memory writer and template loader;
+   - Human Client and Web UI use Memory Core only through HTTP/OpenAPI;
+   - Agent Bridge normalizes provider events and uses the public API.
+4. Do not add branch-local forks of `spec/`, `memory_core/`, templates, or client models.
+5. Do not commit runtime state, credentials, private transcripts, or local run artifacts.
+6. Prefer squash merge for feature PRs unless a reviewer explicitly needs preserved
+   internal history.
+
+## Review Gates
+
+Before merge, run the relevant subset plus the full offline suite when the change crosses
+component boundaries:
+
+```bash
+uv run --extra dev pytest
+uv run --extra dev ruff check memory_core human_client agent_bridge scripts tools tests
+uv run --extra dev mypy memory_core human_client agent_bridge
+uv run --extra dev python scripts/gen_spec.py --check
 ```
 
-`memory-system` is the only branch intended to merge directly into `main`. It carries the
-canonical Memory Core, shared specs, common docs, and minimal fixture templates.
+For packaged/CLI-facing changes, also run:
 
-`mixin` depends on `memory-system` and should contain only Human Client deltas.
+```bash
+uv build
+```
 
-`redesign/agent-bridge-v2` depends on `memory-system` and should contain only Agent
-Bridge deltas, real template catalogs, fixtures, and branch-specific docs/tests.
-
-## Merge Policy
-
-1. Review and merge `memory-system -> main`.
-2. Retarget/review `mixin` against the merged Memory Core baseline.
-3. Retarget/review Agent Bridge against the merged Memory Core baseline.
-4. Integrate Human Client and Agent Bridge only after their own branch-specific gates pass.
-
-Do not merge `mixin` into Agent Bridge or Agent Bridge into `mixin`.
-
-## Diff Hygiene
-
-`main...memory-system` may include Memory Core, specs, common docs, minimal template
-fixtures, tests, and packaging. It must not include Human Client or Agent Bridge code.
-
-`memory-system...mixin` may include Human Client code/docs/tests only.
-
-`memory-system...redesign/agent-bridge-v2` may include Agent Bridge code/docs/tests,
-fixtures, tooling, and real templates only.
+Live AIS3 or Claude checks remain opt-in and must not require committing credentials.

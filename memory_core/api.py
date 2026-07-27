@@ -33,6 +33,7 @@ from .models import (
     QueryRequest,
     QueryResponse,
     TemplateChangeRequest,
+    TemplateListResponse,
 )
 from .service import MemoryService
 from .summarizer import FakeSummarizer, Summarizer
@@ -113,6 +114,20 @@ def create_app(service: MemoryService) -> FastAPI:
     )
     async def list_challenges(service: ServiceDep) -> list[str]:
         return service.list_challenges()
+
+    @app.get(
+        "/v1/templates",
+        response_model=TemplateListResponse,
+        tags=["templates"],
+        summary="List public template metadata",
+        description=(
+            "Template files remain Memory Core-owned. Clients use this endpoint for "
+            "reclassification choices and Guessing labels instead of reading "
+            "templates/*.yaml directly."
+        ),
+    )
+    async def list_templates(service: ServiceDep) -> TemplateListResponse:
+        return service.list_templates()
 
     @app.post(
         "/v1/challenges/{challenge_id}/ingest",

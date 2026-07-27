@@ -70,6 +70,8 @@ from .models import (
     SummaryProposal,
     TemplateChangeRequest,
     TemplateDefinition,
+    TemplateListResponse,
+    TemplateSummary,
 )
 from .store import StateStore
 from .summarizer import Summarizer, enforce_epistemic_policy, evidence_resolver, is_direct_evidence
@@ -205,6 +207,24 @@ class MemoryService:
 
     def list_challenges(self) -> list[str]:
         return self.store.list_challenges()
+
+    def list_templates(self) -> TemplateListResponse:
+        """Expose public template metadata without handing clients the template files."""
+
+        return TemplateListResponse(
+            templates=[
+                TemplateSummary(
+                    id=template.id,
+                    version=template.version,
+                    catalog=template.catalog,
+                    description=template.description,
+                    fact_sections=list(template.fact_sections),
+                    assumption_sections=list(template.assumption_sections),
+                    guessing=list(template.guessing),
+                )
+                for template in self.templates.all()
+            ]
+        )
 
     # -- ingest ------------------------------------------------------------
 
