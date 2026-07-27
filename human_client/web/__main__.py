@@ -19,7 +19,7 @@ from agent_bridge.runtime import DEFAULT_RUNTIME_DIR
 
 from ..client import MemoryCoreClient
 from ..config import config_from_args
-from .agent import AgentSettings
+from .agent import ALL_POLICIES, FAKE_AGENTS, MODES, PREFERRED_POLICIES, SESSIONS, AgentSettings
 from .app import create_web_app
 
 HOST = "127.0.0.1"
@@ -73,6 +73,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--agent-max-turns", type=int, default=DEFAULT_AGENT_MAX_TURNS)
     parser.add_argument("--agent-max-cost-usd", type=float, default=DEFAULT_AGENT_MAX_COST_USD)
+    parser.add_argument(
+        "--agent-modes",
+        default=",".join(MODES),
+        help="Comma-separated ctfmem agent modes the page may offer.",
+    )
+    parser.add_argument(
+        "--agent-sessions",
+        default=",".join(SESSIONS),
+        help="Comma-separated ctfmem agent session modes the page may offer.",
+    )
+    parser.add_argument(
+        "--agent-memory-policies",
+        default=",".join(PREFERRED_POLICIES),
+        help=(
+            "Comma-separated ctfmem agent memory policies the page may offer. "
+            f"Allowed values: {', '.join(ALL_POLICIES)}."
+        ),
+    )
+    parser.add_argument(
+        "--agent-fake-agents",
+        default=",".join(FAKE_AGENTS),
+        help=(
+            "Comma-separated recorded fake-agent scenarios the page may offer. "
+            "Use an empty value to hide replay scenarios while leaving real Claude available."
+        ),
+    )
     return parser
 
 
@@ -87,7 +113,18 @@ def _agent_settings(args: argparse.Namespace) -> AgentSettings | None:
         runtime_dir=args.agent_runtime_dir.resolve(),
         max_turns=args.agent_max_turns,
         max_cost_usd=args.agent_max_cost_usd,
+        modes=_csv_choices(args.agent_modes),
+        sessions=_csv_choices(args.agent_sessions),
+        memory_policies=_csv_choices(args.agent_memory_policies),
+        fake_agents=_csv_choices(args.agent_fake_agents, allow_empty=True),
     )
+
+
+def _csv_choices(value: str, *, allow_empty: bool = False) -> tuple[str, ...]:
+    choices = tuple(part.strip() for part in value.split(",") if part.strip())
+    if not choices and not allow_empty:
+        raise ValueError("comma-separated option list must contain at least one value")
+    return choices
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -121,6 +158,10 @@ def main(argv: list[str] | None = None) -> int:
             f"            ceilings {agent.max_turns} turns, ${agent.max_cost_usd} "
             f"· runtime {agent.runtime_dir}"
         )
+        print(f"            modes {','.join(agent.modes)} · sessions {','.join(agent.sessions)}")
+        print(f"            memory {','.join(agent.memory_policies)}")
+        if agent.fake_agents:
+            print(f"            fake agents {','.join(agent.fake_agents)}")
     uvicorn.run(app, host=HOST, port=args.port)
     return 0
 

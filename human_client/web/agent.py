@@ -46,6 +46,8 @@ SESSIONS = ("same", "new")
 #: The four documented policy names. The CLI also accepts legacy internal spellings; the
 #: page has no reason to offer them, but anything the CLI accepts is passed through.
 PREFERRED_POLICIES = ("full", "facts", "facts-assumptions", "none")
+ALL_POLICIES = tuple(sorted(POLICY_ALIASES))
+FAKE_AGENTS = tuple(FakeAgentAdapter.available())
 
 SpawnAgent = Callable[[list[str], Path], int]
 
@@ -58,6 +60,21 @@ class AgentSettings:
     runtime_dir: Path
     max_turns: int
     max_cost_usd: float
+    modes: tuple[str, ...] = MODES
+    sessions: tuple[str, ...] = SESSIONS
+    memory_policies: tuple[str, ...] = PREFERRED_POLICIES
+    fake_agents: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _validate_allowed(self.modes, MODES, "agent modes")
+        _validate_allowed(self.sessions, SESSIONS, "agent sessions")
+        _validate_allowed(self.memory_policies, ALL_POLICIES, "agent memory policies")
+        _validate_allowed(
+            tuple(self.fake_agents),
+            FAKE_AGENTS,
+            "fake agents",
+            allow_empty=True,
+        )
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -65,6 +82,10 @@ class AgentSettings:
             "runtime_dir": str(self.runtime_dir),
             "max_turns": self.max_turns,
             "max_cost_usd": self.max_cost_usd,
+            "modes": list(self.modes),
+            "sessions": list(self.sessions),
+            "policies": list(self.memory_policies),
+            "scenarios": list(self.fake_agents),
         }
 
 
@@ -75,10 +96,9 @@ def options(settings: AgentSettings | None) -> dict[str, Any]:
         return {"enabled": False, "reason": "start ctfmem-web with --agent-workspace to enable"}
     return {
         "enabled": True,
-        "modes": list(MODES),
-        "sessions": list(SESSIONS),
-        "policies": list(PREFERRED_POLICIES),
-        "scenarios": FakeAgentAdapter.available(),
+        "authority": "delegates_to_ctfmem_agent_run",
+        "workspace_source": "server",
+        "limits_policy": "clamp_to_server_ceiling",
         **settings.to_json(),
     }
 
@@ -106,9 +126,13 @@ def build_argv(
     if not isinstance(prompt, str) or not prompt.strip():
         raise ValueError("a prompt is required")
 
-    mode = _one_of(body.get("mode", "normal"), MODES, "mode")
-    session = _one_of(body.get("session", "same"), SESSIONS, "session")
-    policy = _one_of(body.get("memory_policy", "full"), tuple(sorted(POLICY_ALIASES)), "policy")
+    mode = _one_of(body.get("mode", settings.modes[0]), settings.modes, "mode")
+    session = _one_of(body.get("session", settings.sessions[0]), settings.sessions, "session")
+    policy = _one_of(
+        body.get("memory_policy", settings.memory_policies[0]),
+        settings.memory_policies,
+        "policy",
+    )
 
     turns = _clamp_int(body.get("max_turns"), settings.max_turns)
     cost = _clamp_float(body.get("max_cost_usd"), settings.max_cost_usd)
@@ -145,8 +169,7 @@ def build_argv(
 
     scenario = body.get("fake_agent")
     if scenario:
-        available = FakeAgentAdapter.available()
-        argv += ["--fake-agent", _one_of(scenario, tuple(available), "fake_agent")]
+        argv += ["--fake-agent", _one_of(scenario, settings.fake_agents, "fake_agent")]
 
     return argv
 
@@ -247,8 +270,22 @@ def reap() -> None:
 
 def _one_of(value: object, allowed: tuple[str, ...], label: str) -> str:
     if not isinstance(value, str) or value not in allowed:
+        if not allowed:
+            raise ValueError(f"{label} is not enabled by this server")
         raise ValueError(f"{label} must be one of {', '.join(allowed)}")
     return value
+
+
+def _validate_allowed(
+    values: tuple[str, ...], allowed: tuple[str, ...], label: str, *, allow_empty: bool = False
+) -> None:
+    if not values and not allow_empty:
+        raise ValueError(f"{label} must include at least one value")
+    unknown = [value for value in values if value not in allowed]
+    if unknown:
+        raise ValueError(
+            f"{label} must be drawn from {', '.join(allowed)}; invalid: {', '.join(unknown)}"
+        )
 
 
 def _clamp_int(value: Any, ceiling: int) -> int:

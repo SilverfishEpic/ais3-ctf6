@@ -1273,6 +1273,10 @@ async function loadAgentOptions() {
     state.agent.max_cost_usd +
     " · workspace " +
     state.agent.workspace +
+    " · modes " +
+    state.agent.modes.join(",") +
+    " · memory " +
+    state.agent.policies.join(",") +
     " · asking for more than a ceiling silently gets the ceiling";
 }
 

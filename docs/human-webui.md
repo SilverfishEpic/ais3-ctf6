@@ -35,6 +35,10 @@ Then open `http://127.0.0.1:8787`. Installed as a package it is also `ctfmem-web
 | `--agent-runtime-dir` | `.ctfmem` | Where run status and stop files live. |
 | `--agent-max-turns` | `10` | Ceiling. The page may ask for fewer, never more. |
 | `--agent-max-cost-usd` | `5.0` | Ceiling, same rule. |
+| `--agent-modes` | `normal,yolo` | Comma-separated `ctfmem agent run --mode` values the page may offer. |
+| `--agent-sessions` | `same,new` | Comma-separated `ctfmem agent run --session` values the page may offer. |
+| `--agent-memory-policies` | `full,facts,facts-assumptions,none` | Comma-separated memory policies the page may offer. |
+| `--agent-fake-agents` | all recorded scenarios | Comma-separated replay scenarios the page may offer; pass an empty value to hide them. |
 
 There is no `--host`. The server binds `127.0.0.1` by construction because it is
 unauthenticated and can write.
@@ -101,12 +105,18 @@ the browser is visible to `ctfmem agent status` in a terminal and can be stopped
 implementation of an agent run and this executes it. `docs/adr/0002-web-agent-runs.md`
 records why it must work this way rather than driving the loop inside the server.
 
-What the browser may choose: prompt, mode, session, memory policy, and the two limits. What
-it may not: the workspace, which always comes from the launch flag, and any limit above the
-launch ceiling — a larger request is silently clamped down, and the ceilings are printed
-next to the controls. The sandbox is the default `ToolPolicy`: read-only tools plus a recon
-command allowlist, with shell operators, command substitution and wrapper executables denied
-before the tool runs. Widening it means editing server code.
+What the browser may choose: prompt, mode, session, memory policy, fake-agent replay
+scenario, and the two limits. Those choices are **CLI-equivalent**: each one maps to an
+argument already accepted by `ctfmem agent run`. The local server decides which values are
+available with `--agent-modes`, `--agent-sessions`, `--agent-memory-policies`, and
+`--agent-fake-agents`; the page can only choose from those allowlists.
+
+What it may not choose: the workspace, runtime directory, actor, API URL, or any limit
+above the launch ceiling. A larger turn/cost request is silently clamped down, and the
+ceilings are printed next to the controls. The sandbox is the CLI path's default
+`ToolPolicy`: read-only tools plus a recon command allowlist, with shell operators, command
+substitution and wrapper executables denied before the tool runs. Widening it means
+changing the CLI/Agent Bridge capability, not sending a wider browser request.
 
 Starting a run shows the exact argument list that was launched. For something that spawns a
 process on your machine, being able to read what ran matters more than a tidy banner.

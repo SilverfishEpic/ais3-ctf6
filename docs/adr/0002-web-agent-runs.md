@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Supersedes one line of [ADR 0001](0001-human-web-ui.md), which said agent
+Accepted. Supersedes one line of [ADR 0001](0001-human-web-ui.md), which said agent
 orchestration "is not exposed and will not be". Everything else in 0001 stands.
 
 ## Context
@@ -44,7 +44,9 @@ four mechanical reasons:
 
 The drift requirement is then satisfied structurally rather than by discipline: there is
 one implementation of an agent run, and the web executes it verbatim. `human_client/web/`
-contributes argument assembly and nothing else.
+contributes argument assembly and nothing else. This is **equivalence by delegation**:
+the browser may select the same categories of choices the CLI exposes, but only from the
+allowlists the local server operator enabled at launch.
 
 ## Guardrails
 
@@ -59,6 +61,11 @@ constrained rather than merely enabled.
 - **Limits clamp downward only.** `max_turns` and `max_cost_usd` are `min(requested,
   ceiling)`, where the ceiling is a launch flag. A page can make a run smaller, never
   larger, and the ceiling is shown to the operator.
+- **CLI-equivalent choices, server-owned allowlists.** The page may offer `mode`,
+  `session`, memory exposure policy, and fake-agent replay scenario choices. These are not
+  invented by the web layer; they map to `ctfmem agent run` arguments. The specific values
+  available in the browser are controlled by `ctfmem-web --agent-modes`,
+  `--agent-sessions`, `--agent-memory-policies`, and `--agent-fake-agents`.
 - **One run per challenge.** A start request is refused with 409 while a live pid is
   recorded for that challenge.
 - **The sandbox is not reachable from the browser.** Runs use the default `ToolPolicy`:
@@ -97,7 +104,12 @@ directions. No second orchestration path exists to fall out of step.
 
 ## Acceptance
 
-Same as ADR 0001: this needs Person 1 and Person 3 to agree. The specific question for
-Person 3, who owns `agent_bridge/`, is whether driving a run through `ctfmem agent run`
-with the default `ToolPolicy` is the boundary they want, or whether a web-initiated run
-should carry a narrower policy than a terminal-initiated one.
+Accepted under these implementation constraints:
+
+1. Web-started runs delegate to `ctfmem agent run`; the web layer must not import or
+   reimplement the agent loop.
+2. The browser may choose CLI-equivalent run options only from server-owned allowlists.
+3. The workspace, runtime directory, and authority ceilings are fixed by the local server
+   process, not by request body fields.
+4. Browser requests cannot widen sandbox or tool authority beyond what the CLI path and
+   server launch flags already allow.

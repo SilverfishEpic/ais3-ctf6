@@ -13,9 +13,11 @@ import pytest
 from fastapi import FastAPI
 
 from agent_bridge.runtime import AgentStatus, stop_file, write_status
-from human_client.cli import build_parser
+from human_client.cli import build_parser as build_cli_parser
 from human_client.config import ClientConfig
 from human_client.web import agent as web_agent
+from human_client.web.__main__ import _agent_settings
+from human_client.web.__main__ import build_parser as build_web_parser
 from human_client.web.agent import AgentSettings
 from human_client.web.app import create_web_app
 
@@ -42,6 +44,7 @@ def settings(tmp_path: Path) -> AgentSettings:
         runtime_dir=tmp_path / "runtime",
         max_turns=6,
         max_cost_usd=2.5,
+        fake_agents=web_agent.FAKE_AGENTS,
     )
 
 
@@ -59,7 +62,7 @@ def parsed(argv: list[str]) -> Any:
     rather than a child process dying into a log file nobody is watching.
     """
 
-    return build_parser().parse_args(argv[3:])
+    return build_cli_parser().parse_args(argv[3:])
 
 
 def test_the_entry_point_this_module_launches_actually_runs(tmp_path: Path) -> None:
@@ -175,10 +178,47 @@ def test_a_recorded_scenario_is_passed_through(settings: AgentSettings) -> None:
     assert args.fake_agent == "multi_tool"
 
 
+def test_fake_agent_scenarios_can_be_disabled_by_the_server(settings: AgentSettings) -> None:
+    locked = AgentSettings(
+        workspace=settings.workspace,
+        runtime_dir=settings.runtime_dir,
+        max_turns=settings.max_turns,
+        max_cost_usd=settings.max_cost_usd,
+        fake_agents=(),
+    )
+
+    with pytest.raises(ValueError, match="fake_agent is not enabled"):
+        argv_for(locked, {"prompt": "go", "fake_agent": "multi_tool"})
+
+
 def test_a_real_run_carries_no_fake_agent_flag(settings: AgentSettings) -> None:
     args = parsed(argv_for(settings, {"prompt": "go"}))
 
     assert args.fake_agent is None
+
+
+def test_server_allowlists_constrain_the_web_choices(settings: AgentSettings) -> None:
+    locked = AgentSettings(
+        workspace=settings.workspace,
+        runtime_dir=settings.runtime_dir,
+        max_turns=settings.max_turns,
+        max_cost_usd=settings.max_cost_usd,
+        modes=("normal",),
+        sessions=("same",),
+        memory_policies=("facts",),
+    )
+
+    args = parsed(argv_for(locked, {"prompt": "go"}))
+    assert args.mode == "normal"
+    assert args.session == "same"
+    assert args.memory_policy == "facts"
+
+    with pytest.raises(ValueError, match="mode must be one of normal"):
+        argv_for(locked, {"prompt": "go", "mode": "yolo"})
+    with pytest.raises(ValueError, match="session must be one of same"):
+        argv_for(locked, {"prompt": "go", "session": "new"})
+    with pytest.raises(ValueError, match="policy must be one of facts"):
+        argv_for(locked, {"prompt": "go", "memory_policy": "full"})
 
 
 def test_start_reports_what_it_launched_and_truncates_the_log(settings: AgentSettings) -> None:
@@ -351,6 +391,47 @@ def test_options_advertise_the_ceiling_and_the_recorded_scenarios(
     assert payload["max_turns"] == 6
     assert payload["modes"] == ["normal", "yolo"]
     assert "multi_tool" in payload["scenarios"]
+    assert payload["authority"] == "delegates_to_ctfmem_agent_run"
+    assert payload["workspace_source"] == "server"
+    assert payload["limits_policy"] == "clamp_to_server_ceiling"
+
+
+def test_web_launch_flags_define_the_agent_choice_allowlists(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    args = build_web_parser().parse_args(
+        [
+            "--agent-workspace",
+            str(workspace),
+            "--agent-modes",
+            "normal",
+            "--agent-sessions",
+            "same",
+            "--agent-memory-policies",
+            "facts,none",
+            "--agent-fake-agents",
+            "",
+        ]
+    )
+
+    settings = _agent_settings(args)
+
+    assert settings is not None
+    assert settings.modes == ("normal",)
+    assert settings.sessions == ("same",)
+    assert settings.memory_policies == ("facts", "none")
+    assert settings.fake_agents == ()
+
+
+def test_invalid_web_launch_allowlist_is_an_operator_error(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    args = build_web_parser().parse_args(
+        ["--agent-workspace", str(workspace), "--agent-modes", "normal,turbo"]
+    )
+
+    with pytest.raises(ValueError, match="agent modes must be drawn from"):
+        _agent_settings(args)
 
 
 @pytest.fixture
