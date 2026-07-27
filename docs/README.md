@@ -8,12 +8,18 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 - [Architecture](architecture.md) - component ownership and non-goals.
 - [Memory Core](memory-core.md) - service responsibilities and verification.
 - [Human CLI (`ctfmem`)](human-cli.md) - installation, Linux/Windows usage, command contract, and acceptance criteria.
+- [Human Web UI (`ctfmem-web`)](human-webui.md) - the local page, its concurrency rules, and its boundaries.
 - [Contracts](contracts.md) - how clients should use the shared API.
 - [Branch Strategy](branch-strategy.md) - dependency and merge policy.
 - [Roadmap](roadmap.md) - realistic future phases and exit criteria.
 - [Agent Bridge](agent-bridge.md) - Claude adapter, loop behavior, memory skill boundary.
 - [Templates](templates.md) - category catalog ownership and validation.
 - [Agent Bridge real SDK findings](agent-bridge/real-sdk-findings.md) - sanitized replay-shape notes.
+
+## Decisions
+
+- [ADR 0001 - A local human web UI](adr/0001-human-web-ui.md) - why a component on the
+  non-goal list was built anyway, and the boundaries it accepts. Proposed, not yet accepted.
 
 ## Historical Design Material
 

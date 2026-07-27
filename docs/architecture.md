@@ -20,6 +20,8 @@ Human Client owns:
 - HTTP API client behavior and CLI UX;
 - human notes, stdin input, command capture, display, query, guess, mutation, template
   commands, and JSON output;
+- the local single-user web UI, which is the same client behavior behind a page rather than
+  a terminal (see `adr/0001-human-web-ui.md`);
 - future optional TUI work.
 
 Agent Bridge owns:
