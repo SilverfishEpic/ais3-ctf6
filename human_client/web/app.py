@@ -42,6 +42,8 @@ from ..client import MemoryCoreClient
 from ..config import ClientConfig
 from ..errors import CoreConnectionError, CoreError
 from ..models import CommandResult
+from . import agent as web_agent
+from .agent import AgentSettings, SpawnAgent, default_spawn
 from .catalog import Catalog
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -68,12 +70,18 @@ def create_web_app(
     config: ClientConfig,
     catalog: Catalog,
     port: int,
+    agent: AgentSettings | None = None,
+    spawn: SpawnAgent = default_spawn,
 ) -> FastAPI:
     """Build the app around an injected pair of clients.
 
     ``client`` serves the routes that only touch local persistence; ``summarizing_client``
     serves ingest, query and challenge creation, the three that can reach the Summarizer.
     Tests inject the same object for both.
+
+    ``agent`` is ``None`` unless a workspace was named at launch, and while it is ``None``
+    the agent routes refuse and the page hides the panel. ``spawn`` is the seam that lets a
+    test assert what would have been launched without launching it.
 
     ``openapi_url=None`` also disables ``/docs`` and ``/redoc``. This server publishes no
     contract of its own next to the frozen one.
@@ -139,6 +147,53 @@ def create_web_app(
     @app.get("/api/local/templates")
     def local_templates() -> Any:
         return catalog.to_json()
+
+    def _require_agent() -> AgentSettings:
+        if agent is None:
+            raise WebUiError(
+                403,
+                "agent_disabled",
+                "agent runs are off; start ctfmem-web with --agent-workspace to enable them",
+            )
+        return agent
+
+    @app.get("/api/local/agent/options")
+    def agent_options() -> Any:
+        return web_agent.options(agent)
+
+    @app.post("/api/local/agent/{challenge_id}/run")
+    def agent_run(challenge_id: str, body: dict[str, Any]) -> Any:
+        _require_name(challenge_id)
+        settings = _require_agent()
+        if web_agent.is_running(settings, challenge_id):
+            raise WebUiError(
+                409,
+                "agent_already_running",
+                f"an agent is already running for {challenge_id}; stop it before starting another",
+            )
+        try:
+            return web_agent.start(
+                settings,
+                body,
+                api_url=config.api_url,
+                actor=config.actor,
+                challenge_id=challenge_id,
+                spawn=spawn,
+            )
+        except ValueError as exc:
+            raise WebUiError(400, "invalid_agent_request", str(exc)) from exc
+        except OSError as exc:
+            raise WebUiError(500, "agent_spawn_failed", str(exc)) from exc
+
+    @app.get("/api/local/agent/{challenge_id}/status")
+    def agent_status(challenge_id: str) -> Any:
+        _require_name(challenge_id)
+        return web_agent.status(_require_agent(), challenge_id)
+
+    @app.post("/api/local/agent/{challenge_id}/stop")
+    def agent_stop(challenge_id: str) -> Any:
+        _require_name(challenge_id)
+        return web_agent.stop(_require_agent(), challenge_id)
 
     @app.get("/api/healthz")
     def healthz() -> Any:

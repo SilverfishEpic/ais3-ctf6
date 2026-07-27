@@ -165,7 +165,31 @@ def test_local_routes_are_the_only_endpoints_that_are_not_a_proxy(app: FastAPI) 
         if route.path.startswith("/api/local/")
     }
 
-    assert local == {"/api/local/config", "/api/local/templates"}
+    assert local == {
+        "/api/local/config",
+        "/api/local/templates",
+        "/api/local/agent/options",
+        "/api/local/agent/{challenge_id}/run",
+        "/api/local/agent/{challenge_id}/status",
+        "/api/local/agent/{challenge_id}/stop",
+    }
+
+
+def test_agent_routes_stay_out_of_the_contract_namespace(app: FastAPI) -> None:
+    """An agent run is this client's business, not an operation Memory Core publishes."""
+
+    contract_paths = [route.path for route in app.routes if route.path.startswith("/api/v1/")]
+
+    assert not any("agent" in path for path in contract_paths)
+
+
+def test_the_agent_is_off_unless_a_workspace_was_configured(app: FastAPI) -> None:
+    options = call(app, "GET", "/api/local/agent/options").json()
+    run = call(app, "POST", "/api/local/agent/demo/run", json={"prompt": "go"})
+
+    assert options["enabled"] is False
+    assert run.status_code == 403
+    assert run.json()["webui_error"]["code"] == "agent_disabled"
 
 
 def test_the_server_publishes_no_contract_of_its_own(app: FastAPI) -> None:
