@@ -87,13 +87,16 @@ page and forwards `/api/*` to Memory Core through the existing `MemoryCoreClient
 - **Loopback only, no auth.** `127.0.0.1` is bound by construction; there is no `--host`
   flag. A `Host` header check is included, because same-origin is a browser judgement keyed
   on hostname and DNS rebinding satisfies it. That is an origin control, not an auth model.
+- **Template metadata through Memory Core.** The page gets template ids and Guessing labels
+  through `GET /v1/templates`; it does not read `templates/*.yaml` directly.
 
 ## What This Does Not Change
 
 - Memory Core remains the only semantic-memory writer. The WebUI writes no YAML, allocates
   no IDs, computes no diffs, and calls no Summarizer.
-- `spec/` and `memory_core/` are not modified by the implementing branch, and a diff check
-  enforces it.
+- `spec/` and `memory_core/` change only to add the public `GET /v1/templates` endpoint.
+  That endpoint publishes metadata already owned by Memory Core, and keeps clients off the
+  template files.
 - The client keeps no second semantic-memory representation, per `docs/architecture.md`.
   Its in-page state is a render of the last response and is discarded on refresh.
 - Memory Core errors reach the browser verbatim - original status, original
@@ -126,11 +129,9 @@ implicit in which subcommand was typed.
 
 **Negative, and accepted.**
 
-- `human_client/web/catalog.py` becomes a second reader of `templates/*.yaml`, files whose
-  loader and schema `spec/protocol.md` §8 assigns to Person 1. It is read-only, never on a
-  write path, never authoritative, and used only to label a template picker. Section lists
-  come from the API, not from these files. This is the one boundary this ADR knowingly
-  approaches, and it needs Person 1's explicit yes.
+- Memory Core's public API grows one read-only endpoint, `GET /v1/templates`. This is an
+  intentional contract addition so Human Client surfaces can render template choices and
+  Guessing labels without becoming a second template loader.
 - The proxy's synchronous handlers occupy threadpool workers for the duration of a core
   call, and Memory Core's Summarizer budget is 300s. Read and write timeouts are separated
   and polling is suspended while a write is in flight, but a wedged core will still make the
@@ -144,7 +145,7 @@ implicit in which subcommand was typed.
 This ADR is accepted when Person 1 and Person 3 agree to it. Two items need an explicit
 answer rather than silence:
 
-1. Person 1: may `human_client/web/catalog.py` read `templates/*.yaml` under the
-   constraints above?
+1. Person 1: is `GET /v1/templates` the accepted public source for Human Client template
+   picker choices and Guessing labels?
 2. All three: does adding a browser client to the Human Client's surface change the
    ownership line in `docs/architecture.md`, or is it covered by "future optional TUI work"?

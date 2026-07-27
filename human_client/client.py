@@ -61,6 +61,9 @@ class MemoryCoreClient:
     def list_challenges(self) -> list[str]:
         return cast(list[str], self._request("GET", "/v1/challenges", expected={200}))
 
+    def list_templates(self) -> dict[str, Any]:
+        return self._object(self._request("GET", "/v1/templates", expected={200}))
+
     def ingest_note(self, challenge_id: str, content: str, *, actor: str) -> dict[str, Any]:
         return self.ingest(challenge_id, human_note_envelope(content, actor))
 

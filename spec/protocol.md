@@ -271,6 +271,7 @@ critical section, so a 409 never leaves a phantom override in the evidence log.
 ```
 POST /v1/challenges
 GET  /v1/challenges
+GET  /v1/templates
 POST /v1/challenges/{id}/ingest
 GET  /v1/challenges/{id}/memory?layer=fact|assumption|guessing&section=<name>
 POST /v1/challenges/{id}/query
@@ -279,6 +280,12 @@ POST /v1/challenges/{id}/mutate
 POST /v1/challenges/{id}/template
 GET  /healthz
 ```
+
+`GET /v1/templates` returns public template metadata for clients: template id, version,
+catalog identifier, description, section names and Guessing technique labels. It exists so
+Human Client surfaces can render reclassification choices and Guessing titles without
+reading `templates/*.yaml` directly. The template loader, schema validation,
+reclassification algorithm and authoritative Guessing catalog still belong to Memory Core.
 
 ### Error model
 

@@ -362,14 +362,13 @@ function renderGuessing() {
     showBanner(
       "catalog-drift",
       "warn",
-      "Template file not found for this catalog",
+      "Template catalog not published by Memory Core",
       "The challenge records catalog " +
         guessing.catalog +
-        ", but no file in " +
-        (state.config ? state.config.templates_dir : "the templates directory") +
+        ", but " +
+        (state.config ? state.config.templates_source : "the template API") +
         " declares it. Technique titles are unavailable; ids and tried state below still " +
-        "come from Memory Core. Point --templates at the same directory the core was " +
-        "started with.",
+        "come from Memory Core.",
     );
   } else {
     hideBanner("catalog-drift");
@@ -421,7 +420,7 @@ function renderGuessRow(id, techniqueState, label) {
 
   const title = document.createElement("span");
   title.className = "guess-title";
-  title.textContent = label ? label.title : "(no title in the template files)";
+  title.textContent = label ? label.title : "(no title from the template API)";
 
   const noteInput = document.createElement("input");
   noteInput.type = "text";
@@ -803,7 +802,7 @@ function renderHeader() {
     : "";
   $("actor-badge").textContent = state.config ? "actor " + state.config.actor : "";
   $("foot").textContent = state.config
-    ? "core " + state.config.api_url + " · templates " + state.config.templates_dir
+    ? "core " + state.config.api_url + " · templates " + state.config.templates_source
     : "";
 }
 
@@ -1428,9 +1427,9 @@ function fillTemplatePickers() {
     showBanner(
       "templates",
       "warn",
-      "Some template files could not be read",
+      "Template metadata is incomplete",
       state.catalog.problems.join("\n") +
-        "\n\nThe picker lists what could be read. Memory Core validates every choice anyway.",
+        "\n\nThe picker lists what Memory Core published. Memory Core validates every choice anyway.",
     );
   }
 }

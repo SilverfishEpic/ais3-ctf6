@@ -18,7 +18,6 @@ from human_client.config import ClientConfig
 from human_client.web import agent as web_agent
 from human_client.web.agent import AgentSettings
 from human_client.web.app import create_web_app
-from human_client.web.catalog import Catalog
 
 CORE = "http://127.0.0.1:8777"
 PORT = 8787
@@ -376,7 +375,6 @@ def agent_app(settings: AgentSettings) -> tuple[FastAPI, list[list[str]]]:
             verbose=False,
             color=False,
         ),
-        catalog=Catalog(directory="/tmp/templates", templates=[], problems=[]),
         port=PORT,
         agent=settings,
         spawn=spawn,

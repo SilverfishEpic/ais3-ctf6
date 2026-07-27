@@ -13,7 +13,6 @@ from fastapi import FastAPI
 from human_client.config import ClientConfig
 from human_client.errors import CoreConnectionError, CoreError
 from human_client.web.app import create_web_app
-from human_client.web.catalog import Catalog, GuessingLabel, TemplateSummary
 
 PORT = 8787
 ORIGIN = f"http://127.0.0.1:{PORT}"
@@ -48,6 +47,9 @@ class RecordingClient:
 
     def list_challenges(self) -> Any:
         return self._record("list_challenges")
+
+    def list_templates(self) -> Any:
+        return self._record("list_templates")
 
     def create_challenge(self, challenge_id: Any, **kwargs: Any) -> Any:
         return self._record("create_challenge", challenge_id=challenge_id, **kwargs)
@@ -98,22 +100,6 @@ def core() -> RecordingClient:
 
 
 @pytest.fixture
-def catalog() -> Catalog:
-    return Catalog(
-        directory="/tmp/templates",
-        templates=[
-            TemplateSummary(
-                id="web",
-                version=1,
-                description="Web security challenge",
-                guessing=[GuessingLabel(id="WEB-SQLI", title="SQL Injection", tags=["database"])],
-            )
-        ],
-        problems=[],
-    )
-
-
-@pytest.fixture
 def config() -> ClientConfig:
     return ClientConfig(
         api_url="http://127.0.0.1:8777",
@@ -127,12 +113,11 @@ def config() -> ClientConfig:
 
 
 @pytest.fixture
-def app(core: RecordingClient, config: ClientConfig, catalog: Catalog) -> FastAPI:
+def app(core: RecordingClient, config: ClientConfig) -> FastAPI:
     return create_web_app(
         client=core,  # type: ignore[arg-type]
         summarizing_client=core,  # type: ignore[arg-type]
         config=config,
-        catalog=catalog,
         port=PORT,
     )
 
@@ -377,12 +362,28 @@ def test_local_config_reports_the_server_side_settings(app: FastAPI) -> None:
 
     assert body["actor"] == "operator"
     assert body["api_url"] == "http://127.0.0.1:8777"
+    assert body["templates_source"] == "http://127.0.0.1:8777/v1/templates"
     assert body["port"] == PORT
 
 
-def test_local_templates_expose_titles_and_the_catalog_identifier(app: FastAPI) -> None:
+def test_local_templates_are_loaded_from_memory_core(app: FastAPI, core: RecordingClient) -> None:
+    core.result = {
+        "templates": [
+            {
+                "id": "web",
+                "version": 1,
+                "catalog": "web@1",
+                "description": "Web security challenge",
+                "fact_sections": ["target", "general"],
+                "assumption_sections": ["attack_surface", "general"],
+                "guessing": [{"id": "WEB-SQLI", "title": "SQL Injection", "tags": ["database"]}],
+            }
+        ]
+    }
+
     body = call(app, "GET", "/api/local/templates").json()
 
+    assert core.last[0] == "list_templates"
     assert body["templates"][0]["catalog"] == "web@1"
     assert body["templates"][0]["guessing"][0]["title"] == "SQL Injection"
 

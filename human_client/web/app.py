@@ -44,7 +44,6 @@ from ..errors import CoreConnectionError, CoreError
 from ..models import CommandResult
 from . import agent as web_agent
 from .agent import AgentSettings, SpawnAgent, default_spawn
-from .catalog import Catalog
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -68,7 +67,6 @@ def create_web_app(
     client: MemoryCoreClient,
     summarizing_client: MemoryCoreClient,
     config: ClientConfig,
-    catalog: Catalog,
     port: int,
     agent: AgentSettings | None = None,
     spawn: SpawnAgent = default_spawn,
@@ -140,13 +138,13 @@ def create_web_app(
         return {
             "actor": config.actor,
             "api_url": config.api_url,
-            "templates_dir": catalog.directory,
+            "templates_source": f"{config.api_url.rstrip('/')}/v1/templates",
             "port": port,
         }
 
     @app.get("/api/local/templates")
     def local_templates() -> Any:
-        return catalog.to_json()
+        return client.list_templates()
 
     def _require_agent() -> AgentSettings:
         if agent is None:
@@ -202,6 +200,10 @@ def create_web_app(
     @app.get("/api/v1/challenges")
     def list_challenges() -> Any:
         return client.list_challenges()
+
+    @app.get("/api/v1/templates")
+    def list_templates() -> Any:
+        return client.list_templates()
 
     @app.post("/api/v1/challenges", status_code=201)
     def create_challenge(body: dict[str, Any]) -> Any:

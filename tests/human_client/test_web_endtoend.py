@@ -5,13 +5,12 @@ from typing import Any
 
 import httpx
 import pytest
-from conftest import TEMPLATES_DIR, ASGITestClient
+from conftest import ASGITestClient
 from fastapi import FastAPI
 
 from human_client.client import MemoryCoreClient
 from human_client.config import ClientConfig
 from human_client.web.app import create_web_app
-from human_client.web.catalog import load_catalog
 from memory_core.service import MemoryService
 
 PORT = 8787
@@ -49,7 +48,6 @@ def app(service: MemoryService) -> FastAPI:
         client=client,
         summarizing_client=client,
         config=config,
-        catalog=load_catalog(TEMPLATES_DIR),
         port=PORT,
     )
 

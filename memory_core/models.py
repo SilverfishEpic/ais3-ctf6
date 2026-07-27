@@ -339,6 +339,27 @@ class TemplateDefinition(_Model):
         return f"{self.id}@{self.version}"
 
 
+class TemplateSummary(_Model):
+    """Public template metadata exposed to clients.
+
+    Clients need template ids for explicit reclassification and Guessing labels for
+    rendering.  Memory Core still owns loading, validation, section remapping and the
+    authoritative per-challenge guessing state.
+    """
+
+    id: str = Field(pattern=r"^[a-z0-9_-]+$")
+    version: int = Field(ge=1)
+    catalog: str = Field(pattern=r"^[a-z0-9_-]+@\d+$")
+    description: str = ""
+    fact_sections: list[str]
+    assumption_sections: list[str]
+    guessing: list[GuessingTechnique] = Field(default_factory=list)
+
+
+class TemplateListResponse(_Model):
+    templates: list[TemplateSummary]
+
+
 # ---------------------------------------------------------------------------
 # Mutation (設計規劃書 §8.6)
 # ---------------------------------------------------------------------------

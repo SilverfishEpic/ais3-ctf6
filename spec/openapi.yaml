@@ -114,6 +114,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /v1/templates:
+    get:
+      tags:
+      - templates
+      summary: List public template metadata
+      description: Template files remain Memory Core-owned. Clients use this endpoint for reclassification
+        choices and Guessing labels instead of reading templates/*.yaml directly.
+      operationId: list_templates_v1_templates_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateListResponse'
   /v1/challenges/{challenge_id}/ingest:
     post:
       tags:
@@ -997,6 +1012,32 @@ components:
         ``state.yaml`` stores only the catalog identity plus local ``tried`` flags; the full
 
         technique metadata is always resolved from the template registry (設計規劃書 §4.3).'
+    GuessingTechnique:
+      properties:
+        id:
+          type: string
+          pattern: ^[A-Z0-9]+-[A-Z0-9-]+$
+          title: Id
+        title:
+          type: string
+          title: Title
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - title
+      title: GuessingTechnique
+      description: One curated technique.  IDs are stable within a template version.
     GuessingTechniqueState:
       properties:
         tried:
@@ -1482,3 +1523,65 @@ components:
       - actor
       - reason
       title: TemplateChangeRequest
+    TemplateListResponse:
+      properties:
+        templates:
+          items:
+            $ref: '#/components/schemas/TemplateSummary'
+          type: array
+          title: Templates
+      additionalProperties: false
+      type: object
+      required:
+      - templates
+      title: TemplateListResponse
+    TemplateSummary:
+      properties:
+        id:
+          type: string
+          pattern: ^[a-z0-9_-]+$
+          title: Id
+        version:
+          type: integer
+          minimum: 1.0
+          title: Version
+        catalog:
+          type: string
+          pattern: ^[a-z0-9_-]+@\d+$
+          title: Catalog
+        description:
+          type: string
+          title: Description
+          default: ''
+        fact_sections:
+          items:
+            type: string
+          type: array
+          title: Fact Sections
+        assumption_sections:
+          items:
+            type: string
+          type: array
+          title: Assumption Sections
+        guessing:
+          items:
+            $ref: '#/components/schemas/GuessingTechnique'
+          type: array
+          title: Guessing
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - version
+      - catalog
+      - fact_sections
+      - assumption_sections
+      title: TemplateSummary
+      description: 'Public template metadata exposed to clients.
+
+
+        Clients need template ids for explicit reclassification and Guessing labels for
+
+        rendering.  Memory Core still owns loading, validation, section remapping and the
+
+        authoritative per-challenge guessing state.'

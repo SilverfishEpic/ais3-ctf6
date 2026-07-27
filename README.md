@@ -55,7 +55,7 @@ Full installation and Linux/Windows usage notes are in
 unauthenticated. Start Memory Core first, then:
 
 ```bash
-python -m human_client.web --api-url http://127.0.0.1:8777 --templates ./templates
+python -m human_client.web --api-url http://127.0.0.1:8777
 ```
 
 Adding `--agent-workspace <dir>` also lets the page start `ctfmem agent` runs, by launching

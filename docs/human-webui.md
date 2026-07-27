@@ -19,7 +19,7 @@ python -m memory_core --fake-summarizer --runs ./runs --templates ./templates --
 ```
 
 ```bash
-python -m human_client.web --api-url http://127.0.0.1:8777 --templates ./templates --port 8787
+python -m human_client.web --api-url http://127.0.0.1:8777 --port 8787
 ```
 
 Then open `http://127.0.0.1:8787`. Installed as a package it is also `ctfmem-web`.
@@ -29,7 +29,6 @@ Then open `http://127.0.0.1:8787`. Installed as a package it is also `ctfmem-web
 | `--port` | `8787` | Port to serve the page on. |
 | `--api-url` | `CTFMEM_API_URL`, else `http://127.0.0.1:8000` | Memory Core base URL. |
 | `--actor` | `CTFMEM_ACTOR`, else `$USER` | Attributed to every write. |
-| `--templates` | required | Where to read technique titles and the template list. |
 | `--timeout` | `CTFMEM_TIMEOUT`, else `30` | Read timeout for the routes that only touch local persistence. |
 | `--core-timeout` | `330` | Read timeout for ingest, query, and creation with an initial input. |
 | `--agent-workspace` | unset | Directory an agent run works in. Setting it is what enables agent runs at all. |
@@ -45,9 +44,8 @@ the number of times an ingest may re-summarize after a concurrent commit. Both o
 Memory Core's to change, so the flag states the rule rather than hard-coding the arithmetic;
 the resolved value is printed in the boot banner.
 
-Start it with `--templates` pointing at the same directory Memory Core was started with. If
-they differ, the page says so where it matters rather than silently showing you a catalog
-the core does not have.
+Template metadata comes from Memory Core's `GET /v1/templates` endpoint. The page never
+reads `templates/*.yaml`; Memory Core remains the only template loader and validator.
 
 ## What is on the page
 
@@ -69,8 +67,9 @@ remapped, and any Guessing technique whose id does not exist in the new catalog 
 tried state.
 
 **Guessing** is the whole catalog as a checklist. Technique ids and tried state come from
-the challenge; titles and tags come from the template files. The separate draw at the bottom
-is `POST /guess`: with a fixed seed it is reproducible, which is what ablation runs need.
+the challenge; titles and tags come from Memory Core's template API. The separate draw at
+the bottom is `POST /guess`: with a fixed seed it is reproducible, which is what ablation
+runs need.
 
 The spinner at the top of that panel draws one technique and offers to record it. Two things
 about it are deliberate:
@@ -171,8 +170,8 @@ validation list, and FastAPI's plain `detail` string.
 - `actor` comes from server configuration, never from the page.
 - The proxy validates no request body. A missing reason or a malformed operation is answered
   by Memory Core in its own words.
-- `human_client/web/catalog.py` is the only part that touches the filesystem, it is
-  read-only, and it is used for labels alone.
+- Template labels and picker choices come from Memory Core's `GET /v1/templates` endpoint.
+  The Web UI does not read `templates/*.yaml` directly.
 
 ## Verification
 
@@ -198,7 +197,7 @@ end to end: a child reaches Memory Core over a real socket, and the suite's netw
 forbids that. So the last stretch is a hand pass with `--fake-agent`, which costs nothing:
 
 ```bash
-python -m human_client.web --api-url http://127.0.0.1:8777 --templates ./templates --agent-workspace ./runs
+python -m human_client.web --api-url http://127.0.0.1:8777 --agent-workspace ./runs
 ```
 
 Worth checking specifically, because each one has failed at least once:
