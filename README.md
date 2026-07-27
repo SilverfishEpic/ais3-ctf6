@@ -58,9 +58,13 @@ unauthenticated. Start Memory Core first, then:
 python -m human_client.web --api-url http://127.0.0.1:8777 --templates ./templates
 ```
 
-See [`docs/human-webui.md`](docs/human-webui.md), and
+Adding `--agent-workspace <dir>` also lets the page start `ctfmem agent` runs, by launching
+the CLI as a child process. Without that flag the capability is off entirely.
+
+See [`docs/human-webui.md`](docs/human-webui.md), plus
 [`docs/adr/0001-human-web-ui.md`](docs/adr/0001-human-web-ui.md) for why this exists despite
-`web GUI` being on the non-goal list.
+`web GUI` being on the non-goal list, and
+[`docs/adr/0002-web-agent-runs.md`](docs/adr/0002-web-agent-runs.md) for the agent decision.
 
 ## License
 

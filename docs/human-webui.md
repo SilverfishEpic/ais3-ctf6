@@ -32,6 +32,10 @@ Then open `http://127.0.0.1:8787`. Installed as a package it is also `ctfmem-web
 | `--templates` | required | Where to read technique titles and the template list. |
 | `--timeout` | `CTFMEM_TIMEOUT`, else `30` | Read timeout for the routes that only touch local persistence. |
 | `--core-timeout` | `330` | Read timeout for ingest, query, and creation with an initial input. |
+| `--agent-workspace` | unset | Directory an agent run works in. Setting it is what enables agent runs at all. |
+| `--agent-runtime-dir` | `.ctfmem` | Where run status and stop files live. |
+| `--agent-max-turns` | `10` | Ceiling. The page may ask for fewer, never more. |
+| `--agent-max-cost-usd` | `5.0` | Ceiling, same rule. |
 
 There is no `--host`. The server binds `127.0.0.1` by construction because it is
 unauthenticated and can write.
@@ -69,6 +73,42 @@ the challenge; titles and tags come from the template files. The separate draw a
 is `POST /guess`: with a fixed seed it is reproducible, which is what ablation runs need.
 
 **Ask** queries the current whiteboard.
+
+**Agent** starts `ctfmem agent run`. It appears only when `--agent-workspace` was given at
+launch; otherwise the routes answer 403 and the panel is not drawn.
+
+## The agent panel
+
+The page does not orchestrate anything. It assembles arguments and launches the CLI as a
+child process, then reads the same status and stop files the CLI uses. So a run started in
+the browser is visible to `ctfmem agent status` in a terminal and can be stopped with
+`ctfmem agent stop`, and a run started in a terminal shows up in the page. There is one
+implementation of an agent run and this executes it. `docs/adr/0002-web-agent-runs.md`
+records why it must work this way rather than driving the loop inside the server.
+
+What the browser may choose: prompt, mode, session, memory policy, and the two limits. What
+it may not: the workspace, which always comes from the launch flag, and any limit above the
+launch ceiling — a larger request is silently clamped down, and the ceilings are printed
+next to the controls. The sandbox is the default `ToolPolicy`: read-only tools plus a recon
+command allowlist, with shell operators, command substitution and wrapper executables denied
+before the tool runs. Widening it means editing server code.
+
+Starting a run shows the exact argument list that was launched. For something that spawns a
+process on your machine, being able to read what ran matters more than a tidy banner.
+
+**There is no separate progress bar, because the whiteboard is one.** Every turn that finds
+something ingests it and moves the revision, and the page polls faster — two seconds instead
+of six — while a run is live. What the status line adds at the end is turns, productive
+turns, cost and why it stopped. Per-turn telemetry does not exist: the status file is written
+at start and at end only.
+
+Stopping writes the stop file. The loop checks it between turns, so it finishes the turn it
+is on and then stops; whatever it already found is on the board. Stopping the web server
+does *not* stop a running agent — the stop file is the way, from either front end.
+
+The `agent` picker selects a recorded scenario instead of the real model. Those replays come
+from real Claude runs, cost nothing and need no key, which makes them the right way to
+demonstrate the feature or check a change. It defaults to the real model.
 
 ## Concurrency
 
@@ -108,7 +148,8 @@ validation list, and FastAPI's plain `detail` string.
 
 ## Boundaries
 
-- No agent orchestration. `ctfmem agent run/stop` is not exposed and will not be.
+- The page orchestrates nothing. It launches `ctfmem agent run` and reads the files that
+  run writes; it never builds an adapter or drives a loop.
 - The page holds no authority: no ids, no diffs, no second copy of memory. Refreshing loses
   nothing that mattered.
 - `actor` comes from server configuration, never from the page.
@@ -134,3 +175,22 @@ There are no JavaScript tests. The page is therefore verified by hand, and the p
 cover every operation, not the easy ones: create, list, note, command result, all six
 mutations, mark tried, reclassify, draw, and ask, plus a real revision conflict, an
 exhausted catalog, and Memory Core being down.
+
+`tests/human_client/test_web_agent.py` covers argument assembly against an injected spawn,
+and separately launches the real entry point to prove it runs. It cannot cover the spawn
+end to end: a child reaches Memory Core over a real socket, and the suite's network guard
+forbids that. So the last stretch is a hand pass with `--fake-agent`, which costs nothing:
+
+```bash
+python -m human_client.web --api-url http://127.0.0.1:8777 --templates ./templates --agent-workspace ./runs
+```
+
+Worth checking specifically, because each one has failed at least once:
+
+- a `multi_tool` run moves the revision and puts something on the board;
+- a `sandbox_denied` run produces **no Fact** — a denied tool result is not evidence, and
+  "rm is not in the allowlist" must never become something the board asserts;
+- a `yolo` run stops at the launch ceiling rather than the CLI default;
+- after a run completes the run button is enabled again, not stuck;
+- `ctfmem agent status --runtime-dir <same dir>` in a terminal describes the run the browser
+  started. That one is the whole architecture in a single command.
