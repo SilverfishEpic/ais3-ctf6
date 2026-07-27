@@ -23,6 +23,7 @@ const state = {
   coreUp: null,
   agent: null,
   agentStatus: null,
+  slot: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -183,6 +184,7 @@ function armedRevision(formId) {
 const ARMED_TARGETS = [
   { form: "op", label: "op-armed", button: "op-submit" },
   { form: "template", label: "tpl-armed", button: "tpl-submit" },
+  { form: "slot", label: "slot-armed", button: "slot-add" },
 ];
 
 function renderArmed() {
@@ -443,6 +445,150 @@ function renderGuessRow(id, techniqueState, label) {
     title.title = label.tags.join(", ");
   }
   return row;
+}
+
+/* ----------------------------------------------------------------- slot draw */
+
+/*
+ * The reel is decoration. Which technique comes up is decided by POST /guess on the
+ * server, so a fixed seed still draws the same one and the ablation property survives
+ * being made fun to look at. Client-side randomness here would quietly make the seed a lie.
+ */
+
+function spinnableNames() {
+  if (!state.board || !state.board.guessing) return [];
+  const labels = labelsForCatalog(state.board.guessing.catalog);
+  const ids = Object.keys(state.board.guessing.state || {});
+  return ids.map((id) => (labels && labels[id] ? labels[id].title : id));
+}
+
+function animateReel(reel, names, finalText) {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced || names.length < 2) {
+    reel.className = "slot-reel landed";
+    reel.textContent = finalText;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    reel.className = "slot-reel spinning";
+    let delay = 40;
+    let index = Math.floor(names.length / 2);
+    const step = () => {
+      reel.textContent = names[index % names.length];
+      index += 1;
+      delay *= 1.18;
+      if (delay < 260) {
+        setTimeout(step, delay);
+        return;
+      }
+      reel.className = "slot-reel landed";
+      reel.textContent = finalText;
+      resolve();
+    };
+    step();
+  });
+}
+
+function renderSlotSections() {
+  const select = $("slot-section");
+  select.innerHTML = "";
+  const sections = sectionsOf("assumption");
+  for (const section of sections) {
+    const option = document.createElement("option");
+    option.value = section;
+    option.textContent = section;
+    select.appendChild(option);
+  }
+  if (sections.includes("attack_surface")) select.value = "attack_surface";
+}
+
+function clearSlot(message) {
+  state.slot = null;
+  const reel = $("slot-reel");
+  reel.className = "slot-reel";
+  reel.textContent = message || "spin to draw one";
+  $("slot-drawn").textContent = "";
+  $("slot-form").hidden = true;
+}
+
+async function spinSlot() {
+  if (!state.challengeId || !state.board) return;
+
+  const body = { count: 1, only_untried: $("slot-untried").checked };
+  const seedRaw = $("slot-seed").value;
+  if (seedRaw !== "") body.seed = Number(seedRaw);
+
+  const names = spinnableNames();
+  const result = await api(
+    "POST",
+    "/api/v1/challenges/" + encodeURIComponent(state.challengeId) + "/guess",
+    body,
+  );
+  if (!result.ok) {
+    reportError("slot", "The draw failed", result);
+    return;
+  }
+  hideBanner("slot");
+
+  const candidates = result.body.candidates || [];
+  if (!candidates.length) {
+    clearSlot(
+      $("slot-untried").checked
+        ? "every technique in this catalog is already marked tried"
+        : "this catalog is empty",
+    );
+    return;
+  }
+
+  const drawn = candidates[0];
+  await animateReel($("slot-reel"), names, drawn.title);
+
+  state.slot = drawn;
+  const bits = [drawn.id, "from " + result.body.catalog];
+  if (drawn.tags && drawn.tags.length) bits.push(drawn.tags.join(", "));
+  if (drawn.tried) bits.push("already marked tried");
+  if (seedRaw !== "") bits.push("seed " + seedRaw);
+  $("slot-drawn").textContent = bits.join(" · ");
+
+  $("slot-text").value = drawn.title + " may apply to this challenge.";
+  $("slot-reason").value = "";
+  renderSlotSections();
+  $("slot-form").hidden = false;
+  disarm();
+}
+
+async function submitSlotAssumption() {
+  const composed = armedRevision("slot");
+  if (composed === null || !state.slot) {
+    renderArmed();
+    return;
+  }
+  beginWrite();
+  const result = await api(
+    "POST",
+    "/api/v1/challenges/" + encodeURIComponent(state.challengeId) + "/mutate",
+    {
+      expected_revision: composed,
+      reason: $("slot-reason").value,
+      operations: [
+        {
+          op: "add",
+          layer: "assumption",
+          section: $("slot-section").value,
+          text: $("slot-text").value,
+          tags: ["guessing", state.slot.id],
+        },
+      ],
+    },
+  );
+  const applied = await afterMutation(
+    "slot",
+    "guessing draw " + state.slot.id,
+    result,
+    composed,
+    "slot",
+  );
+  if (applied) clearSlot("spin to draw another");
 }
 
 /* -------------------------------------------------------------------- result */
@@ -1246,6 +1392,7 @@ async function selectChallenge(id) {
   state.guessReason = "";
   state.agentStatus = null;
   renderAgentStatus();
+  clearSlot();
   disarm();
   $("challenge-select").value = state.challengeId || "";
   hideBanner("conflict");
@@ -1322,6 +1469,13 @@ function wire() {
 
   $("agent-run").addEventListener("click", submitAgentRun);
   $("agent-stop").addEventListener("click", submitAgentStop);
+
+  $("slot-spin").addEventListener("click", spinSlot);
+  $("slot-add").addEventListener("click", submitSlotAssumption);
+  for (const id of ["slot-text", "slot-reason"]) {
+    $(id).addEventListener("input", () => arm("slot"));
+  }
+  $("slot-section").addEventListener("change", () => arm("slot"));
 }
 
 /*

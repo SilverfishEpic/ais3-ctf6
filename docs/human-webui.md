@@ -72,6 +72,22 @@ tried state.
 the challenge; titles and tags come from the template files. The separate draw at the bottom
 is `POST /guess`: with a fixed seed it is reproducible, which is what ablation runs need.
 
+The spinner at the top of that panel draws one technique and offers to record it. Two things
+about it are deliberate:
+
+- **The reel is decoration; the server decides.** The technique that comes up is whatever
+  `POST /guess` returned, so a fixed seed still draws the same one twice. Rolling the dice in
+  JavaScript would have made the seed a lie.
+- **It records a hypothesis, not a technique name.** `spec/protocol.md` §2 permits
+  `Guessing technique -> concrete challenge hypothesis -> Assumption`, and the middle step is
+  the point: an Assumption is supposed to be challenge-specific. So the draw pre-fills an
+  editable sentence rather than writing `SQL Injection` onto the board, where it would tell a
+  teammate nothing. Provenance is kept in the tags — `guessing` plus the technique id — and
+  the reason is journalled with the mutation like any other override.
+
+Drawing a technique does not mark it tried, because you have not tried it. That flag stays
+where it belongs, on the checklist, after you actually run something.
+
 **Ask** queries the current whiteboard.
 
 **Agent** starts `ctfmem agent run`. It appears only when `--agent-workspace` was given at

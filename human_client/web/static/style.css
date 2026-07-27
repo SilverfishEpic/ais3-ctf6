@@ -107,6 +107,41 @@ code {
 
 .running { color: var(--agent); font-weight: 700; }
 
+.slot {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.slot-reel {
+  height: 2.4rem;
+  line-height: 2.4rem;
+  overflow: hidden;
+  text-align: center;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  margin-bottom: 0.5rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 0.5rem;
+}
+
+.slot-reel.spinning {
+  color: var(--muted);
+  filter: blur(0.4px);
+}
+
+.slot-reel.landed {
+  color: var(--assumption);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot-reel.spinning { filter: none; }
+}
+
 .explain { color: var(--muted); margin: 0 0 0.75rem; font-size: 0.85em; }
 
 .board-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }

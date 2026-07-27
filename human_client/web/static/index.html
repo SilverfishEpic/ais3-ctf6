@@ -177,6 +177,35 @@
         A curated catalog supplied by the template, not model brainstorming. Tried state is
         per challenge; titles come from the template files on disk.
       </p>
+      <div class="slot">
+        <div id="slot-reel" class="slot-reel">spin to draw one</div>
+        <div class="row">
+          <label class="inline"><input id="slot-untried" type="checkbox" checked> only untried</label>
+          <label>seed <input id="slot-seed" type="number" placeholder="none"></label>
+          <button id="slot-spin" type="button">spin</button>
+        </div>
+        <div id="slot-drawn" class="muted"></div>
+        <div id="slot-form" hidden>
+          <label class="block">hypothesis for <em>this</em> challenge
+            <textarea id="slot-text" rows="2"></textarea>
+          </label>
+          <div class="row">
+            <label>section <select id="slot-section"></select></label>
+          </div>
+          <label class="block">reason (required)
+            <input id="slot-reason" type="text" placeholder="why this is worth recording as a hypothesis">
+          </label>
+          <div class="armed-row">
+            <button id="slot-add" type="button">add as assumption</button>
+            <span id="slot-armed" class="muted"></span>
+          </div>
+          <p class="explain">
+            This records a hypothesis, not an attempt. Mark the technique tried in the list
+            below once you have actually run it.
+          </p>
+        </div>
+      </div>
+
       <div id="guessing-note" class="muted"></div>
       <div id="guessing-list"></div>
       <hr>
