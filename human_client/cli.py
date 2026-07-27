@@ -367,3 +367,7 @@ def _handle_core_error(error: CoreError | CoreConnectionError, config: ClientCon
     else:
         render_error(error)
     return code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

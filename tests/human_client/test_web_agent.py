@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +61,39 @@ def parsed(argv: list[str]) -> Any:
     """
 
     return build_parser().parse_args(argv[3:])
+
+
+def test_the_entry_point_this_module_launches_actually_runs(tmp_path: Path) -> None:
+    """Spawn the real entry point the way ``default_spawn`` does, and make it do something.
+
+    Parsing the arguments is not enough. ``python -m human_client.cli`` was silently a
+    no-op until the module grew a ``__main__`` guard: it imported, defined everything, and
+    exited 0 without reading argv. Every run started from the page succeeded and did
+    nothing. This asserts the child is runnable, using the one agent subcommand that needs
+    no network and no model.
+    """
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "human_client.cli",
+            "--challenge",
+            "demo-web",
+            "--json",
+            "agent",
+            "status",
+            "--runtime-dir",
+            str(tmp_path),
+        ],
+        cwd=web_agent.PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout)["status"] == "not_started"
 
 
 def test_the_argument_list_parses_with_the_cli_own_parser(settings: AgentSettings) -> None:
@@ -223,6 +259,35 @@ def test_status_reports_a_finished_run_and_its_output(settings: AgentSettings) -
     assert payload["total_cost_usd"] == 0.42
     assert payload["log"].strip() == '{"ok": true}'
     assert payload["stop_file"] == str(stop_file("demo-web", settings.runtime_dir))
+
+
+def test_a_finished_run_is_not_running_even_while_its_pid_resolves(
+    settings: AgentSettings,
+) -> None:
+    """The zombie case. A child this server started is nobody's to wait on until it is
+    reaped, and a zombie answers ``os.kill(pid, 0)`` like a live process. Asking the pid
+    alone reported every completed run as still running, which left the run button disabled
+    for the rest of the session."""
+
+    write_status(
+        AgentStatus(
+            challenge="demo-web",
+            mode="normal",
+            session="same",
+            status="completed",
+            started_at="2026-07-27T00:00:00+00:00",
+            updated_at="2026-07-27T00:01:00+00:00",
+            pid=os.getpid(),
+            stopped_because="completed",
+        ),
+        settings.runtime_dir,
+    )
+
+    payload = web_agent.status(settings, "demo-web")
+
+    assert payload["status"] == "completed"
+    assert payload["running"] is False
+    assert web_agent.is_running(settings, "demo-web") is False
 
 
 def test_a_run_whose_process_died_is_reported_as_stale(settings: AgentSettings) -> None:

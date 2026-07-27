@@ -180,14 +180,23 @@ def is_running(settings: AgentSettings, challenge_id: str) -> bool:
 
 
 def status(settings: AgentSettings, challenge_id: str) -> dict[str, Any]:
-    """The same payload ``ctfmem agent status`` prints, plus the child's output so far."""
+    """The same payload ``ctfmem agent status`` prints, plus the child's output so far.
 
+    ``running`` requires the recorded status to still say so, not merely that the pid
+    resolves. A child this server started is nobody's to wait on, so it lingers as a zombie
+    after it exits, and a zombie answers ``os.kill(pid, 0)`` exactly like a live process.
+    Asking the pid alone would report every finished run as still running for as long as the
+    server is up.
+    """
+
+    reap()
     payload = read_status(challenge_id, settings.runtime_dir)
     if payload is None:
         payload = {"challenge": challenge_id, "status": "not_started"}
     else:
-        payload["running"] = process_is_running(payload.get("pid"))
-        if payload.get("status") == "running" and not payload["running"]:
+        claims_running = payload.get("status") == "running"
+        payload["running"] = claims_running and process_is_running(payload.get("pid"))
+        if claims_running and not payload["running"]:
             payload["status"] = "stale"
 
     payload.setdefault("running", False)
@@ -200,6 +209,12 @@ def status(settings: AgentSettings, challenge_id: str) -> dict[str, Any]:
 def stop(settings: AgentSettings, challenge_id: str) -> dict[str, Any]:
     path = request_stop(challenge_id, settings.runtime_dir)
     return {"challenge": challenge_id, "stop_file": str(path)}
+
+
+#: Children this server started, kept only so they can be waited on once they exit. A
+#: process nobody waits on stays in the table as a zombie, which both leaks an entry per run
+#: and makes the pid look alive forever.
+_CHILDREN: list[subprocess.Popen[bytes]] = []
 
 
 def default_spawn(argv: list[str], path: Path) -> int:
@@ -218,7 +233,16 @@ def default_spawn(argv: list[str], path: Path) -> int:
             stdin=subprocess.DEVNULL,
             cwd=PACKAGE_ROOT,
         )
+    _CHILDREN.append(process)
     return process.pid
+
+
+def reap() -> None:
+    """Collect the children that have finished. Cheap, and called on every status read."""
+
+    for process in list(_CHILDREN):
+        if process.poll() is not None:
+            _CHILDREN.remove(process)
 
 
 def _one_of(value: object, allowed: tuple[str, ...], label: str) -> str:
