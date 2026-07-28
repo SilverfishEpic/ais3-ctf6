@@ -154,8 +154,9 @@ tool-result events with clear provenance may become Fact-grade evidence.
 ## Tool Policy and Sandbox
 
 Claude currently enforces `ToolPolicy` with a provider hook before tool execution. Codex
-must not be documented as equally protected until an equivalent enforcement point is
-implemented and tested.
+does not expose that same hook through this bridge path, so Codex enforcement is expressed
+through Codex-native approval and sandbox controls instead of pretending the mechanisms
+are identical.
 
 The abstraction should therefore split policy description from provider enforcement:
 
@@ -167,14 +168,15 @@ ProviderToolPolicyAdapter
   └── Codex: Codex sandbox / execpolicy / hook / external isolation layer
 ```
 
-Codex currently runs with `--sandbox read-only`, `--ignore-user-config`, and
-`--ignore-rules`. This prevents the bridge path from silently inheriting local Codex
-configuration or project rules that widen authority. The adapter also removes Memory Core
-provider environment variables before spawning Codex.
+Codex currently runs with `--ask-for-approval untrusted`, `--sandbox read-only`,
+`--ignore-user-config`, and `--ignore-rules`. This prevents the bridge path from silently
+inheriting local Codex configuration or project rules that widen authority. The adapter
+also removes Memory Core provider environment variables before spawning Codex.
 
-This is not the same mechanism as Claude's `PreToolUse` command allowlist. Any future
-support for broader write or network access must be explicit, server-owned, and documented
-as higher risk.
+This is not the same mechanism as Claude's `PreToolUse` command allowlist, but it is the
+same intended conservative authority tier for the supported bridge mode. Any future support
+for broader write or network access must be explicit, server-owned, and documented as
+higher risk.
 
 ## Memory Skill and MCP
 

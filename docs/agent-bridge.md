@@ -63,15 +63,16 @@ Codex MVP constraints:
   enables the skill;
 - it maps unverifiable provider output to `outcome=unknown`;
 - it does not receive AIS3 credentials;
-- it is launched with `--ignore-user-config`, `--ignore-rules`, and `--sandbox read-only`
-  so user/project Codex configuration cannot silently widen this bridge path;
+- it is launched with `--ask-for-approval untrusted`, `--ignore-user-config`,
+  `--ignore-rules`, and `--sandbox read-only` so user/project Codex configuration
+  cannot silently widen this bridge path;
 - live Codex execution is opt-in by operator action and is not part of the default test
   suite.
 
-Codex does not currently have a Claude-equivalent `PreToolUse` command allowlist hook in
-this bridge. Its enforced local policy is therefore stricter but coarser: read-only Codex
-sandbox plus no user/project rules. Any future write-capable or network-capable Codex mode
-must be introduced as a new documented authority tier.
+Codex does not use the same enforcement mechanism as Claude's `PreToolUse` command
+allowlist hook. Its enforced local policy is Codex-native approval gating plus the
+read-only Codex sandbox and no user/project rules. Any future write-capable or
+network-capable Codex mode must be introduced as a new documented authority tier.
 
 ## Sessions and Looping
 

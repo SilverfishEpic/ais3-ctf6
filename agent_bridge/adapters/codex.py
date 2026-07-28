@@ -5,8 +5,9 @@ starts a fresh ``codex exec`` for every turn.  ``session=same`` starts a persist
 thread on the first turn and resumes that exact thread id on later turns.
 
 Codex receives read-only memory tools through a scoped stdio MCP server when the selected
-memory policy enables the skill. Codex-specific tool policy parity remains follow-up work
-tracked in ADR 0003.
+memory policy enables the skill. The subprocess is launched with Codex-native approval
+gating, read-only sandboxing, isolated user/project policy sources, and scrubbed Memory Core
+provider credentials.
 """
 
 from __future__ import annotations
@@ -56,6 +57,7 @@ class CodexAdapter:
         workspace: str | Path,
         executable: str | None = None,
         model: str | None = None,
+        approval_policy: Literal["untrusted", "never", "on-request"] = "untrusted",
         sandbox: str = "read-only",
         session_kind: Literal["same", "new"] = "new",
         ephemeral: bool | None = None,
@@ -64,6 +66,7 @@ class CodexAdapter:
         self.workspace = Path(workspace)
         self.executable = executable or os.environ.get("CTFMEM_CODEX_BIN") or "codex"
         self.model = model
+        self.approval_policy = approval_policy
         self.sandbox = sandbox
         self.session_kind = session_kind
         self.memory_mcp = memory_mcp
@@ -165,6 +168,8 @@ class CodexAdapter:
                 raise BridgeError("cannot resume Codex before a thread_id is known")
             argv = [
                 self.executable,
+                "--ask-for-approval",
+                self.approval_policy,
                 "exec",
                 "resume",
                 "--json",
@@ -179,6 +184,8 @@ class CodexAdapter:
 
         argv = [
             self.executable,
+            "--ask-for-approval",
+            self.approval_policy,
             "exec",
             "--json",
             "--ignore-user-config",

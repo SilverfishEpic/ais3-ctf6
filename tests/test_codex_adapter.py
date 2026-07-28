@@ -65,8 +65,10 @@ def test_codex_adapter_same_session_resumes_reported_thread(tmp_path: Path) -> N
     )
 
     first = adapter._argv("first turn")
-    assert first[:8] == [
+    assert first[:10] == [
         "codex",
+        "--ask-for-approval",
+        "untrusted",
         "exec",
         "--json",
         "--ignore-user-config",
@@ -81,6 +83,8 @@ def test_codex_adapter_same_session_resumes_reported_thread(tmp_path: Path) -> N
     resumed = adapter._argv("second turn", resume=True)
     assert resumed == [
         "codex",
+        "--ask-for-approval",
+        "untrusted",
         "exec",
         "resume",
         "--json",
@@ -140,8 +144,10 @@ def test_codex_adapter_new_session_uses_ephemeral_exec(tmp_path: Path) -> None:
 
     argv = adapter._argv("single turn")
 
-    assert argv[:8] == [
+    assert argv[:10] == [
         "codex",
+        "--ask-for-approval",
+        "untrusted",
         "exec",
         "--json",
         "--ignore-user-config",
