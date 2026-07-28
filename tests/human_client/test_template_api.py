@@ -16,6 +16,18 @@ PORT = 8787
 ORIGIN = f"http://127.0.0.1:{PORT}"
 
 
+class StaticTemplateHTTPClient:
+    def __init__(self, body: dict[str, Any]) -> None:
+        self.body = body
+
+    def get(self, url: str, **kwargs: Any) -> httpx.Response:
+        assert url == "/v1/templates"
+        return httpx.Response(200, json=self.body)
+
+    def post(self, url: str, **kwargs: Any) -> httpx.Response:
+        raise AssertionError(f"unexpected POST {url}")
+
+
 def call(app: FastAPI, method: str, url: str, **kwargs: Any) -> httpx.Response:
     async def send() -> httpx.Response:
         transport = httpx.ASGITransport(app=app)
@@ -40,7 +52,12 @@ def test_memory_core_publishes_template_metadata(service: MemoryService) -> None
 
 
 def test_web_ui_gets_template_metadata_through_memory_core(service: MemoryService) -> None:
-    core = MemoryCoreClient("http://testserver", http_client=ASGITestClient(service))
+    template_body = MemoryCoreClient(
+        "http://testserver", http_client=ASGITestClient(service)
+    ).list_templates()
+    core = MemoryCoreClient(
+        "http://testserver", http_client=StaticTemplateHTTPClient(template_body)
+    )
     app = create_web_app(
         client=core,
         summarizing_client=core,

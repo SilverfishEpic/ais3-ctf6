@@ -116,12 +116,9 @@ thread id reported by the first turn. This brings Codex loop/session behavior in
 the Agent Bridge session model while keeping provider event normalization outside Memory
 Core.
 
-The implementation still does not claim parity for:
-
-- Codex MCP memory tools;
-- Claude-equivalent pre-tool command allowlist enforcement.
-
-Those are follow-up phases and require separate verification.
+The implementation now supports same-session resume and read-only Codex MCP memory tools.
+It still does not claim parity for Claude-equivalent pre-tool command allowlist
+enforcement; that remains a separate verification item.
 
 ## Event Normalization
 
@@ -186,8 +183,15 @@ memory_guess
 It must remain read-only. It must not expose mutation, template switching, YAML editing,
 journal appending, local ID allocation, or Summarizer access.
 
-Codex MCP support is a later phase. Until then, the bridge may inject the current board or
-diff as prompt context, exactly as it already does for providers through `AgentLoop`.
+Codex receives this surface through a scoped stdio MCP server implemented by
+`agent_bridge.memory_mcp`. The registry enables it only when the selected memory policy
+has `skill_enabled=True` and the operator did not pass `--no-memory-skill`. The process is
+started with the Memory Core API URL, challenge id, policy name, and timeout; it does not
+receive AIS3 provider credentials.
+
+The bridge still injects the current board or diff as prompt context through `AgentLoop`.
+This preserves provider-neutral behavior and gives the agent useful context even if the
+provider declines to call tools.
 
 ## Web UI Consequences
 
@@ -226,8 +230,7 @@ Exit criteria:
 - implement `CodexAdapter` using `codex exec --json`;
 - add sanitized Codex JSONL fixtures;
 - normalize Codex events into `AgentRunEvent`;
-- support normal, new-session runs;
-- document unsupported same-session and MCP parity.
+- support normal and new-session runs.
 
 Exit criteria:
 

@@ -57,10 +57,18 @@ def test_agent_run_fake_agent_ingests_agent_run_log(
     assert envelope["input"]["type"] == "run_log"
 
 
-def test_agent_run_codex_requires_no_memory_skill_by_default(
+def test_agent_run_codex_allows_memory_skill_by_default(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    def fake_build_agent_adapter(**kwargs: Any) -> object:
+        assert kwargs["provider"] == "codex"
+        assert kwargs["no_memory_skill"] is False
+        raise ValueError("adapter factory reached")
+
+    monkeypatch.setattr(agent_cli, "build_agent_adapter", fake_build_agent_adapter)
+
     code = cli.main(
         [
             "--challenge",
@@ -77,32 +85,7 @@ def test_agent_run_codex_requires_no_memory_skill_by_default(
     captured = capsys.readouterr()
 
     assert code != OK
-    assert "Codex MVP does not yet support" in captured.err
-
-
-def test_agent_run_codex_requires_no_memory_skill(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    code = cli.main(
-        [
-            "--challenge",
-            "demo-web",
-            "agent",
-            "run",
-            "--provider",
-            "codex",
-            "--session",
-            "new",
-            "--runtime-dir",
-            str(tmp_path),
-            "繼續分析",
-        ]
-    )
-    captured = capsys.readouterr()
-
-    assert code != OK
-    assert "Codex MVP does not yet support" in captured.err
+    assert "adapter factory reached" in captured.err
 
 
 def test_agent_run_json_output_is_machine_safe(

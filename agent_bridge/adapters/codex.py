@@ -4,8 +4,9 @@ Codex is driven through the documented non-interactive CLI JSONL surface.  ``ses
 starts a fresh ``codex exec`` for every turn.  ``session=same`` starts a persistent Codex
 thread on the first turn and resumes that exact thread id on later turns.
 
-Codex MCP memory tools and Codex-specific tool policy parity are follow-up work tracked in
-ADR 0003.
+Codex receives read-only memory tools through a scoped stdio MCP server when the selected
+memory policy enables the skill. Codex-specific tool policy parity remains follow-up work
+tracked in ADR 0003.
 """
 
 from __future__ import annotations
@@ -14,6 +15,8 @@ import asyncio
 import json
 import os
 import shutil
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -23,6 +26,15 @@ from agent_bridge.normalize_codex import normalize_codex
 from agent_bridge.protocols import RunResult
 
 BOARD_SEPARATOR = "\n\n---\n\n"
+
+
+@dataclass(frozen=True)
+class CodexMemoryMCP:
+    api_url: str
+    challenge: str
+    policy: str
+    timeout: float
+    guess_seed: int | None = None
 
 
 class CodexAdapter:
@@ -37,12 +49,14 @@ class CodexAdapter:
         sandbox: str = "read-only",
         session_kind: Literal["same", "new"] = "new",
         ephemeral: bool | None = None,
+        memory_mcp: CodexMemoryMCP | None = None,
     ) -> None:
         self.workspace = Path(workspace)
         self.executable = executable or os.environ.get("CTFMEM_CODEX_BIN") or "codex"
         self.model = model
         self.sandbox = sandbox
         self.session_kind = session_kind
+        self.memory_mcp = memory_mcp
         # A same-session run must persist Codex's thread so later turns can resume it.
         self.ephemeral = session_kind == "new" if ephemeral is None else ephemeral
         self._turn = 0
@@ -139,6 +153,7 @@ class CodexAdapter:
             if self._session_id is None:
                 raise BridgeError("cannot resume Codex before a thread_id is known")
             argv = [self.executable, "exec", "resume", "--json"]
+            argv += self._mcp_config_args()
             if self.model:
                 argv += ["--model", self.model]
             argv += [self._session_id, prompt]
@@ -153,12 +168,41 @@ class CodexAdapter:
             "--cd",
             str(self.workspace),
         ]
+        argv += self._mcp_config_args()
         if self.ephemeral:
             argv.append("--ephemeral")
         if self.model:
             argv += ["--model", self.model]
         argv.append(prompt)
         return argv
+
+    def _mcp_config_args(self) -> list[str]:
+        if self.memory_mcp is None:
+            return []
+        mcp_args = [
+            "-m",
+            "agent_bridge.memory_mcp",
+            "--api-url",
+            self.memory_mcp.api_url,
+            "--challenge",
+            self.memory_mcp.challenge,
+            "--policy",
+            self.memory_mcp.policy,
+            "--timeout",
+            str(self.memory_mcp.timeout),
+        ]
+        if self.memory_mcp.guess_seed is not None:
+            mcp_args += ["--guess-seed", str(self.memory_mcp.guess_seed)]
+        return [
+            "-c",
+            "mcp_servers.memory.command=" + json.dumps(sys.executable),
+            "-c",
+            "mcp_servers.memory.args=" + json.dumps(mcp_args),
+            "-c",
+            'mcp_servers.memory.enabled_tools=["memory_show","memory_query","memory_guess"]',
+            "-c",
+            "mcp_servers.memory.default_tools_approval_mode=\"auto\"",
+        ]
 
 
 def _parse_jsonl(text: str) -> list[dict[str, object]]:

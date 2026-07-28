@@ -36,15 +36,15 @@ The bridge's stable runtime seam is `AgentAdapter`. `AgentLoop` depends on that 
 and must remain unaware of provider SDKs, subprocess protocols, CLI event formats, or MCP
 configuration details.
 
-Current production support is Claude plus replay fixtures. Codex has an MVP adapter through
-the documented non-interactive CLI JSONL stream. The provider registry keeps those paths out
-of `AgentLoop`.
+Current production support is Claude, Codex, and replay fixtures. Codex uses the documented
+non-interactive CLI JSONL stream. The provider registry keeps those paths out of
+`AgentLoop`.
 
 CLI shape:
 
 ```bash
 ctfmem agent run --provider claude "..."
-ctfmem agent run --provider codex --session same --no-memory-skill "..."
+ctfmem agent run --provider codex --session same "..."
 ctfmem agent run --provider fake --fake-agent multi_tool "..."
 ```
 
@@ -59,8 +59,10 @@ Codex MVP constraints:
   turn;
 - it supports `--session new` by starting a fresh ephemeral Codex exec per turn;
 - it can run YOLO through the existing `AgentLoop`;
-- it requires `--no-memory-skill`;
+- it receives read-only memory tools through a scoped stdio MCP server when memory policy
+  enables the skill;
 - it maps unverifiable provider output to `outcome=unknown`;
+- it does not receive AIS3 credentials;
 - live Codex execution is opt-in by operator action and is not part of the default test
   suite.
 
@@ -87,9 +89,18 @@ The Agent-facing memory skill is read-only. It may show the current memory, answ
 queries, and request deterministic guessing candidates from Memory Core. It must not expose
 mutation, YAML editing, local ID allocation, or template rewriting.
 
-The long-term target is a provider-neutral MCP memory skill. Claude currently receives the
-skill through the Claude SDK path. Codex should receive it only after the MCP setup, secret
-boundary, and read-only behavior are verified.
+Claude receives the skill through the Claude SDK path. Codex receives the same read-only
+surface through `agent_bridge.memory_mcp`, a stdio MCP server configured only for the
+current `ctfmem agent run` invocation.
+
+Codex-exposed tools:
+
+- `memory_show`
+- `memory_query`
+- `memory_guess`
+
+`--no-memory-skill` disables those tools for either provider and falls back to prompt board
+injection only.
 
 ## Offline Replay
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from agent_bridge.adapters.claude import ClaudeAdapter
-from agent_bridge.adapters.codex import CodexAdapter
+from agent_bridge.adapters.codex import CodexAdapter, CodexMemoryMCP
 from agent_bridge.adapters.fake import FakeAgentAdapter
 from agent_bridge.memory.http import HttpMemoryClient
 from agent_bridge.policy import MemoryPolicy
@@ -51,15 +51,20 @@ def build_agent_adapter(
         raise ValueError("--fake-agent can only be used with --provider fake")
 
     if provider == "codex":
+        memory_mcp = None
         if policy.skill_enabled and not no_memory_skill:
-            raise ValueError(
-                "Codex MVP does not yet support the read-only memory MCP skill; "
-                "use --no-memory-skill"
+            memory_mcp = CodexMemoryMCP(
+                api_url=memory.base_url,
+                challenge=challenge,
+                policy=policy.name,
+                timeout=30.0,
+                guess_seed=policy.guess_seed,
             )
         return CodexAdapter(
             workspace=workspace,
             model=model,
             session_kind=session,  # type: ignore[arg-type]
+            memory_mcp=memory_mcp,
         )
 
     mcp_servers: dict[str, Any] = {}

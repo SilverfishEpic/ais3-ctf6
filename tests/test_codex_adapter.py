@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from agent_bridge.adapters.codex import CodexAdapter
+from agent_bridge.adapters.codex import CodexAdapter, CodexMemoryMCP
 from agent_bridge.adapters.registry import build_agent_adapter
 from agent_bridge.memory.fake import FakeMemoryClient
 from agent_bridge.policy import FULL
@@ -148,6 +148,56 @@ def test_registry_allows_codex_same_session_when_memory_skill_is_disabled(tmp_pa
 
     assert isinstance(adapter, CodexAdapter)
     assert adapter.session_kind == "same"
+
+
+def test_registry_configures_codex_memory_mcp_when_enabled(tmp_path: Path) -> None:
+    memory = FakeMemoryClient()
+    memory.base_url = "http://core.test"  # type: ignore[attr-defined]
+
+    adapter = build_agent_adapter(
+        provider="codex",
+        fake_agent=None,
+        workspace=tmp_path,
+        model=None,
+        max_turns=3,
+        max_cost_usd=1.0,
+        session="same",
+        memory=memory,  # type: ignore[arg-type]
+        challenge="demo",
+        policy=FULL,
+        no_memory_skill=False,
+    )
+
+    assert isinstance(adapter, CodexAdapter)
+    assert adapter.memory_mcp == CodexMemoryMCP(
+        api_url="http://core.test",
+        challenge="demo",
+        policy="full",
+        timeout=30.0,
+    )
+
+
+def test_codex_adapter_adds_scoped_mcp_config_args(tmp_path: Path) -> None:
+    adapter = CodexAdapter(
+        workspace=tmp_path,
+        executable="codex",
+        memory_mcp=CodexMemoryMCP(
+            api_url="http://core.test",
+            challenge="demo",
+            policy="full",
+            timeout=30.0,
+            guess_seed=42,
+        ),
+    )
+
+    argv = adapter._argv("inspect")
+    joined = "\n".join(argv)
+
+    assert "mcp_servers.memory.command=" in joined
+    assert "agent_bridge.memory_mcp" in joined
+    assert "http://core.test" in joined
+    assert "demo" in joined
+    assert "--guess-seed" in joined
 
 
 def test_codex_adapter_falls_back_to_plain_text_as_agent_message(tmp_path: Path) -> None:

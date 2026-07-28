@@ -322,7 +322,6 @@ uv run ctfmem --challenge demo-web agent run \
   --workspace . \
   --mode normal \
   --session same \
-  --no-memory-skill \
   "繼續分析"
 ```
 
@@ -335,16 +334,23 @@ Codex 目前透過 `codex exec --json` 非互動模式執行。這個 MVP 刻意
 [x] 支援 session=new
 [x] 將 Codex JSONL events normalize 成 AgentRunEvent
 [x] unknown provenance 以 outcome=unknown 保存
-[ ] 尚未支援 Codex MCP memory skill
+[x] 支援唯讀 Codex MCP memory skill
 [ ] 尚未宣稱 Codex 與 Claude PreToolUse sandbox policy 等價
 ```
 
 Codex 若要使用和 Claude 類似的跨輪上下文，使用 `--session same`。若要每輪只依賴
-Memory Core 白板，使用 `--session new`。目前仍必須加上：
+Memory Core 白板，使用 `--session new`。
+
+預設會依照 memory policy 啟用唯讀 memory skill，提供：
 
 ```text
---no-memory-skill
+memory_show
+memory_query
+memory_guess
 ```
+
+若要完全關閉 memory skill，只保留 prompt board injection，可加上
+`--no-memory-skill`。
 
 YOLO run：
 
@@ -365,7 +371,6 @@ uv run ctfmem --challenge demo-web agent run \
   --provider codex \
   --mode yolo \
   --session same \
-  --no-memory-skill \
   --max-turns 5 \
   --idle-turns 2 \
   "把題目解完"
