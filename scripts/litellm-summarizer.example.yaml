@@ -1,0 +1,16 @@
+# Copy this outside the repository, add your upstream credentials to the process environment,
+# then run: litellm --config /path/to/litellm-summarizer.yaml --port 4000
+#
+# It gives Memory Core one stable OpenAI-compatible model name. LiteLLM forwards that name to
+# an upstream endpoint that itself implements OpenAI Chat Completions, such as AIS3.
+model_list:
+  - model_name: ctfmem-summarizer
+    litellm_params:
+      model: openai/ais3/nemotron-3-ultra-550b
+      api_base: os.environ/AIS3_UPSTREAM_BASE_URL
+      api_key: os.environ/AIS3_UPSTREAM_API_KEY
+
+# Bind LiteLLM to localhost or protect it with a non-empty secret. Memory Core sends this value
+# as AIS3_API_KEY when its AIS3_BASE_URL points at the proxy.
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

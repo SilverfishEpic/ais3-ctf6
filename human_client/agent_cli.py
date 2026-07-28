@@ -28,7 +28,14 @@ from agent_bridge.runtime import (
 from agent_bridge.sandbox import ToolPolicy
 from agent_bridge.skill import TOOL_NAMES, build_memory_server
 
-from .config import ClientConfig, require_challenge
+from .config import (
+    ClientConfig,
+    config_path_from_args,
+    load_saved_client_config,
+    merge_saved_client_config,
+    require_challenge,
+    save_client_config,
+)
 from .errors import CONNECTION_ERROR, OK, SERVER_ERROR, USAGE_ERROR
 from .render import emit_json, render_diff, render_error
 
@@ -73,6 +80,12 @@ def add_agent_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     run.add_argument("--no-memory-skill", action="store_true")
     run.set_defaults(handler=cmd_agent_run)
 
+    init = agent_sub.add_parser(
+        "init", help="create and save the explicitly approved agent workspace"
+    )
+    init.add_argument("path")
+    init.set_defaults(handler=cmd_agent_init)
+
     stop = agent_sub.add_parser("stop")
     stop.add_argument("--runtime-dir", default=None)
     stop.set_defaults(handler=cmd_agent_stop)
@@ -80,6 +93,31 @@ def add_agent_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
     status = agent_sub.add_parser("status")
     status.add_argument("--runtime-dir", default=None)
     status.set_defaults(handler=cmd_agent_status)
+
+
+def cmd_agent_init(args: argparse.Namespace, _config: ClientConfig, _client: object) -> int:
+    """Create a named workspace and save it as a non-secret project default.
+
+    There is deliberately no implicit ``./runs`` fallback here.  The directory can contain
+    agent work products, so making the operator name it is also the approval that enables
+    the web agent panel.
+    """
+
+    workspace = Path(args.path).expanduser().resolve()
+    workspace.mkdir(parents=True, exist_ok=True)
+    path = config_path_from_args(args)
+    save_client_config(
+        path,
+        merge_saved_client_config(
+            load_saved_client_config(path), agent_workspace=str(workspace)
+        ),
+    )
+    if getattr(args, "json", False):
+        emit_json({"ok": True, "agent_workspace": str(workspace), "config": str(path)})
+    else:
+        print(f"ctfmem: agent workspace initialized at {workspace}")
+        print("ctfmem: use `ctfmem /agent run <prompt>` or start ctfmem-web without a flag.")
+    return OK
 
 
 def cmd_agent_run(args: argparse.Namespace, config: ClientConfig, _client: object) -> int:

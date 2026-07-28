@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from io import StringIO
 
 import pytest
 from conftest import ASGITestClient
@@ -120,3 +121,80 @@ def test_capture_ingests_one_command_result(
     assert code == 0
     assert payload["child_exit_code"] == 0
     assert payload["ingest"]["source_id"].startswith("I-")
+
+
+def test_slash_commands_reuse_the_long_form_handlers(
+    patched_client: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["/challenge", "create", "slash-demo", "--title", "Slash Demo"]) == OK
+    capsys.readouterr()
+
+    assert cli.main(["--challenge", "slash-demo", "/note", "port 80 is open"]) == OK
+    assert (
+        cli.main(
+            [
+                "--challenge",
+                "slash-demo",
+                "/edit",
+                "add",
+                "fact",
+                "--text",
+                "manual fact",
+                "--reason",
+                "verified manually",
+            ]
+        )
+        == OK
+    )
+    assert cli.main(["--challenge", "slash-demo", "/memory", "--facts"]) == OK
+    out = capsys.readouterr().out
+
+    assert "Memory rev 1 → 2" in out
+    assert "manual fact" in out
+
+
+def test_slash_command_accepts_multiline_json_from_stdin(
+    patched_client: None,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cli.main(["challenge", "create", "slash-demo", "--title", "Slash Demo"])
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        StringIO('{"command": ["probe"], "exit_code": 1, "stdout": "one\\ntwo", "stderr": "bad"}'),
+    )
+
+    assert cli.main(["--challenge", "slash-demo", "/command", "--stdin"]) == OK
+    assert "Memory rev 0 → 1" in capsys.readouterr().out
+
+
+def test_slash_stale_mutation_renders_current_board_without_retrying(
+    patched_client: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cli.main(["challenge", "create", "slash-demo", "--title", "Slash Demo"])
+    cli.main(["--challenge", "slash-demo", "note", "port 80 is open"])
+    capsys.readouterr()
+
+    code = cli.main(
+        [
+            "--challenge",
+            "slash-demo",
+            "/edit",
+            "add",
+            "fact",
+            "--text",
+            "stale",
+            "--reason",
+            "test conflict",
+            "--revision",
+            "0",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code == REVISION_CONFLICT
+    assert "Current whiteboard:" in captured.err
+    assert "Revision: 1" in captured.out

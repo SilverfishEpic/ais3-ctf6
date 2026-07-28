@@ -93,7 +93,13 @@ def options(settings: AgentSettings | None) -> dict[str, Any]:
     """What the page may offer. ``enabled`` is false unless a workspace was set at launch."""
 
     if settings is None:
-        return {"enabled": False, "reason": "start ctfmem-web with --agent-workspace to enable"}
+        return {
+            "enabled": False,
+            "reason": (
+                "run `ctfmem /agent init <path>` or start ctfmem-web with "
+                "--agent-workspace to enable"
+            ),
+        }
     return {
         "enabled": True,
         "authority": "delegates_to_ctfmem_agent_run",

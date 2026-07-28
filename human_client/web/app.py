@@ -151,7 +151,8 @@ def create_web_app(
             raise WebUiError(
                 403,
                 "agent_disabled",
-                "agent runs are off; start ctfmem-web with --agent-workspace to enable them",
+                "agent runs are off; run `ctfmem /agent init <path>` or start ctfmem-web "
+                "with --agent-workspace to enable them",
             )
         return agent
 

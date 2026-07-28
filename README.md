@@ -66,6 +66,29 @@ See [`docs/human-webui.md`](docs/human-webui.md), plus
 `web GUI` being on the non-goal list, and
 [`docs/adr/0002-web-agent-runs.md`](docs/adr/0002-web-agent-runs.md) for the agent decision.
 
+## Native shell integration
+
+CTF Memory never wraps your terminal or starts a replacement shell. It installs only
+session-local post-command hooks into the shell you already use. Start Memory Core, set the
+one-time local client defaults, then source the integration:
+
+```bash
+ctfmem config set --challenge web-01 --actor hacker
+eval "$(ctfmem shell-init --shell zsh)"
+```
+
+This keeps your native completion, plugins, history, keybindings, environment, and terminal
+window intact. Use slash-style native CLI commands such as `ctfmem /status`,
+`ctfmem /autonote on`, `ctfmem /diff on`, `ctfmem /note <text>`, and `ctfmem /memory`.
+Global settings may appear before or after the command: `ctfmem /memory --challenge web-01`.
+For the shortest one-off form, `ctfmem web-01/memory` means the same thing.
+Agent runs remain explicit through `ctfmem agent run` and `ctfmem agent stop`. Bash cannot
+safely interpret a bare `/status` as anything other than an absolute path without intercepting
+its input loop, so the `ctfmem /…` form is intentional. Autonote records suitable command
+metadata after a command finishes; it intentionally does not capture or persist terminal output.
+Diff is opt-in and prints a git-style ANSI summary directly on stdout. Preferences are stored in
+`.ctfmem/<challenge>/shell-session.json`; no terminal transcript is written.
+
 ## License
 
 This project is licensed under the Smoking Elephant Slop Public License,

@@ -133,57 +133,108 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 `ctfmem` 只連線到 Memory Core HTTP API。AIS3 key 只屬於 Memory Core server process，不應提供給 `ctfmem`。
 
+模型、endpoint、timeout、runs 和 templates 路徑可放進被 git 忽略的
+`.ctfmem/core-config.json`；第一次只需初始化一次。AIS3 API key 是唯一必須保留在
+server process environment 的設定。
+
 ### 5.1 Linux / zsh / bash
 
 ```bash
-set -a
-. ./.env.local
-set +a
+./scripts/memory-core-init.sh
 
-uv run python -m memory_core \
-  --runs ./runs \
-  --templates ./templates \
-  --host 127.0.0.1 \
-  --port 8000
+AIS3_API_KEY='...' uv run python -m memory_core --host 127.0.0.1 --port 8000
 ```
 
 ### 5.2 Windows PowerShell
 
-PowerShell 不會直接 source POSIX `.env`。可用下列方式載入簡單的 `KEY=value` 格式：
-
 ```powershell
-Get-Content .env.local | ForEach-Object {
-  if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
-    [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), "Process")
-  }
-}
+.\scripts\memory-core-init.ps1 -Model "ais3/nemotron-3-ultra-550b"
+# Make AIS3_API_KEY available only to this server process via your approved secret mechanism.
 
-uv run python -m memory_core `
-  --runs ./runs `
-  --templates ./templates `
-  --host 127.0.0.1 `
-  --port 8000
+uv run python -m memory_core --host 127.0.0.1 --port 8000
 ```
+
+Use your organisation's secret manager or set `AIS3_API_KEY` only for that process. The important
+boundary is that neither init script writes a key to disk.
 
 ## 6. Linux / Windows 基本使用
 
-另開一個 console 設定 Human CLI 連線資訊。
+## 原生終端 slash 操作面
+
+`ctfmem` 不會接管終端或啟動全螢幕 UI；slash 命令就是一般 CLI 子命令，因此 shell
+原有的 history、completion、plugin 與快捷鍵都照常運作。Web UI 的操作功能可用文字輸出
+完成，但不嘗試複製動畫或輪詢畫面。
+
+```bash
+ctfmem /challenge list
+ctfmem /challenge create web-01 --title 'Web 01' --template web
+ctfmem /challenge use web-01
+ctfmem /memory --facts --section recon
+ctfmem /note 'port 80 is open'
+ctfmem /capture -- curl -i http://target/
+ctfmem /command --command 'nmap -sV target' --exit-code 0 --stdout '...'
+ctfmem /edit add fact --text 'TLS is enabled' --reason 'confirmed with curl'
+ctfmem /template set web --reason 'service classification changed'
+ctfmem /guess --count 1 --seed 7
+ctfmem /try sqli --note 'parameter is escaped' --reason 'tested manually'
+ctfmem /ask 'Which ports are open?' --fact
+```
+
+`/edit`、`/try` 和 `/template set` 在省略 `--revision` 時會先讀取目前 revision；腳本仍可
+明確提供 `--revision`。revision conflict 絕不重試：`ctfmem` 會顯示目前白板並以 conflict
+exit code 結束，讓操作員自行檢閱。互動式 TTY 中缺少 challenge id、reason 或 agent prompt
+等單一值時會逐欄詢問；pipe stdin 不會詢問，而是回傳 usage error。多行 note 使用
+`/note --stdin`；`/command --stdin` 接收含 `command`、`exit_code`、`stdout`、`stderr` 的
+JSON 物件（也可用 `--stdin stdout` / `--stdin stderr` 輸入單一 stream）。
+
+## Agent workspace
+
+Agent work is enabled only after explicitly naming a directory. This avoids silently placing
+agent output beside Memory Core state or a challenge solution:
+
+```bash
+ctfmem /agent init ./agent-work
+ctfmem /agent run 'inspect the binary' --mode normal
+ctfmem /agent status
+ctfmem /agent stop
+```
+
+`/agent init` creates the directory, resolves and saves its absolute path in the non-secret
+project config. `ctfmem setup --agent-workspace PATH` and `ctfmem config set
+--agent-workspace PATH` write the same setting. The existing long-form `ctfmem agent run
+--workspace PATH ...` remains compatible.
+
+Human CLI 的日常設定不必再寫入 environment。第一次為一個專案設定即可；它只會寫入
+被 git 忽略的 `.ctfmem/client-config.json`，內容為 Core URL、challenge、actor、timeout。
+它**不會**保存 API key、模型或其他 AIS3 憑證。
 
 Linux / zsh / bash：
 
 ```bash
-export CTFMEM_API_URL=http://127.0.0.1:8000
-export CTFMEM_CHALLENGE=demo-web
-export CTFMEM_ACTOR=ctshen
+./scripts/ctfmem-init.sh
+# 非互動式（自動化）設定：
+ctfmem setup --no-input --api-url http://127.0.0.1:8000 --challenge demo-web --actor ctshen
 ```
 
 Windows PowerShell：
 
 ```powershell
-$env:CTFMEM_API_URL = "http://127.0.0.1:8000"
-$env:CTFMEM_CHALLENGE = "demo-web"
-$env:CTFMEM_ACTOR = "ctshen"
+.\scripts\ctfmem-init.ps1 -Challenge demo-web -Actor ctshen
+# 也可直接使用：ctfmem setup
 ```
+
+檢視目前設定：
+
+```bash
+ctfmem config show
+```
+
+命令列的 `--api-url`、`--challenge`、`--actor`、`--timeout` 永遠優先；其次才是
+專案 JSON 設定。`CTFMEM_*` environment variables 不再讀取。可用
+`--config path/to/config.json` 選用另一份非機密設定檔。
+
+AIS3 的 API key 必須仍由 Memory Core server process 的 environment 提供。模型、base URL、
+timeout 是 server-side 設定，絕不會傳給或寫入 human CLI。
 
 建立 challenge：
 
@@ -366,7 +417,7 @@ uv run ctfmem --json --challenge demo-web agent run \
   "查一下"
 ```
 
-## 8. 全域參數與環境變數
+## 8. 全域參數與設定來源
 
 全域參數：
 
@@ -380,19 +431,10 @@ uv run ctfmem --json --challenge demo-web agent run \
 --no-color
 ```
 
-環境變數：
-
-```bash
-CTFMEM_API_URL=http://127.0.0.1:8000
-CTFMEM_CHALLENGE=demo-web
-CTFMEM_ACTOR=ctshen
-CTFMEM_TIMEOUT=30
-```
-
 解析優先序：
 
 ```text
-CLI argument > environment variable > documented default / error
+CLI argument > .ctfmem/client-config.json > documented default / error
 ```
 
 沒有 challenge 的命令必須明確報錯，不可默默套用未知題目。

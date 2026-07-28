@@ -30,18 +30,26 @@ from .summarizer import FakeSummarizer, Summarizer
 
 
 def main(argv: list[str] | None = None) -> int:
-    settings = Settings.from_env()
     parser = argparse.ArgumentParser(prog="memory_core", description=__doc__)
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path(".ctfmem/core-config.json"),
+        help="non-secret service defaults file (default: .ctfmem/core-config.json)",
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--runs", type=Path, default=settings.runs_dir)
-    parser.add_argument("--templates", type=Path, default=settings.templates_dir)
+    parser.add_argument("--runs", type=Path)
+    parser.add_argument("--templates", type=Path)
     parser.add_argument(
         "--fake-summarizer",
         action="store_true",
         help="Use the deterministic offline Summarizer (mock server mode).",
     )
     args = parser.parse_args(argv)
+    settings = Settings.from_sources(args.config)
+    runs_dir = args.runs or settings.runs_dir
+    templates_dir = args.templates or settings.templates_dir
 
     summarizer: Summarizer
     if args.fake_summarizer:
@@ -61,14 +69,14 @@ def main(argv: list[str] | None = None) -> int:
             timeout=settings.ais3_timeout,
         )
 
-    args.runs.mkdir(parents=True, exist_ok=True)
+    runs_dir.mkdir(parents=True, exist_ok=True)
     service = MemoryService.build(
-        runs_dir=args.runs, templates_dir=args.templates, summarizer=summarizer
+        runs_dir=runs_dir, templates_dir=templates_dir, summarizer=summarizer
     )
     app = create_app(service)
 
     mode = "fake" if args.fake_summarizer else f"ais3:{settings.ais3_model}"
-    print(f"memory-core: runs={args.runs} templates={args.templates} summarizer={mode}")
+    print(f"memory-core: runs={runs_dir} templates={templates_dir} summarizer={mode}")
     uvicorn.run(app, host=args.host, port=args.port, workers=1, log_level="info")
     return 0
 

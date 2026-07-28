@@ -31,7 +31,7 @@ Then open `http://127.0.0.1:8787`. Installed as a package it is also `ctfmem-web
 | `--actor` | `CTFMEM_ACTOR`, else `$USER` | Attributed to every write. |
 | `--timeout` | `CTFMEM_TIMEOUT`, else `30` | Read timeout for the routes that only touch local persistence. |
 | `--core-timeout` | `330` | Read timeout for ingest, query, and creation with an initial input. |
-| `--agent-workspace` | unset | Directory an agent run works in. Setting it is what enables agent runs at all. |
+| `--agent-workspace` | saved workspace, else unset | Directory an agent run works in. This explicit flag overrides the workspace saved by `ctfmem /agent init <path>`. |
 | `--agent-runtime-dir` | `.ctfmem` | Where run status and stop files live. |
 | `--agent-max-turns` | `10` | Ceiling. The page may ask for fewer, never more. |
 | `--agent-max-cost-usd` | `5.0` | Ceiling, same rule. |
@@ -93,8 +93,9 @@ where it belongs, on the checklist, after you actually run something.
 
 **Ask** queries the current whiteboard.
 
-**Agent** starts `ctfmem agent run`. It appears only when `--agent-workspace` was given at
-launch; otherwise the routes answer 403 and the panel is not drawn.
+**Agent** starts `ctfmem agent run`. It appears only when an agent workspace was either saved
+with `ctfmem /agent init <path>` or passed as `--agent-workspace` at launch; otherwise the
+routes answer 403 and the panel is not drawn.
 
 ## The agent panel
 

@@ -1,14 +1,16 @@
-"""Environment-driven configuration.
+"""Memory Core configuration.
 
-Secrets live only in the environment; nothing here is ever written to the repository.
-See ``.env.example``.
+Non-secret service defaults may live in ``.ctfmem/core-config.json``. Secrets stay only
+in the environment and are never read from a configuration file. See ``.env.example``.
 """
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 DEFAULT_AIS3_BASE_URL = "https://llm-api.zoolab.org/v1"
 DEFAULT_AIS3_MODEL = "ais3/nemotron-3-ultra-550b"
@@ -25,6 +27,7 @@ DEFAULT_AIS3_TIMEOUT = 300.0
 #: Connect separately and much tighter — an unreachable host should fail in seconds, not
 #: sit in the read budget.
 CONNECT_TIMEOUT = 10.0
+DEFAULT_CONFIG_PATH = Path(".ctfmem/core-config.json")
 
 
 @dataclass(frozen=True)
@@ -38,24 +41,49 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> Settings:
+        return cls.from_sources()
+
+    @classmethod
+    def from_sources(cls, config_path: Path = DEFAULT_CONFIG_PATH) -> Settings:
+        """Load public defaults from a local configuration file.
+
+        ``AIS3_API_KEY`` is intentionally not a configuration-file field. It is always
+        process-local environment state so a checked-in or copied project config cannot leak it.
+        """
+
+        saved = _load_config(config_path)
         return cls(
-            runs_dir=Path(os.environ.get("MEMORY_CORE_RUNS_DIR", "./runs")),
-            templates_dir=Path(os.environ.get("MEMORY_CORE_TEMPLATES_DIR", "./templates")),
-            ais3_base_url=os.environ.get("AIS3_BASE_URL", DEFAULT_AIS3_BASE_URL),
+            runs_dir=Path(
+                _string_setting(saved, "runs_dir") or "./runs"
+            ),
+            templates_dir=Path(
+                _string_setting(saved, "templates_dir") or "./templates"
+            ),
+            ais3_base_url=(
+                _string_setting(saved, "ais3_base_url") or DEFAULT_AIS3_BASE_URL
+            ),
             ais3_api_key=os.environ.get("AIS3_API_KEY") or None,
-            ais3_model=os.environ.get("AIS3_SUMMARIZER_MODEL", DEFAULT_AIS3_MODEL),
-            ais3_timeout=_float_env("AIS3_TIMEOUT", DEFAULT_AIS3_TIMEOUT),
+            ais3_model=_string_setting(saved, "ais3_model") or DEFAULT_AIS3_MODEL,
+            ais3_timeout=_positive_float(saved.get("ais3_timeout")) or DEFAULT_AIS3_TIMEOUT,
         )
 
 
-def _float_env(name: str, default: float) -> float:
-    """Read a numeric setting, falling back rather than crashing on a typo at boot."""
-
-    raw = os.environ.get(name)
-    if not raw:
-        return default
+def _load_config(path: Path) -> dict[str, Any]:
     try:
-        value = float(raw)
-    except ValueError:
-        return default
-    return value if value > 0 else default
+        raw: Any = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _string_setting(settings: dict[str, Any], name: str) -> str | None:
+    value = settings.get(name)
+    return value if isinstance(value, str) and value else None
+
+
+def _positive_float(value: object) -> float | None:
+    try:
+        number = float(str(value))
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
