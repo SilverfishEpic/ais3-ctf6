@@ -148,6 +148,14 @@ def build_parser() -> argparse.ArgumentParser:
     note.add_argument("--stdin", action="store_true")
     note.set_defaults(handler=cmd_note)
 
+    add = sub.add_parser("add", help="interactively add a Fact or Assumption")
+    add.add_argument("layer", choices=("fact", "assumption"), nargs="?")
+    add.add_argument("--text")
+    add.add_argument("--section")
+    add.add_argument("--reason")
+    add.add_argument("--revision", type=int)
+    add.set_defaults(handler=cmd_add)
+
     config = sub.add_parser("config", help="manage local, non-secret CLI defaults")
     config_sub = config.add_subparsers(dest="config_command", required=True)
     config_show = config_sub.add_parser("show")
@@ -427,9 +435,35 @@ def cmd_note(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreC
     elif args.text:
         content = args.text
     else:
-        raise ValueError("note text is required")
+        content = _required_slash_value(None, "observation")
     payload = client.ingest_note(challenge, content.strip(), actor=config.actor)
     return _emit(payload, config, renderer=render_diff)
+
+
+def cmd_add(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient) -> int:
+    """CLI equivalent of the Web UI Override form, with prompts for terminal users."""
+
+    args.layer = _required_slash_value(args.layer, "layer (fact or assumption)")
+    if args.layer not in {"fact", "assumption"}:
+        raise ValueError("layer must be fact or assumption")
+    args.text = _required_slash_value(args.text, "text")
+    challenge = require_challenge(config)
+    board = client.read_memory(challenge)
+    sections = board.get(args.layer, {})
+    if not isinstance(sections, dict):
+        raise ValueError("Memory Core returned an invalid section layout")
+    if args.section is None:
+        choices = ", ".join(str(key) for key in sections) or "general"
+        args.section = _required_slash_value(None, f"section ({choices})")
+    if args.section not in sections:
+        raise ValueError(f"section {args.section!r} is not valid for {args.layer}")
+    args.reason = _required_slash_value(args.reason, "reason")
+    if args.revision is None:
+        revision = board.get("revision")
+        if not isinstance(revision, int):
+            raise ValueError("Memory Core returned a whiteboard without an integer revision")
+        args.revision = revision
+    return cmd_mutate_add(args, config, client)
 
 
 def cmd_slash_note(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient) -> int:
@@ -558,6 +592,8 @@ def cmd_capture(args: argparse.Namespace, config: ClientConfig, client: MemoryCo
             exit_code=result.exit_code,
             stdout=result.stdout,
             stderr=result.stderr,
+            stdout_base64=result.stdout_base64,
+            stderr_base64=result.stderr_base64,
         ),
         actor=config.actor,
     )

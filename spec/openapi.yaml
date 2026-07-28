@@ -733,6 +733,16 @@ components:
           type: string
           title: Stderr
           default: ''
+        stdout_base64:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stdout Base64
+        stderr_base64:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stderr Base64
       additionalProperties: false
       type: object
       required:
