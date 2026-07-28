@@ -102,7 +102,7 @@ Reasons:
 - it avoids adding Codex SDK dependencies before the event and session semantics are
   proven.
 
-The MVP support level is:
+The initial MVP support level was:
 
 - `mode=normal`;
 - `session=new`;
@@ -111,10 +111,13 @@ The MVP support level is:
 - conservative `tool_result.outcome` mapping;
 - interruption handling that still ingests completed partial events.
 
-The MVP does not claim parity for:
+The implemented CLI bridge now also supports `session=same` by resuming the exact Codex
+thread id reported by the first turn. This brings Codex loop/session behavior in line with
+the Agent Bridge session model while keeping provider event normalization outside Memory
+Core.
 
-- `session=same`;
-- YOLO continuation through Codex resume;
+The implementation still does not claim parity for:
+
 - Codex MCP memory tools;
 - Claude-equivalent pre-tool command allowlist enforcement.
 
@@ -249,7 +252,7 @@ Exit criteria:
 
 - prove Codex resume or Codex SDK same-session behavior;
 - implement `continue_run()`;
-- enable YOLO only after cancellation and partial-event ingestion are verified.
+- enable YOLO after cancellation and partial-event ingestion are verified.
 
 Exit criteria:
 

@@ -57,7 +57,7 @@ def test_agent_run_fake_agent_ingests_agent_run_log(
     assert envelope["input"]["type"] == "run_log"
 
 
-def test_agent_run_rejects_unknown_provider(
+def test_agent_run_codex_requires_no_memory_skill_by_default(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -77,7 +77,7 @@ def test_agent_run_rejects_unknown_provider(
     captured = capsys.readouterr()
 
     assert code != OK
-    assert "Codex MVP currently supports only --session new" in captured.err
+    assert "Codex MVP does not yet support" in captured.err
 
 
 def test_agent_run_codex_requires_no_memory_skill(

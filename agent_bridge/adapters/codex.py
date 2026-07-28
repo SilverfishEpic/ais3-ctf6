@@ -1,8 +1,11 @@
 """Codex CLI adapter.
 
-MVP support is intentionally narrow: one non-interactive ``codex exec --json`` turn per
-adapter call.  Same-session continuation, Codex MCP memory tools, and Codex-specific tool
-policy parity are follow-up work tracked in ADR 0003.
+Codex is driven through the documented non-interactive CLI JSONL surface.  ``session=new``
+starts a fresh ``codex exec`` for every turn.  ``session=same`` starts a persistent Codex
+thread on the first turn and resumes that exact thread id on later turns.
+
+Codex MCP memory tools and Codex-specific tool policy parity are follow-up work tracked in
+ADR 0003.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ import json
 import os
 import shutil
 from pathlib import Path
+from typing import Literal
 
 from agent_bridge.envelope import build_envelope
 from agent_bridge.errors import BridgeError
@@ -24,8 +28,6 @@ BOARD_SEPARATOR = "\n\n---\n\n"
 class CodexAdapter:
     """``AgentAdapter`` implementation backed by ``codex exec --json``."""
 
-    session_kind = "new"
-
     def __init__(
         self,
         *,
@@ -33,22 +35,26 @@ class CodexAdapter:
         executable: str | None = None,
         model: str | None = None,
         sandbox: str = "read-only",
-        ephemeral: bool = True,
+        session_kind: Literal["same", "new"] = "new",
+        ephemeral: bool | None = None,
     ) -> None:
         self.workspace = Path(workspace)
         self.executable = executable or os.environ.get("CTFMEM_CODEX_BIN") or "codex"
         self.model = model
         self.sandbox = sandbox
-        self.ephemeral = ephemeral
+        self.session_kind = session_kind
+        # A same-session run must persist Codex's thread so later turns can resume it.
+        self.ephemeral = session_kind == "new" if ephemeral is None else ephemeral
         self._turn = 0
         self._process: asyncio.subprocess.Process | None = None
         self._cancel_requested = False
+        self._session_id: str | None = None
 
     async def start(self, prompt: str, *, board: str | None = None) -> RunResult:
-        return await self._run(prompt, board)
+        return await self._run(prompt, board, first=True)
 
     async def continue_run(self, prompt: str, *, board: str | None = None) -> RunResult:
-        return await self._run(prompt, board)
+        return await self._run(prompt, board, first=False)
 
     async def cancel(self) -> None:
         self._cancel_requested = True
@@ -64,10 +70,10 @@ class CodexAdapter:
                 self._process.kill()
                 await self._process.wait()
 
-    async def _run(self, prompt: str, board: str | None) -> RunResult:
+    async def _run(self, prompt: str, board: str | None, *, first: bool) -> RunResult:
         self._turn += 1
         full_prompt = f"{board}{BOARD_SEPARATOR}{prompt}" if board else prompt
-        argv = self._argv(full_prompt)
+        argv = self._argv(full_prompt, resume=not first and self.session_kind == "same")
 
         rows: list[dict[str, object]] = []
         stderr = ""
@@ -114,16 +120,30 @@ class CodexAdapter:
             raise BridgeError(f"codex exec failed: {detail[:800]}")
 
         run = normalize_codex(rows)
+        session_id = run.run_meta.get("session_id")
+        if isinstance(session_id, str):
+            self._session_id = session_id
+        if self.session_kind == "same" and self._session_id is None:
+            raise BridgeError("codex exec did not report a thread_id; cannot continue same session")
         envelope = build_envelope(
             run,
             provider="openai-codex",
             model=self.model,
             run_id=f"codex-turn-{self._turn}",
-            session_id=run.run_meta.get("session_id"),
+            session_id=self._session_id,
         )
         return RunResult(envelope=envelope, run=run)
 
-    def _argv(self, prompt: str) -> list[str]:
+    def _argv(self, prompt: str, *, resume: bool = False) -> list[str]:
+        if resume:
+            if self._session_id is None:
+                raise BridgeError("cannot resume Codex before a thread_id is known")
+            argv = [self.executable, "exec", "resume", "--json"]
+            if self.model:
+                argv += ["--model", self.model]
+            argv += [self._session_id, prompt]
+            return argv
+
         argv = [
             self.executable,
             "exec",

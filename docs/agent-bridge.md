@@ -44,7 +44,7 @@ CLI shape:
 
 ```bash
 ctfmem agent run --provider claude "..."
-ctfmem agent run --provider codex --session new --no-memory-skill "..."
+ctfmem agent run --provider codex --session same --no-memory-skill "..."
 ctfmem agent run --provider fake --fake-agent multi_tool "..."
 ```
 
@@ -55,7 +55,10 @@ before ingest; Memory Core only receives the shared `IngestEnvelope` shape.
 Codex MVP constraints:
 
 - it uses `codex exec --json`;
-- it supports only `--session new`;
+- it supports `--session same` by resuming the exact Codex thread id reported by the first
+  turn;
+- it supports `--session new` by starting a fresh ephemeral Codex exec per turn;
+- it can run YOLO through the existing `AgentLoop`;
 - it requires `--no-memory-skill`;
 - it maps unverifiable provider output to `outcome=unknown`;
 - live Codex execution is opt-in by operator action and is not part of the default test

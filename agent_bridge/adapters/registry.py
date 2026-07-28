@@ -51,8 +51,6 @@ def build_agent_adapter(
         raise ValueError("--fake-agent can only be used with --provider fake")
 
     if provider == "codex":
-        if session != "new":
-            raise ValueError("Codex MVP currently supports only --session new")
         if policy.skill_enabled and not no_memory_skill:
             raise ValueError(
                 "Codex MVP does not yet support the read-only memory MCP skill; "
@@ -61,6 +59,7 @@ def build_agent_adapter(
         return CodexAdapter(
             workspace=workspace,
             model=model,
+            session_kind=session,  # type: ignore[arg-type]
         )
 
     mcp_servers: dict[str, Any] = {}
