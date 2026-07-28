@@ -173,6 +173,7 @@ ctfmem /memory --facts --section recon
 ctfmem /note 'port 80 is open'
 cap curl -i http://target/
 ctfmem /command --command 'nmap -sV target' --exit-code 0 --stdout '...'
+ctfmem /add fact --text 'TLS is enabled' --section recon --reason 'confirmed with curl' --tag tls
 ctfmem /edit add fact --text 'TLS is enabled' --reason 'confirmed with curl'
 ctfmem /template set web --reason 'service classification changed'
 ctfmem /guess --count 1 --seed 7
@@ -182,7 +183,10 @@ ctfmem /ask 'Which ports are open?' --fact
 
 After `eval "$(ctfmem shell-init --shell zsh)"`, `cap` is a short explicit wrapper for
 `ctfmem capture --`. It captures only that command's stdout/stderr and exit code; it does not
-observe unrelated commands or proxy interactive terminal input.
+observe unrelated commands or proxy interactive terminal input. It is for external programs
+such as `curl`, `nmap`, and `checksec`: shell builtins (`cd`, `export`, aliases) cannot change
+the parent shell through `cap`. Do not use it for prompt-driven programs such as `gdb` or
+`sqlmap`; their later terminal input is deliberately not recorded.
 
 `/edit`、`/try` 和 `/template set` 在省略 `--revision` 時會先讀取目前 revision；腳本仍可
 明確提供 `--revision`。revision conflict 絕不重試：`ctfmem` 會顯示目前白板並以 conflict
@@ -503,9 +507,38 @@ ctfmem --challenge demo-web capture -- nmap -sC -sV target
 - child stdout 即時 tee 到目前 stdout。
 - child stderr 即時 tee 到目前 stderr。
 - 程序結束後只送出一個完整 `command_result` ingest。
+- `stdout`/`stderr` 是可顯示的 UTF-8 replacement preview；`stdout_base64`/`stderr_base64`
+  同時保存原始 bytes，因此非 UTF-8 輸出不會令 capture 中斷或遺失。
 - 不使用 `shell=True` / `os.system()`。
 - 非零 child exit code 不代表 ingest 失敗；JSON output 需保留 `child_exit_code` 與 ingest result。
 - `--json` 模式為維持 stdout 單一合法 JSON document，child stdout/stderr 會 tee 到 stderr。
+- 只適用於會自行結束的命令；不攔截或記錄 child 的後續互動 stdin。
+
+每次 ingest 前，capture 都會先在 `.ctfmem/pending-captures.json` 寫入完整結果。若 Core
+連線或回應失敗，結果會保留並印出 pending ID；它**不會**自動重送，因為斷線時客戶端無法
+確定伺服器是否已收到原請求。操作員可先查看再明確重送：
+
+```bash
+ctfmem capture-pending list
+ctfmem capture-pending retry PENDING_ID
+```
+
+retry 成功才會移除本機項目；若原請求其實已送達，重送可能建立另一筆 journal record，因此
+應先依 ID 與 Core 白板／journal 狀態判斷。
+
+### `add`
+
+`ctfmem add` 與 `/add` 是 Web UI「新增 Fact／Assumption」表單的終端入口。可直接帶齊
+欄位，也可在 TTY 中逐欄選擇 layer、section、text、reason；section 會以編號與名稱列出。
+
+```bash
+ctfmem --challenge demo-web /add fact --text 'port 443 is open' \
+  --section recon --reason 'nmap result I-0003' --evidence I-0003 --tag network
+```
+
+`--evidence` 和 `--tag` 都可重複指定。`/edit add`、`mutate add` 與 `replace` 同樣支援
+這兩個欄位；replace 可用 `--clear-evidence` 或 `--clear-tags` 明確清空其中一項，讓腳本和
+Web UI 使用相同的 mutation 資料。
 
 ### `show`
 

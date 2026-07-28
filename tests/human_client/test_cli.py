@@ -123,6 +123,70 @@ def test_capture_ingests_one_command_result(
     assert payload["ingest"]["source_id"].startswith("I-")
 
 
+def test_add_keeps_web_form_evidence_and_tags(
+    patched_client: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(["challenge", "create", "demo-web", "--title", "Demo Web"]) == OK
+    capsys.readouterr()
+
+    assert (
+        cli.main(
+            [
+                "--challenge",
+                "demo-web",
+                "/add",
+                "fact",
+                "--text",
+                "port 443 is open",
+                "--section",
+                "target",
+                "--reason",
+                "manual verification",
+                "--evidence",
+                "I-0001",
+                "--tag",
+                "network",
+                "--tag",
+                "tls",
+            ]
+        )
+        == OK
+    )
+    capsys.readouterr()
+
+    assert cli.main(["--json", "--challenge", "demo-web", "show", "--facts"]) == OK
+    board = json.loads(capsys.readouterr().out)
+    item = next(item for item in board["fact"]["target"] if item["text"] == "port 443 is open")
+    assert item["tags"] == ["network", "tls"]
+    assert "I-0001" in item["evidence"]
+
+    assert (
+        cli.main(
+            [
+                "--challenge",
+                "demo-web",
+                "/edit",
+                "replace",
+                item["id"],
+                "--text",
+                "port 443 is open",
+                "--reason",
+                "remove mistaken annotations",
+                "--clear-evidence",
+                "--clear-tags",
+            ]
+        )
+        == OK
+    )
+    capsys.readouterr()
+    assert cli.main(["--json", "--challenge", "demo-web", "show", "--facts"]) == OK
+    board = json.loads(capsys.readouterr().out)
+    item = next(item for item in board["fact"]["target"] if item["text"] == "port 443 is open")
+    assert item["evidence"] == []
+    assert item["tags"] == []
+
+
 def test_slash_commands_reuse_the_long_form_handlers(
     patched_client: None,
     capsys: pytest.CaptureFixture[str],

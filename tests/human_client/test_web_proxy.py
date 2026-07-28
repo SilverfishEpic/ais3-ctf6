@@ -284,6 +284,8 @@ def test_a_command_result_keeps_its_exit_code(app: FastAPI, core: RecordingClien
             "command": ["grep", "needle", "missing"],
             "exit_code": 2,
             "stderr": "no such file",
+            "stdout_base64": "",
+            "stderr_base64": "bm8gc3VjaCBmaWxl",
         },
     )
 
@@ -291,6 +293,8 @@ def test_a_command_result_keeps_its_exit_code(app: FastAPI, core: RecordingClien
     assert name == "ingest_command_result"
     assert kwargs["result"]["exit_code"] == 2
     assert kwargs["result"]["stdout"] == ""
+    assert kwargs["result"]["stdout_base64"] == ""
+    assert kwargs["result"]["stderr_base64"] == "bm8gc3VjaCBmaWxl"
     assert kwargs["actor"] == "operator"
 
 

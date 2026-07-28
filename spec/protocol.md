@@ -100,7 +100,7 @@ One vendor-neutral contract for humans and agents alike.
 ```
 
 * **note** — `{"type": "note", "content": "..."}`
-* **command_result** — `{"type": "command_result", "command": ["nmap","-sV","target"], "exit_code": 0, "stdout": "...", "stderr": ""}`
+* **command_result** — `{"type": "command_result", "command": ["nmap","-sV","target"], "exit_code": 0, "stdout": "...", "stderr": "", "stdout_base64": "...", "stderr_base64": ""}`. `stdout` and `stderr` are readable previews; when the producer has raw process bytes it must also send the optional base64 fields so binary or non-UTF-8 output remains recoverable.
 * **run_log** — `{"type": "run_log", "events": [{"seq": 1, "role": "assistant", "kind": "message|tool_call|tool_result", "name": "Bash", "content": "...", "outcome": "succeeded|failed|denied|interrupted|unknown"}]}`
 
 `outcome` is meaningful for `tool_result`. It is optional for backward wire

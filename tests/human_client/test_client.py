@@ -42,6 +42,30 @@ def test_client_submits_command_result_and_preserves_exit_code(
     assert ingest["revision_after"] >= ingest["revision_before"]
 
 
+def test_client_preserves_raw_command_output_in_the_journal(
+    client: MemoryCoreClient, service: MemoryService
+) -> None:
+    client.create_challenge("demo-web", title="Demo Web")
+
+    ingest = client.ingest_command_result(
+        "demo-web",
+        CommandResult(
+            command=["probe"],
+            exit_code=0,
+            stdout="bad byte: �",
+            stderr="",
+            stdout_base64="YmFkIGJ5dGU6IP8=",
+            stderr_base64="",
+        ),
+        actor="ctshen",
+    )
+
+    record = service.journal.get("demo-web", ingest["source_id"])
+    assert record is not None
+    assert record.content is not None
+    assert record.content["stdout_base64"] == "YmFkIGJ5dGU6IP8="
+
+
 def test_client_surfaces_revision_conflict_without_retry(client: MemoryCoreClient) -> None:
     client.create_challenge("demo-web", title="Demo Web")
     client.ingest_note("demo-web", "port 80 is open", actor="ctshen")

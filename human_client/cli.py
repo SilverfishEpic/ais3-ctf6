@@ -34,6 +34,7 @@ from .errors import (
     exit_code_for_error,
 )
 from .models import CommandResult
+from .pending_capture import PendingCapture, PendingCaptureStore
 from .render import emit_json, render_diff, render_error, render_guess, render_memory, render_query
 from .shell import add_shell_parsers
 
@@ -154,6 +155,8 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--section")
     add.add_argument("--reason")
     add.add_argument("--revision", type=int)
+    add.add_argument("--evidence", action="append", default=[])
+    add.add_argument("--tag", dest="tags", action="append", default=[])
     add.set_defaults(handler=cmd_add)
 
     config = sub.add_parser("config", help="manage local, non-secret CLI defaults")
@@ -178,6 +181,17 @@ def build_parser() -> argparse.ArgumentParser:
     capture = sub.add_parser("capture")
     capture.add_argument("command_argv", nargs=argparse.REMAINDER)
     capture.set_defaults(handler=cmd_capture)
+
+    pending_capture = sub.add_parser(
+        "capture-pending", help="inspect or explicitly retry capture results awaiting ingest"
+    )
+    pending_capture_sub = pending_capture.add_subparsers(
+        dest="pending_capture_command", required=True
+    )
+    pending_capture_sub.add_parser("list").set_defaults(handler=cmd_pending_capture_list)
+    retry_capture = pending_capture_sub.add_parser("retry")
+    retry_capture.add_argument("id")
+    retry_capture.set_defaults(handler=cmd_pending_capture_retry)
 
     show = sub.add_parser("show")
     show.add_argument("--facts", action="store_true")
@@ -233,6 +247,10 @@ def _mutation_common(parser: argparse.ArgumentParser, handler: object) -> argpar
     parser.add_argument("--reason", required=True)
     parser.add_argument("--section")
     parser.add_argument("--text")
+    parser.add_argument("--evidence", action="append", default=[])
+    parser.add_argument("--tag", dest="tags", action="append", default=[])
+    parser.add_argument("--clear-evidence", action="store_true")
+    parser.add_argument("--clear-tags", action="store_true")
     parser.set_defaults(handler=handler)
     return parser
 
@@ -274,6 +292,27 @@ def _add_slash_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     capture = subparsers.add_parser("/capture", help="run a command and record its result")
     capture.add_argument("command_argv", nargs=argparse.REMAINDER)
     capture.set_defaults(handler=cmd_slash_capture)
+
+    pending_capture = subparsers.add_parser(
+        "/capture-pending", help="inspect or explicitly retry capture results awaiting ingest"
+    )
+    pending_capture_sub = pending_capture.add_subparsers(
+        dest="slash_pending_capture_command", required=True
+    )
+    pending_capture_sub.add_parser("list").set_defaults(handler=cmd_pending_capture_list)
+    retry_capture = pending_capture_sub.add_parser("retry")
+    retry_capture.add_argument("id")
+    retry_capture.set_defaults(handler=cmd_slash_pending_capture_retry)
+
+    add_direct = subparsers.add_parser("/add", help="interactively add a Fact or Assumption")
+    add_direct.add_argument("layer", choices=("fact", "assumption"), nargs="?")
+    add_direct.add_argument("--text")
+    add_direct.add_argument("--section")
+    add_direct.add_argument("--reason")
+    add_direct.add_argument("--revision", type=int)
+    add_direct.add_argument("--evidence", action="append", default=[])
+    add_direct.add_argument("--tag", dest="tags", action="append", default=[])
+    add_direct.set_defaults(handler=cmd_slash_add)
 
     command = subparsers.add_parser("/command", help="record an already-run command result")
     command.add_argument("--command")
@@ -359,6 +398,10 @@ def _slash_mutation_parser(
     parser.add_argument("--reason")
     parser.add_argument("--section")
     parser.add_argument("--text")
+    parser.add_argument("--evidence", action="append", default=[])
+    parser.add_argument("--tag", dest="tags", action="append", default=[])
+    parser.add_argument("--clear-evidence", action="store_true")
+    parser.add_argument("--clear-tags", action="store_true")
     parser.set_defaults(handler=handler)
     return parser
 
@@ -453,8 +496,7 @@ def cmd_add(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreCl
     if not isinstance(sections, dict):
         raise ValueError("Memory Core returned an invalid section layout")
     if args.section is None:
-        choices = ", ".join(str(key) for key in sections) or "general"
-        args.section = _required_slash_value(None, f"section ({choices})")
+        args.section = _choose_section(sections)
     if args.section not in sections:
         raise ValueError(f"section {args.section!r} is not valid for {args.layer}")
     args.reason = _required_slash_value(args.reason, "reason")
@@ -464,6 +506,10 @@ def cmd_add(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreCl
             raise ValueError("Memory Core returned a whiteboard without an integer revision")
         args.revision = revision
     return cmd_mutate_add(args, config, client)
+
+
+def cmd_slash_add(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient) -> int:
+    return cmd_add(args, _slash_config_with_challenge(config), client)
 
 
 def cmd_slash_note(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient) -> int:
@@ -585,18 +631,22 @@ def cmd_capture(args: argparse.Namespace, config: ClientConfig, client: MemoryCo
     except OSError as exc:
         render_error(exc)
         return CAPTURE_START_ERROR
-    payload = client.ingest_command_result(
-        challenge,
-        CommandResult(
-            command=result.command,
-            exit_code=result.exit_code,
-            stdout=result.stdout,
-            stderr=result.stderr,
-            stdout_base64=result.stdout_base64,
-            stderr_base64=result.stderr_base64,
-        ),
-        actor=config.actor,
+    command_result = CommandResult(
+        command=result.command,
+        exit_code=result.exit_code,
+        stdout=result.stdout,
+        stderr=result.stderr,
+        stdout_base64=result.stdout_base64,
+        stderr_base64=result.stderr_base64,
     )
+    pending = _pending_capture_store(args).enqueue(
+        challenge=challenge, actor=config.actor, result=command_result
+    )
+    try:
+        payload = client.ingest_command_result(challenge, command_result, actor=config.actor)
+    except (CoreError, CoreConnectionError) as exc:
+        return _capture_ingest_failed(exc, config, pending)
+    _pending_capture_store(args).remove(pending.id)
     if config.json_output:
         emit_json({"ok": True, "child_exit_code": result.exit_code, "ingest": payload})
     else:
@@ -608,6 +658,75 @@ def cmd_slash_capture(
     args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient
 ) -> int:
     return cmd_capture(args, _slash_config_with_challenge(config), client)
+
+
+def cmd_pending_capture_list(
+    args: argparse.Namespace, config: ClientConfig, _client: MemoryCoreClient
+) -> int:
+    pending = [entry.summary() for entry in _pending_capture_store(args).load()]
+    text = "\n".join(_format_pending_capture(entry) for entry in pending)
+    return _emit(pending, config, text=text)
+
+
+def cmd_pending_capture_retry(
+    args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient
+) -> int:
+    store = _pending_capture_store(args)
+    pending = store.get(args.id)
+    try:
+        payload = client.ingest_command_result(
+            pending.challenge, pending.result, actor=pending.actor
+        )
+    except (CoreError, CoreConnectionError) as exc:
+        return _capture_ingest_failed(exc, config, pending)
+    store.remove(pending.id)
+    return _emit(
+        {"ok": True, "pending_capture_id": pending.id, "ingest": payload},
+        config,
+        renderer=render_diff,
+    )
+
+
+def cmd_slash_pending_capture_retry(
+    args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient
+) -> int:
+    return cmd_pending_capture_retry(args, _slash_config_with_challenge(config), client)
+
+
+def _pending_capture_store(args: argparse.Namespace) -> PendingCaptureStore:
+    return PendingCaptureStore(config_path_from_args(args).parent / "pending-captures.json")
+
+
+def _format_pending_capture(entry: dict[str, object]) -> str:
+    command = entry["command"]
+    display = " ".join(str(part) for part in command) if isinstance(command, list) else str(command)
+    return f"{entry['id']}  exit {entry['exit_code']}  {display}"
+
+
+def _capture_ingest_failed(
+    error: CoreError | CoreConnectionError, config: ClientConfig, pending: PendingCapture
+) -> int:
+    """Keep a failed capture locally; retry must remain an explicit operator decision."""
+
+    code = exit_code_for_error(error)
+    if config.json_output:
+        payload: dict[str, Any] = {
+            "ok": False,
+            "pending_capture_id": pending.id,
+        }
+        if isinstance(error, CoreError):
+            payload["error"] = {"type": error.code or "core_error", "message": error.message}
+        else:
+            payload["error"] = {"type": "connection", "message": str(error)}
+        emit_json(payload)
+    else:
+        render_error(error)
+        print(
+            f"Capture output retained as {pending.id}. Retry explicitly with "
+            f"`ctfmem capture-pending retry {pending.id}`.",
+            file=sys.stderr,
+        )
+    return code
 
 
 def cmd_slash_command(
@@ -725,6 +844,10 @@ def cmd_mutate_add(args: argparse.Namespace, config: ClientConfig, client: Memor
     operation = {"op": "add", "layer": args.layer, "text": args.text}
     if args.section:
         operation["section"] = args.section
+    if args.evidence:
+        operation["evidence"] = args.evidence
+    if args.tags:
+        operation["tags"] = args.tags
     return _mutate(args, config, client, [operation])
 
 
@@ -744,6 +867,10 @@ def cmd_mutate_replace(
     operation: dict[str, Any] = {"op": "replace", "id": args.id, "text": args.text}
     if args.section:
         operation["section"] = args.section
+    if args.clear_evidence or args.evidence:
+        operation["evidence"] = args.evidence
+    if args.clear_tags or args.tags:
+        operation["tags"] = args.tags
     return _mutate(args, config, client, [operation])
 
 
@@ -939,6 +1066,27 @@ def _required_slash_value(value: str | None, label: str) -> str:
     if not entered:
         raise ValueError(f"{label} is required")
     return entered
+
+
+def _choose_section(sections: dict[str, Any]) -> str:
+    """Choose a valid section, accepting either its number or its name on a TTY."""
+
+    names = [str(name) for name in sections]
+    if not names:
+        raise ValueError("the selected layer has no sections")
+    if not sys.stdin.isatty():
+        raise ValueError(f"section is required; choose one of: {', '.join(names)}")
+    print("Available sections:", file=sys.stderr)
+    for index, name in enumerate(names, start=1):
+        print(f"  {index}. {name}", file=sys.stderr)
+    selected = _required_slash_value(None, "section number or name")
+    if selected.isdigit():
+        index = int(selected)
+        if 1 <= index <= len(names):
+            return names[index - 1]
+    if selected in names:
+        return selected
+    raise ValueError(f"section {selected!r} is not valid; choose a listed section")
 
 
 def _show_layer(args: argparse.Namespace) -> str | None:

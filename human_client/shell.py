@@ -1,9 +1,8 @@
 """Native shell integration for CTF Memory.
 
 This module deliberately does not allocate a PTY or proxy terminal input/output.  Operators
-source a small, session-only snippet into their existing shell, which adds slash aliases and
-post-command hooks while leaving the shell process in control of completion, plugins, and
-history.
+source a small, session-only snippet into their existing shell, which adds `cap` while leaving
+the shell process in control of completion, plugins, and history.
 """
 
 from __future__ import annotations

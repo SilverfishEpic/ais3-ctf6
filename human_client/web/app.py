@@ -236,6 +236,8 @@ def create_web_app(
                 exit_code=_field(body,"exit_code"),
                 stdout=_field(body,"stdout", ""),
                 stderr=_field(body,"stderr", ""),
+                stdout_base64=_field(body, "stdout_base64", None),
+                stderr_base64=_field(body, "stderr_base64", None),
             )
             return summarizing_client.ingest_command_result(
                 challenge_id, result, actor=config.actor
