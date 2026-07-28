@@ -186,16 +186,24 @@ def render_shell_init(shell: str) -> str:
 def _bash_init() -> str:
     return '''# ctfmem native Bash integration; source in the current shell only.
 # Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
+# `cap CMD ...` is explicit, byte-safe command-result capture. It never observes other commands.
+cap() { command ctfmem capture -- "$@"; }
 '''
 
 
 def _zsh_init() -> str:
     return '''# ctfmem native Zsh integration; source in the current shell only.
 # Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
+# `cap CMD ...` is explicit, byte-safe command-result capture. It never observes other commands.
+cap() { command ctfmem capture -- "$@"; }
 '''
 
 
 def _fish_init() -> str:
     return '''# ctfmem native Fish integration; source in the current shell only.
 # Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
+# `cap CMD ...` is explicit, byte-safe command-result capture. It never observes other commands.
+function cap
+    command ctfmem capture -- $argv
+end
 '''

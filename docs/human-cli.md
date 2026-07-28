@@ -171,7 +171,7 @@ ctfmem /challenge create web-01 --title 'Web 01' --template web
 ctfmem /challenge use web-01
 ctfmem /memory --facts --section recon
 ctfmem /note 'port 80 is open'
-ctfmem /capture -- curl -i http://target/
+cap curl -i http://target/
 ctfmem /command --command 'nmap -sV target' --exit-code 0 --stdout '...'
 ctfmem /edit add fact --text 'TLS is enabled' --reason 'confirmed with curl'
 ctfmem /template set web --reason 'service classification changed'
@@ -179,6 +179,10 @@ ctfmem /guess --count 1 --seed 7
 ctfmem /try sqli --note 'parameter is escaped' --reason 'tested manually'
 ctfmem /ask 'Which ports are open?' --fact
 ```
+
+After `eval "$(ctfmem shell-init --shell zsh)"`, `cap` is a short explicit wrapper for
+`ctfmem capture --`. It captures only that command's stdout/stderr and exit code; it does not
+observe unrelated commands or proxy interactive terminal input.
 
 `/edit`、`/try` 和 `/template set` 在省略 `--revision` 時會先讀取目前 revision；腳本仍可
 明確提供 `--revision`。revision conflict 絕不重試：`ctfmem` 會顯示目前白板並以 conflict

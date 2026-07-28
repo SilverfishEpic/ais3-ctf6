@@ -70,6 +70,7 @@ def test_bash_init_uses_aliases_and_is_valid_shell_syntax(tmp_path: Path) -> Non
     assert result.returncode == 0, result.stderr
     assert "command_not_found_handle" not in script
     assert "shell-autonote" not in script
+    assert 'cap() { command ctfmem capture -- "$@"; }' in script
 
 
 def test_zsh_and_fish_init_do_not_add_command_hooks() -> None:
@@ -79,6 +80,7 @@ def test_zsh_and_fish_init_do_not_add_command_hooks() -> None:
     assert "add-zsh-hook preexec" not in zsh
     assert "fish_command_not_found" not in fish
     assert "fish_postexec" not in fish
+    assert "function cap" in fish
 
 
 def test_native_cli_accepts_slash_subcommands(
