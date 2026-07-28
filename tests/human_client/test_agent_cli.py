@@ -53,7 +53,56 @@ def test_agent_run_fake_agent_ingests_agent_run_log(
     assert len(memory.ingested) == 1
     envelope = memory.ingested[0]
     assert envelope["source"]["type"] == "agent"
+    assert envelope["source"]["provider"] == "fake"
     assert envelope["input"]["type"] == "run_log"
+
+
+def test_agent_run_rejects_unknown_provider(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = cli.main(
+        [
+            "--challenge",
+            "demo-web",
+            "agent",
+            "run",
+            "--provider",
+            "codex",
+            "--runtime-dir",
+            str(tmp_path),
+            "繼續分析",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code != OK
+    assert "Codex MVP currently supports only --session new" in captured.err
+
+
+def test_agent_run_codex_requires_no_memory_skill(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = cli.main(
+        [
+            "--challenge",
+            "demo-web",
+            "agent",
+            "run",
+            "--provider",
+            "codex",
+            "--session",
+            "new",
+            "--runtime-dir",
+            str(tmp_path),
+            "繼續分析",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code != OK
+    assert "Codex MVP does not yet support" in captured.err
 
 
 def test_agent_run_json_output_is_machine_safe(

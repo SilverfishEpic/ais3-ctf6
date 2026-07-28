@@ -4,11 +4,9 @@ import argparse
 import asyncio
 import os
 import sys
-from pathlib import Path
 from typing import Any
 
-from agent_bridge.adapters.claude import ClaudeAdapter
-from agent_bridge.adapters.fake import FakeAgentAdapter
+from agent_bridge.adapters.registry import PROVIDERS, build_agent_adapter
 from agent_bridge.errors import BridgeError, MemoryCoreError
 from agent_bridge.loop import AgentLoop, LoopLimits, LoopOutcome, TurnRecord
 from agent_bridge.memory.http import HttpMemoryClient
@@ -25,8 +23,6 @@ from agent_bridge.runtime import (
     utc_now,
     write_status,
 )
-from agent_bridge.sandbox import ToolPolicy
-from agent_bridge.skill import TOOL_NAMES, build_memory_server
 
 from .config import ClientConfig, require_challenge
 from .errors import CONNECTION_ERROR, OK, SERVER_ERROR, USAGE_ERROR
@@ -50,6 +46,15 @@ def add_agent_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentPar
 
     run = agent_sub.add_parser("run")
     run.add_argument("prompt")
+    run.add_argument(
+        "--provider",
+        choices=PROVIDERS,
+        default=None,
+        help=(
+            "Agent provider. Defaults to CTFMEM_AGENT_PROVIDER or claude; "
+            "--fake-agent selects fake when --provider is omitted."
+        ),
+    )
     run.add_argument("--mode", choices=["normal", "yolo"], default="normal")
     run.add_argument("--session", choices=["same", "new"], default="same")
     run.add_argument("--workspace", default=".")
@@ -225,25 +230,28 @@ def _build_adapter(
     challenge: str,
     policy: MemoryPolicy,
 ) -> AgentAdapter:
-    if args.fake_agent:
-        return FakeAgentAdapter(args.fake_agent)
-
-    mcp_servers: dict[str, Any] = {}
-    extra_allowed_tools: list[str] = []
-    if policy.skill_enabled and not args.no_memory_skill:
-        mcp_servers["memory"] = build_memory_server(memory, challenge, policy)
-        extra_allowed_tools.extend(TOOL_NAMES)
-
-    return ClaudeAdapter(
-        workspace=Path(args.workspace),
-        tool_policy=ToolPolicy(),
-        mcp_servers=mcp_servers,
-        extra_allowed_tools=extra_allowed_tools,
+    provider = _provider(args)
+    return build_agent_adapter(
+        provider=provider,
+        fake_agent=args.fake_agent,
+        workspace=args.workspace,
         model=args.model,
         max_turns=args.max_turns,
-        max_budget_usd=args.max_cost_usd,
-        session_kind=args.session,
+        max_cost_usd=args.max_cost_usd,
+        session=args.session,
+        memory=memory,
+        challenge=challenge,
+        policy=policy,
+        no_memory_skill=args.no_memory_skill,
     )
+
+
+def _provider(args: argparse.Namespace) -> str:
+    if args.provider:
+        return str(args.provider)
+    if args.fake_agent:
+        return "fake"
+    return os.environ.get("CTFMEM_AGENT_PROVIDER", "claude")
 
 
 def _memory_policy(args: argparse.Namespace) -> MemoryPolicy:

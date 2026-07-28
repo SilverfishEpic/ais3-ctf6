@@ -190,7 +190,7 @@ def test_fake_adapter_produces_valid_envelope(name: str) -> None:
     envelope = FakeAgentAdapter(name).run_sync()
 
     assert envelope["source"]["type"] == "agent"
-    assert envelope["source"]["provider"] == "anthropic"
+    assert envelope["source"]["provider"] == "fake"
     assert envelope["input"]["type"] == "run_log"
     assert isinstance(envelope["input"]["events"], list)
     # 整包要能序列化，不然 POST 不出去

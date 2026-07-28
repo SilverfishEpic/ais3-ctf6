@@ -36,21 +36,30 @@ The bridge's stable runtime seam is `AgentAdapter`. `AgentLoop` depends on that 
 and must remain unaware of provider SDKs, subprocess protocols, CLI event formats, or MCP
 configuration details.
 
-Current production support is Claude plus replay fixtures. Codex support is planned through
-an explicit provider registry rather than by adding Codex conditionals to the loop.
+Current production support is Claude plus replay fixtures. Codex has an MVP adapter through
+the documented non-interactive CLI JSONL stream. The provider registry keeps those paths out
+of `AgentLoop`.
 
-Planned CLI shape:
+CLI shape:
 
 ```bash
 ctfmem agent run --provider claude "..."
-ctfmem agent run --provider codex "..."
+ctfmem agent run --provider codex --session new --no-memory-skill "..."
 ctfmem agent run --provider fake --fake-agent multi_tool "..."
 ```
 
-The default remains Claude until Codex passes the acceptance gate in
-[ADR 0003](adr/0003-agent-provider-abstraction.md). Provider-specific event objects must
-be normalized before ingest; Memory Core must only receive the shared `IngestEnvelope`
-shape.
+The default remains Claude. Omitting `--provider` while passing `--fake-agent` selects the
+replay adapter for backward compatibility. Provider-specific event objects are normalized
+before ingest; Memory Core only receives the shared `IngestEnvelope` shape.
+
+Codex MVP constraints:
+
+- it uses `codex exec --json`;
+- it supports only `--session new`;
+- it requires `--no-memory-skill`;
+- it maps unverifiable provider output to `outcome=unknown`;
+- live Codex execution is opt-in by operator action and is not part of the default test
+  suite.
 
 ## Sessions and Looping
 

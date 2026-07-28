@@ -281,7 +281,7 @@ ctfmem agent run
   ↓
 AgentLoop
   ↓
-ClaudeAdapter 或 FakeAgentAdapter
+ClaudeAdapter、CodexAdapter 或 FakeAgentAdapter
   ↓
 normalized run log
   ↓
@@ -292,18 +292,58 @@ Memory Core /ingest
 
 ```bash
 uv run ctfmem --challenge demo-web agent run \
+  --provider fake \
   --fake-agent multi_tool \
   "繼續分析"
 ```
+
+為了相容既有指令，省略 `--provider` 但提供 `--fake-agent` 時也會使用 fake
+provider。
 
 真 Claude normal run：
 
 ```bash
 uv run ctfmem --challenge demo-web agent run \
+  --provider claude \
   --workspace . \
   --mode normal \
   --session same \
   "繼續分析"
+```
+
+Claude 是目前預設 provider。若省略 `--provider` 且沒有 `--fake-agent`，等同於
+`--provider claude`，除非環境變數 `CTFMEM_AGENT_PROVIDER` 指定其他值。
+
+Codex MVP normal run：
+
+```bash
+uv run ctfmem --challenge demo-web agent run \
+  --provider codex \
+  --workspace . \
+  --mode normal \
+  --session new \
+  --no-memory-skill \
+  "繼續分析"
+```
+
+Codex 目前透過 `codex exec --json` 非互動模式執行。這個 MVP 刻意保守：
+
+```text
+[x] 支援 normal run
+[x] 支援 session=new
+[x] 將 Codex JSONL events normalize 成 AgentRunEvent
+[x] unknown provenance 以 outcome=unknown 保存
+[ ] 尚未支援 Codex same-session
+[ ] 尚未支援 Codex YOLO parity
+[ ] 尚未支援 Codex MCP memory skill
+[ ] 尚未宣稱 Codex 與 Claude PreToolUse sandbox policy 等價
+```
+
+因此 Codex 目前必須加上：
+
+```text
+--session new
+--no-memory-skill
 ```
 
 YOLO run：
@@ -362,6 +402,7 @@ JSON mode：
 
 ```bash
 uv run ctfmem --json --challenge demo-web agent run \
+  --provider fake \
   --fake-agent single_tool \
   "查一下"
 ```
