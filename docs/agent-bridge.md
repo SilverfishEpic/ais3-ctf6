@@ -1,11 +1,11 @@
 # Agent Bridge
 
-Agent Bridge connects external Claude-style agent execution to the shared Memory Core.
+Agent Bridge connects external agent execution to the shared Memory Core.
 It is a client of the public HTTP contract, not a second Memory Core.
 
 ## Responsibilities
 
-- normalize Claude SDK messages and tool hooks into provider-neutral run-log events;
+- normalize provider-native messages and tool hooks into provider-neutral run-log events;
 - submit completed run logs through `POST /v1/challenges/{id}/ingest`;
 - inject a read-only memory snapshot or diff at turn start according to experiment policy;
 - expose read-only memory tools (`memory_show`, `memory_query`, `memory_guess`) when enabled;
@@ -30,6 +30,28 @@ contract:
 
 Legacy tool results without `outcome` are treated by Memory Core as `unknown`.
 
+## Provider Model
+
+The bridge's stable runtime seam is `AgentAdapter`. `AgentLoop` depends on that protocol
+and must remain unaware of provider SDKs, subprocess protocols, CLI event formats, or MCP
+configuration details.
+
+Current production support is Claude plus replay fixtures. Codex support is planned through
+an explicit provider registry rather than by adding Codex conditionals to the loop.
+
+Planned CLI shape:
+
+```bash
+ctfmem agent run --provider claude "..."
+ctfmem agent run --provider codex "..."
+ctfmem agent run --provider fake --fake-agent multi_tool "..."
+```
+
+The default remains Claude until Codex passes the acceptance gate in
+[ADR 0003](adr/0003-agent-provider-abstraction.md). Provider-specific event objects must
+be normalized before ingest; Memory Core must only receive the shared `IngestEnvelope`
+shape.
+
 ## Sessions and Looping
 
 `AgentLoop` owns the experiment session mode and validates it against adapters that expose
@@ -53,6 +75,10 @@ The Agent-facing memory skill is read-only. It may show the current memory, answ
 queries, and request deterministic guessing candidates from Memory Core. It must not expose
 mutation, YAML editing, local ID allocation, or template rewriting.
 
+The long-term target is a provider-neutral MCP memory skill. Claude currently receives the
+skill through the Claude SDK path. Codex should receive it only after the MCP setup, secret
+boundary, and read-only behavior are verified.
+
 ## Offline Replay
 
 `fixtures/claude/*.jsonl` are sanitized deterministic replay fixtures for:
@@ -65,4 +91,6 @@ mutation, YAML editing, local ID allocation, or template rewriting.
 - `interrupted`
 
 Default tests use these fixtures and do not require Claude credentials or network access.
-Live Claude/AIS3 checks are opt-in only.
+Future Codex fixtures must follow the same rule: sanitized replay data first, live provider
+checks opt-in only. Live Claude, Codex, and AIS3 checks must never be required by the
+default offline suite.
