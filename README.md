@@ -79,13 +79,13 @@ eval "$(ctfmem shell-init --shell zsh)"
 
 This keeps your native completion, plugins, history, keybindings, environment, and terminal
 window intact. Use slash-style native CLI commands such as `ctfmem /status`,
-`ctfmem /autonote on`, `ctfmem /diff on`, `ctfmem /note <text>`, and `ctfmem /memory`.
+`ctfmem /diff on`, `ctfmem /note <text>`, and `ctfmem /memory`.
 Global settings may appear before or after the command: `ctfmem /memory --challenge web-01`.
 For the shortest one-off form, `ctfmem web-01/memory` means the same thing.
 Agent runs remain explicit through `ctfmem agent run` and `ctfmem agent stop`. Bash cannot
 safely interpret a bare `/status` as anything other than an absolute path without intercepting
-its input loop, so the `ctfmem /…` form is intentional. Autonote records suitable command
-metadata after a command finishes; it intentionally does not capture or persist terminal output.
+its input loop, so the `ctfmem /…` form is intentional. Use `ctfmem capture -- COMMAND` when
+the command result itself should be recorded.
 Diff is opt-in and prints a git-style ANSI summary directly on stdout. Preferences are stored in
 `.ctfmem/<challenge>/shell-session.json`; no terminal transcript is written.
 

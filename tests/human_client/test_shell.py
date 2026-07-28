@@ -12,8 +12,6 @@ from human_client.shell import (
     ShellSession,
     ShellSessionStore,
     _ansi_diff_lines,
-    _should_autonote,
-    cmd_shell_autonote,
     cmd_shell_command,
     render_shell_init,
 )
@@ -52,11 +50,10 @@ def _config() -> ClientConfig:
 
 def test_shell_session_persists_only_preferences(tmp_path: Path) -> None:
     store = ShellSessionStore("web-01", root=tmp_path)
-    store.save(ShellSession(challenge="web-01", autonote=False, diff_enabled=True))
+    store.save(ShellSession(challenge="web-01", diff_enabled=True))
 
     restored = store.load()
 
-    assert restored.autonote is False
     assert restored.diff_enabled is True
     assert "stdout" not in store.path.read_text(encoding="utf-8")
 
@@ -71,18 +68,17 @@ def test_bash_init_uses_aliases_and_is_valid_shell_syntax(tmp_path: Path) -> Non
     )
 
     assert result.returncode == 0, result.stderr
-    assert "__ctfmem_history_cursor=$HISTCMD" in script
     assert "command_not_found_handle" not in script
-    assert "shell-autonote" in script
+    assert "shell-autonote" not in script
 
 
-def test_zsh_and_fish_init_add_only_post_command_hooks() -> None:
+def test_zsh_and_fish_init_do_not_add_command_hooks() -> None:
     zsh = render_shell_init("zsh")
     fish = render_shell_init("fish")
 
-    assert "add-zsh-hook preexec" in zsh
+    assert "add-zsh-hook preexec" not in zsh
     assert "fish_command_not_found" not in fish
-    assert "fish_postexec" in fish
+    assert "fish_postexec" not in fish
 
 
 def test_native_cli_accepts_slash_subcommands(
@@ -110,26 +106,6 @@ def test_native_cli_accepts_trailing_global_options_and_compact_commands(
         "--challenge",
         "test",
         "/memory",
-    ]
-
-
-def test_autonote_filters_shell_housekeeping_without_wrapping_execution() -> None:
-    assert _should_autonote(["pwd"], 0) is False
-    assert _should_autonote(["echo", "hello"], 0) is False
-    assert _should_autonote(["curl", "http://target"], 0) is True
-    assert _should_autonote(["curl", "http://target"], 1) is True
-
-
-def test_shell_autonote_submits_command_metadata_only(tmp_path: Path, monkeypatch: Any) -> None:
-    monkeypatch.chdir(tmp_path)
-    client = FakeShellClient()
-    args = argparse.Namespace(exit_code=0, command=["curl -I http://target"])
-
-    code = cmd_shell_autonote(args, _config(), client)  # type: ignore[arg-type]
-
-    assert code == 0
-    assert client.commands == [
-        {"command": ["curl", "-I", "http://target"], "exit_code": 0, "stdout": "", "stderr": ""}
     ]
 
 

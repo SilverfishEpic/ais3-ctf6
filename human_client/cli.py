@@ -41,7 +41,7 @@ _GLOBAL_OPTIONS_WITH_VALUE = frozenset(
     {"--api-url", "--challenge", "--actor", "--timeout", "--config"}
 )
 _GLOBAL_SWITCHES = frozenset({"--json", "--verbose", "--no-color"})
-_COMPACT_SHELL_COMMANDS = frozenset({"status", "autonote", "diff", "note", "memory"})
+_COMPACT_SHELL_COMMANDS = frozenset({"status", "diff", "note", "memory"})
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shlex
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -21,10 +20,9 @@ from .config import ClientConfig, require_challenge
 
 @dataclass
 class ShellSession:
-    """Small local preferences; command output is never persisted by the integration."""
+    """Small local preferences for the native slash-command integration."""
 
     challenge: str
-    autonote: bool = True
     diff_enabled: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -36,7 +34,6 @@ class ShellSession:
             raise ValueError("shell state belongs to a different challenge")
         return cls(
             challenge=challenge,
-            autonote=bool(raw.get("autonote", True)),
             diff_enabled=bool(raw.get("diff_enabled", False)),
         )
 
@@ -84,14 +81,9 @@ def add_shell_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     command.add_argument("argument", nargs=argparse.REMAINDER)
     command.set_defaults(handler=cmd_shell_command)
 
-    autonote = subparsers.add_parser("shell-autonote", help=argparse.SUPPRESS)
-    autonote.add_argument("--exit-code", required=True, type=int)
-    autonote.add_argument("command", nargs=argparse.REMAINDER)
-    autonote.set_defaults(handler=cmd_shell_autonote)
-
-    # `/note` and `/memory` are full native CLI aliases registered in cli.py. These three
+    # `/note` and `/memory` are full native CLI aliases registered in cli.py. These two
     # remain session-local shell controls used by sourced shell hooks.
-    for slash in ("/status", "/autonote", "/diff"):
+    for slash in ("/status", "/diff"):
         direct = subparsers.add_parser(slash, help=argparse.SUPPRESS)
         direct.add_argument("argument", nargs=argparse.REMAINDER)
         direct.set_defaults(handler=cmd_shell_command, slash=slash)
@@ -117,17 +109,13 @@ def cmd_shell_command(
         health = client.healthz()
         status = health.get("status", "connected")
         print(
-            f"ctfmem: autonote {'on' if session.autonote else 'off'}; "
-            f"diff {'on' if session.diff_enabled else 'off'}; Core {status}"
+            f"ctfmem: diff {'on' if session.diff_enabled else 'off'}; Core {status}"
         )
-    elif slash in {"/autonote", "/diff"}:
+    elif slash == "/diff":
         if argument not in {"on", "off"}:
             raise ValueError(f"usage: {slash} on|off")
         enabled = argument == "on"
-        if slash == "/autonote":
-            session.autonote = enabled
-        else:
-            session.diff_enabled = enabled
+        session.diff_enabled = enabled
         store.save(session)
         print(f"ctfmem: {slash[1:]} {argument}")
     elif slash == "/note":
@@ -141,37 +129,6 @@ def cmd_shell_command(
     else:
         raise ValueError(f"unknown slash command: {slash}")
     return 0
-
-
-def cmd_shell_autonote(
-    args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient
-) -> int:
-    """Ingest command metadata from a native-shell hook without ever wrapping execution."""
-
-    challenge = require_challenge(config)
-    session = ShellSessionStore(challenge).load()
-    raw = " ".join(args.command).strip()
-    try:
-        argv = shlex.split(raw)
-    except ValueError:
-        return 0
-    if not session.autonote or not _should_autonote(argv, args.exit_code):
-        return 0
-    envelope = client.ingest_command_result(
-        challenge,
-        {"command": argv, "exit_code": args.exit_code, "stdout": "", "stderr": ""},
-        actor=config.actor,
-    )
-    _render_shell_diff(envelope, enabled=session.diff_enabled)
-    return 0
-
-
-def _should_autonote(argv: list[str], exit_code: int) -> bool:
-    if not argv or argv[0] in {"cd", "clear", "exit", "history", "pwd", "ctfmem"}:
-        return False
-    if argv[0].startswith("__ctfmem_"):
-        return False
-    return exit_code != 0 or argv[0] not in {"ls", "echo", "true"}
 
 
 def _render_shell_diff(envelope: dict[str, Any], *, enabled: bool) -> None:
@@ -227,50 +184,18 @@ def render_shell_init(shell: str) -> str:
 
 
 def _bash_init() -> str:
-    prompt_variable = "PROMPT_" + "COMMAND"
     return '''# ctfmem native Bash integration; source in the current shell only.
 # Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
-__ctfmem_history_cursor=$HISTCMD
-__ctfmem_after_command() {
-  local status=$?
-  if (( HISTCMD <= __ctfmem_history_cursor )); then return; fi
-  __ctfmem_history_cursor=$HISTCMD
-  local line
-  line=$(builtin history 1)
-  line=${line#*  }
-  command ctfmem shell-autonote --exit-code "$status" -- "$line" 2>/dev/null &
-}
-''' + (
-        prompt_variable
-        + '="__ctfmem_after_command${'
-        + prompt_variable
-        + ':+; $'
-        + prompt_variable
-        + '}"'
-    )
+'''
 
 
 def _zsh_init() -> str:
     return '''# ctfmem native Zsh integration; source in the current shell only.
 # Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
-function __ctfmem_preexec() { __ctfmem_last_command="$1"; }
-function __ctfmem_precmd() {
-  local status=$?
-  [[ -z "$__ctfmem_last_command" ]] && return
-  command ctfmem shell-autonote --exit-code "$status" -- "$__ctfmem_last_command" 2>/dev/null &!
-  unset __ctfmem_last_command
-}
-autoload -Uz add-zsh-hook
-add-zsh-hook preexec __ctfmem_preexec
-add-zsh-hook precmd __ctfmem_precmd'''
+'''
 
 
 def _fish_init() -> str:
     return '''# ctfmem native Fish integration; source in the current shell only.
 # Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
-function __ctfmem_postexec --on-event fish_postexec
-    set -l command_line (commandline -p)
-    if test -n "$command_line"
-        command ctfmem shell-autonote --exit-code $status -- "$command_line" 2>/dev/null &
-    end
-end'''
+'''
