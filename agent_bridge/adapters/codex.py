@@ -26,6 +26,16 @@ from agent_bridge.normalize_codex import normalize_codex
 from agent_bridge.protocols import RunResult
 
 BOARD_SEPARATOR = "\n\n---\n\n"
+SECRET_ENV_NAMES = frozenset(
+    {
+        "AIS3_API_KEY",
+        "AIS3_BASE_URL",
+        "AIS3_SUMMARIZER_MODEL",
+        "AIS3_TIMEOUT",
+        "MEMORY_CORE_RUNS_DIR",
+        "MEMORY_CORE_TEMPLATES_DIR",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -95,6 +105,7 @@ class CodexAdapter:
             self._process = await asyncio.create_subprocess_exec(
                 *argv,
                 cwd=str(self.workspace),
+                env=self._subprocess_env(),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -152,7 +163,14 @@ class CodexAdapter:
         if resume:
             if self._session_id is None:
                 raise BridgeError("cannot resume Codex before a thread_id is known")
-            argv = [self.executable, "exec", "resume", "--json"]
+            argv = [
+                self.executable,
+                "exec",
+                "resume",
+                "--json",
+                "--ignore-user-config",
+                "--ignore-rules",
+            ]
             argv += self._mcp_config_args()
             if self.model:
                 argv += ["--model", self.model]
@@ -163,6 +181,8 @@ class CodexAdapter:
             self.executable,
             "exec",
             "--json",
+            "--ignore-user-config",
+            "--ignore-rules",
             "--sandbox",
             self.sandbox,
             "--cd",
@@ -203,6 +223,12 @@ class CodexAdapter:
             "-c",
             "mcp_servers.memory.default_tools_approval_mode=\"auto\"",
         ]
+
+    def _subprocess_env(self) -> dict[str, str]:
+        env = dict(os.environ)
+        for name in SECRET_ENV_NAMES:
+            env.pop(name, None)
+        return env
 
 
 def _parse_jsonl(text: str) -> list[dict[str, object]]:

@@ -335,7 +335,9 @@ Codex 目前透過 `codex exec --json` 非互動模式執行。這個 MVP 刻意
 [x] 將 Codex JSONL events normalize 成 AgentRunEvent
 [x] unknown provenance 以 outcome=unknown 保存
 [x] 支援唯讀 Codex MCP memory skill
-[ ] 尚未宣稱 Codex 與 Claude PreToolUse sandbox policy 等價
+[x] Codex subprocess 會移除 AIS3 / Memory Core provider env
+[x] Codex run 會忽略 user config 與 project rules，並固定使用 read-only sandbox
+[ ] 尚未宣稱 Codex 與 Claude PreToolUse command allowlist 等價
 ```
 
 Codex 若要使用和 Claude 類似的跨輪上下文，使用 `--session same`。若要每輪只依賴
@@ -351,6 +353,11 @@ memory_guess
 
 若要完全關閉 memory skill，只保留 prompt board injection，可加上
 `--no-memory-skill`。
+
+Codex path 會強制加入 `--ignore-user-config`、`--ignore-rules`、`--sandbox read-only`，
+並在啟動 Codex subprocess 前移除 `AIS3_API_KEY`、`AIS3_BASE_URL`、
+`AIS3_SUMMARIZER_MODEL`、`AIS3_TIMEOUT` 等 Memory Core provider credentials。
+這表示 Codex 可以讀白板，但不應取得 AIS3 key。
 
 YOLO run：
 

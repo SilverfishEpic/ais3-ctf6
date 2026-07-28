@@ -63,8 +63,15 @@ Codex MVP constraints:
   enables the skill;
 - it maps unverifiable provider output to `outcome=unknown`;
 - it does not receive AIS3 credentials;
+- it is launched with `--ignore-user-config`, `--ignore-rules`, and `--sandbox read-only`
+  so user/project Codex configuration cannot silently widen this bridge path;
 - live Codex execution is opt-in by operator action and is not part of the default test
   suite.
+
+Codex does not currently have a Claude-equivalent `PreToolUse` command allowlist hook in
+this bridge. Its enforced local policy is therefore stricter but coarser: read-only Codex
+sandbox plus no user/project rules. Any future write-capable or network-capable Codex mode
+must be introduced as a new documented authority tier.
 
 ## Sessions and Looping
 
@@ -101,6 +108,11 @@ Codex-exposed tools:
 
 `--no-memory-skill` disables those tools for either provider and falls back to prompt board
 injection only.
+
+The Codex adapter strips Memory Core provider environment variables before starting the
+Codex subprocess, including `AIS3_API_KEY`, `AIS3_BASE_URL`, `AIS3_SUMMARIZER_MODEL`, and
+`AIS3_TIMEOUT`. The AIS3 key remains a Memory Core server credential, not an Agent Bridge
+or Codex credential.
 
 ## Offline Replay
 

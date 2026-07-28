@@ -116,9 +116,10 @@ thread id reported by the first turn. This brings Codex loop/session behavior in
 the Agent Bridge session model while keeping provider event normalization outside Memory
 Core.
 
-The implementation now supports same-session resume and read-only Codex MCP memory tools.
-It still does not claim parity for Claude-equivalent pre-tool command allowlist
-enforcement; that remains a separate verification item.
+The implementation now supports same-session resume, read-only Codex MCP memory tools, and
+Codex subprocess credential isolation. It still does not claim parity for
+Claude-equivalent pre-tool command allowlist enforcement; that remains a separate
+verification item.
 
 ## Event Normalization
 
@@ -166,9 +167,14 @@ ProviderToolPolicyAdapter
   └── Codex: Codex sandbox / execpolicy / hook / external isolation layer
 ```
 
-Codex MVP should run with the least documented Codex sandbox that satisfies the selected
-mode. Any future support for broader write or network access must be explicit, server-owned,
-and documented as higher risk.
+Codex currently runs with `--sandbox read-only`, `--ignore-user-config`, and
+`--ignore-rules`. This prevents the bridge path from silently inheriting local Codex
+configuration or project rules that widen authority. The adapter also removes Memory Core
+provider environment variables before spawning Codex.
+
+This is not the same mechanism as Claude's `PreToolUse` command allowlist. Any future
+support for broader write or network access must be explicit, server-owned, and documented
+as higher risk.
 
 ## Memory Skill and MCP
 
@@ -250,6 +256,7 @@ Exit criteria:
 - Codex can call `memory_show`, `memory_query`, and `memory_guess`;
 - Memory Core remains the only state writer;
 - MCP failures degrade clearly instead of silently removing memory access.
+- Codex and its MCP server do not receive AIS3 provider credentials.
 
 ### Phase 4 - Session and YOLO Parity
 

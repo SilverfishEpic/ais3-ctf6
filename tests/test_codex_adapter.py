@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
+import sys
 from pathlib import Path
 
-from agent_bridge.adapters.codex import CodexAdapter, CodexMemoryMCP
+import pytest
+
+from agent_bridge.adapters.codex import SECRET_ENV_NAMES, CodexAdapter, CodexMemoryMCP
 from agent_bridge.adapters.registry import build_agent_adapter
 from agent_bridge.memory.fake import FakeMemoryClient
 from agent_bridge.policy import FULL
@@ -33,14 +35,14 @@ def test_codex_adapter_runs_jsonl_subprocess_and_builds_envelope(tmp_path: Path)
     async def run() -> None:
         adapter = CodexAdapter(
             workspace=tmp_path,
-            executable=os.environ.get("PYTHON", "python"),
+            executable=sys.executable,
             model="gpt-fixture",
         )
         adapter.ephemeral = False
 
         def argv(prompt: str, *, resume: bool = False) -> list[str]:
             assert resume is False
-            return [os.environ.get("PYTHON", "python"), str(script), prompt]
+            return [sys.executable, str(script), prompt]
 
         adapter._argv = argv  # type: ignore[method-assign]
         result = await adapter.start("inspect", board="FACT\n  F001 test")
@@ -63,7 +65,16 @@ def test_codex_adapter_same_session_resumes_reported_thread(tmp_path: Path) -> N
     )
 
     first = adapter._argv("first turn")
-    assert first[:6] == ["codex", "exec", "--json", "--sandbox", "read-only", "--cd"]
+    assert first[:8] == [
+        "codex",
+        "exec",
+        "--json",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--sandbox",
+        "read-only",
+        "--cd",
+    ]
     assert "--ephemeral" not in first
 
     adapter._session_id = "thread-abc"
@@ -73,6 +84,8 @@ def test_codex_adapter_same_session_resumes_reported_thread(tmp_path: Path) -> N
         "exec",
         "resume",
         "--json",
+        "--ignore-user-config",
+        "--ignore-rules",
         "--model",
         "gpt-fixture",
         "thread-abc",
@@ -100,11 +113,11 @@ def test_codex_adapter_continue_run_keeps_same_session_id(tmp_path: Path) -> Non
     async def run() -> None:
         adapter = CodexAdapter(
             workspace=tmp_path,
-            executable=os.environ.get("PYTHON", "python"),
+            executable=sys.executable,
             session_kind="same",
         )
         adapter._argv = lambda prompt, *, resume=False: [  # type: ignore[method-assign]
-            os.environ.get("PYTHON", "python"),
+            sys.executable,
             str(script),
             "resume" if resume else "start",
             prompt,
@@ -127,7 +140,16 @@ def test_codex_adapter_new_session_uses_ephemeral_exec(tmp_path: Path) -> None:
 
     argv = adapter._argv("single turn")
 
-    assert argv[:6] == ["codex", "exec", "--json", "--sandbox", "read-only", "--cd"]
+    assert argv[:8] == [
+        "codex",
+        "exec",
+        "--json",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--sandbox",
+        "read-only",
+        "--cd",
+    ]
     assert "--ephemeral" in argv
 
 
@@ -200,18 +222,32 @@ def test_codex_adapter_adds_scoped_mcp_config_args(tmp_path: Path) -> None:
     assert "--guess-seed" in joined
 
 
+def test_codex_adapter_strips_memory_core_provider_secrets_from_subprocess_env(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = CodexAdapter(workspace=tmp_path, executable="codex")
+    for name in SECRET_ENV_NAMES:
+        monkeypatch.setenv(name, f"secret-{name}")
+
+    env = adapter._subprocess_env()
+
+    for name in SECRET_ENV_NAMES:
+        assert name not in env
+
+
 def test_codex_adapter_falls_back_to_plain_text_as_agent_message(tmp_path: Path) -> None:
     script = tmp_path / "fake_codex_text.py"
     script.write_text("print('plain final response')\n", encoding="utf-8")
 
     async def run() -> None:
-        adapter = CodexAdapter(workspace=tmp_path, executable=os.environ.get("PYTHON", "python"))
+        adapter = CodexAdapter(workspace=tmp_path, executable=sys.executable)
         adapter.ephemeral = False
 
         def argv(prompt: str, *, resume: bool = False) -> list[str]:
             assert prompt == "inspect"
             assert resume is False
-            return [os.environ.get("PYTHON", "python"), str(script)]
+            return [sys.executable, str(script)]
 
         adapter._argv = argv  # type: ignore[method-assign]
         result = await adapter.start("inspect")
