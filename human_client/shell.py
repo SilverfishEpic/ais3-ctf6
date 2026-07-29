@@ -1,18 +1,19 @@
 """Native shell integration for CTF Memory.
 
 This module deliberately does not allocate a PTY or proxy terminal input/output.  ``shell-init``
-installs one static, marked shell function so future shells gain ``cap`` without altering the
-current shell or its completion, plugins, and history.
+starts an isolated child zsh with temporary CTF shortcuts; it never changes the caller's shell
+profile, completion, plugins, history, or terminal configuration.
 """
 
 from __future__ import annotations
 
 import argparse
 import os
-import re
+import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -23,12 +24,6 @@ from .config import ClientConfig, require_challenge
 _SHELL_BEGIN = "# >>> ctfmem shell-init >>>"
 _SHELL_END = "# <<< ctfmem shell-init <<<"
 _SHORTCUTS = ("ctf", "cap", "note", "mem", "ask", "add", "edit", "guess", "try")
-_SHORTCUT_NAMES = "|".join(_SHORTCUTS)
-_SHORTCUT_DEFINITION = re.compile(
-    rf"^\s*(?:alias\s+(?:{_SHORTCUT_NAMES})(?:=|\s)|"
-    rf"function\s+(?:{_SHORTCUT_NAMES})\b|(?:{_SHORTCUT_NAMES})\s*\(\s*\))",
-    re.MULTILINE,
-)
 
 
 @dataclass
@@ -86,21 +81,15 @@ class ShellSessionStore:
 
 def add_shell_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     shell = subparsers.add_parser(
-        "shell-init", help="install collision-safe cap integration for future shells"
+        "shell-init", help="enter a temporary zsh with collision-safe CTF shortcuts"
     )
-    shell.add_argument("--shell", choices=("bash", "zsh", "fish"))
+    shell.add_argument("--shell", choices=("zsh",), default="zsh")
     mode = shell.add_mutually_exclusive_group()
     mode.add_argument("--print", action="store_true", dest="print_only")
-    mode.add_argument("--remove", action="store_true")
-    shell.add_argument(
-        "--no-launch",
+    mode.add_argument(
+        "--remove",
         action="store_true",
-        help="install only; do not enter a temporary interactive child shell",
-    )
-    shell.add_argument(
-        "--rc-file",
-        type=Path,
-        help="override the shell startup file (useful for a controlled profile)",
+        help="remove a legacy ctfmem marker from ~/.zshrc; no new marker is installed",
     )
     shell.set_defaults(handler=cmd_shell_init)
 
@@ -120,30 +109,24 @@ def add_shell_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
 def cmd_shell_init(
     args: argparse.Namespace, _config: ClientConfig, _client: MemoryCoreClient
 ) -> int:
-    shell = args.shell or _shell_from_environment()
+    shell = args.shell
     snippet = render_shell_init(shell)
     if args.print_only:
         print(snippet, end="")
         return 0
 
-    rc_file = args.rc_file or _shell_rc_file(shell)
     if args.remove:
+        rc_file = _shell_rc_file(shell)
         if _remove_shell_init(rc_file):
-            print(f"ctfmem: removed cap integration from {rc_file}")
+            print(f"ctfmem: removed legacy ctfmem integration from {rc_file}")
         else:
-            print(f"ctfmem: cap integration is not installed in {rc_file}")
+            print(f"ctfmem: no legacy ctfmem integration is installed in {rc_file}")
         return 0
 
-    _install_shell_init(rc_file, snippet)
-    print(f"ctfmem: installed cap integration in {rc_file}")
-    if args.no_launch or args.rc_file is not None:
-        print(f"ctfmem: open a new {shell} shell; the current shell is unchanged.")
-        return 0
     if not _has_interactive_tty():
-        print("ctfmem: startup file installed; no interactive TTY is available to launch a shell.")
+        print("ctfmem: no interactive TTY is available to launch a temporary zsh.")
         return 0
-    return _launch_shell(shell)
-    return 0
+    return _launch_shell(shell, snippet)
 
 
 def _shell_rc_file(shell: str) -> Path:
@@ -155,33 +138,6 @@ def _shell_rc_file(shell: str) -> Path:
     if shell == "fish":
         return home / ".config" / "fish" / "config.fish"
     raise ValueError("shell must be bash, zsh, or fish")
-
-
-def _install_shell_init(rc_file: Path, snippet: str) -> None:
-    try:
-        existing = rc_file.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        existing = ""
-    except OSError as exc:
-        raise ValueError(f"cannot read shell startup file {rc_file}: {exc}") from exc
-
-    without_ours = _without_shell_init(existing)
-    existing_name = _defined_shortcut(without_ours)
-    if existing_name is not None:
-        raise ValueError(
-            f"refusing to install: {rc_file} already defines {existing_name}; "
-            "no existing command was changed"
-        )
-    for name in _SHORTCUTS:
-        command = shutil.which(name)
-        if command is not None:
-            raise ValueError(
-                f"refusing to install: {name} already resolves to {command}; "
-                "no existing command was changed"
-            )
-
-    separator = "" if not without_ours or without_ours.endswith("\n") else "\n"
-    _write_shell_rc(rc_file, f"{without_ours}{separator}{snippet}")
 
 
 def _remove_shell_init(rc_file: Path) -> bool:
@@ -222,23 +178,28 @@ def _write_shell_rc(rc_file: Path, content: str) -> None:
         raise ValueError(f"cannot write shell startup file {rc_file}: {exc}") from exc
 
 
-def _defined_shortcut(content: str) -> str | None:
-    match = _SHORTCUT_DEFINITION.search(content)
-    if match is None:
-        return None
-    line = match.group(0)
-    for name in _SHORTCUTS:
-        if re.search(rf"\b{name}\b", line):
-            return name
-    return None
-
-
-def _launch_shell(shell: str) -> int:
+def _launch_shell(shell: str, snippet: str) -> int:
     executable = shutil.which(shell)
     if executable is None:
         raise ValueError(f"cannot launch {shell}: executable was not found on PATH")
     print(f"ctfmem: entering a temporary {shell} shell; run `exit` to return.")
-    return subprocess.run([executable, "-i"], check=False).returncode
+    with tempfile.TemporaryDirectory(prefix="ctfmem-zsh-") as temporary:
+        temporary_root = Path(temporary)
+        _write_temporary_zshrc(temporary_root / ".zshrc", snippet)
+        environment = os.environ | {"ZDOTDIR": temporary}
+        return subprocess.run([executable, "-i"], check=False, env=environment).returncode
+
+
+def _write_temporary_zshrc(path: Path, snippet: str) -> None:
+    original = _shell_rc_file("zsh")
+    quoted = shlex.quote(str(original))
+    path.write_text(
+        f"if [[ -r {quoted} ]]; then\n"
+        f"    source {quoted}\n"
+        "fi\n"
+        f"{snippet}",
+        encoding="utf-8",
+    )
 
 
 def _has_interactive_tty() -> bool:
@@ -314,11 +275,6 @@ def _memory_status(board: dict[str, Any]) -> str:
         f"ctfmem: revision {board.get('revision', '?')}; facts={facts}; "
         f"assumptions={assumptions}"
     )
-
-
-def _shell_from_environment() -> str:
-    name = Path(os.environ.get("SHELL", "")).name
-    return name if name in {"bash", "zsh", "fish"} else "bash"
 
 
 def render_shell_init(shell: str) -> str:

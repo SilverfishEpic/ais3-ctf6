@@ -9,7 +9,6 @@ from human_client import cli
 from human_client import shell as shell_module
 from human_client.cli import _normalise_global_options
 from human_client.config import ClientConfig
-from human_client.errors import USAGE_ERROR
 from human_client.shell import (
     ShellSession,
     ShellSessionStore,
@@ -90,59 +89,68 @@ def test_zsh_and_fish_init_do_not_add_command_hooks() -> None:
     assert "function mem" in fish
 
 
-def test_shell_init_installs_once_and_can_remove_its_own_block(
-    tmp_path: Path, capsys: Any
+def test_shell_init_removes_only_a_legacy_marker(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
     rc_file = tmp_path / ".zshrc"
-    rc_file.write_text("export KEEP_ME=1\n", encoding="utf-8")
-    argv = ["shell-init", "--shell", "zsh", "--rc-file", str(rc_file), "--no-launch"]
+    rc_file.write_text(
+        "export KEEP_ME=1\n# >>> ctfmem shell-init >>>\nlegacy\n# <<< ctfmem shell-init <<<\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(shell_module, "_shell_rc_file", lambda _shell: rc_file)
 
-    assert cli.main(argv) == 0
-    assert cli.main(argv) == 0
-    installed = rc_file.read_text(encoding="utf-8")
-    assert installed.count("# >>> ctfmem shell-init >>>") == 1
-    assert "export KEEP_ME=1" in installed
-    assert "open a new zsh shell" in capsys.readouterr().out
-
-    assert cli.main([*argv, "--remove"]) == 0
+    assert cli.main(["shell-init", "--remove"]) == 0
     assert rc_file.read_text(encoding="utf-8") == "export KEEP_ME=1\n"
+    assert "removed legacy" in capsys.readouterr().out
 
 
-def test_shell_init_refuses_to_overwrite_existing_cap(tmp_path: Path, capsys: Any) -> None:
+def test_shell_init_does_not_write_the_user_startup_file(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
     rc_file = tmp_path / ".zshrc"
     original = "alias cap='other-tool'\n"
     rc_file.write_text(original, encoding="utf-8")
-
-    assert (
-        cli.main(["shell-init", "--shell", "zsh", "--rc-file", str(rc_file)])
-        == USAGE_ERROR
+    launched: list[str] = []
+    monkeypatch.setattr(shell_module, "_shell_rc_file", lambda _shell: rc_file)
+    monkeypatch.setattr(
+        shell_module,
+        "_launch_shell",
+        lambda name, snippet: launched.append(f"{name}:{'cap()' in snippet}") or 0,
     )
+    monkeypatch.setattr(shell_module, "_has_interactive_tty", lambda: True)
+
+    assert cli.main(["shell-init"]) == 0
     assert rc_file.read_text(encoding="utf-8") == original
-    assert "refusing to install" in capsys.readouterr().err
+    assert launched == ["zsh:True"]
+    assert "installed" not in capsys.readouterr().out
 
 
 def test_shell_init_print_does_not_write_a_startup_file(tmp_path: Path, capsys: Any) -> None:
     rc_file = tmp_path / ".zshrc"
 
-    assert cli.main(["shell-init", "--shell", "zsh", "--rc-file", str(rc_file), "--print"]) == 0
+    assert cli.main(["shell-init", "--print"]) == 0
 
     assert not rc_file.exists()
     assert "# >>> ctfmem shell-init >>>" in capsys.readouterr().out
 
 
-def test_shell_init_launches_a_temporary_shell_after_install(
+def test_shell_init_launches_a_temporary_shell_without_installing(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
     rc_file = tmp_path / ".zshrc"
-    launched: list[str] = []
+    launched: list[tuple[str, str]] = []
     monkeypatch.setattr(shell_module, "_shell_rc_file", lambda _shell: rc_file)
-    monkeypatch.setattr(shell_module, "_launch_shell", lambda name: launched.append(name) or 0)
+    monkeypatch.setattr(
+        shell_module, "_launch_shell", lambda name, snippet: launched.append((name, snippet)) or 0
+    )
     monkeypatch.setattr(shell_module, "_has_interactive_tty", lambda: True)
 
     assert cli.main(["shell-init", "--shell", "zsh"]) == 0
 
-    assert launched == ["zsh"]
-    assert "installed cap integration" in capsys.readouterr().out
+    assert launched[0][0] == "zsh"
+    assert "cap()" in launched[0][1]
+    assert not rc_file.exists()
+    assert "entering" not in capsys.readouterr().out
 
 
 def test_sourced_shell_block_keeps_an_existing_shortcut(tmp_path: Path) -> None:

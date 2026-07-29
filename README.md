@@ -68,21 +68,19 @@ See [`docs/human-webui.md`](docs/human-webui.md), plus
 
 ## Native shell integration
 
-CTF Memory never wraps your terminal or starts a replacement shell. It installs one static,
-collision-safe `cap` function for future shells; it does not add command hooks. Start Memory
-Core, set the one-time local client defaults, then install the integration:
+CTF Memory starts an isolated child zsh; it never modifies your `.zshrc`, does not add command
+hooks, and does not proxy terminal I/O. Start Memory Core, set the one-time local client defaults,
+then enter the temporary CTF shell:
 
 ```bash
 ctfmem config set --challenge web-01 --actor hacker
 ctfmem shell-init --shell zsh
 ```
 
-When run from a terminal, the installer immediately enters a temporary child zsh that has the
-shortcuts; use `exit` to return. Pass `--no-launch` when you only want installation. The
-installer refuses to overwrite any of its shortcut names (`ctf`, `cap`, `note`, `mem`, `ask`,
-`add`, `edit`, `guess`, `try`); `ctfmem shell-init --remove` removes only its own marked block.
-This keeps your native completion, plugins, history, keybindings, environment, and terminal
-window intact. Use shortcuts such as `cap curl -I http://target`, `note 'port 80 open'`,
+The child first loads your normal zsh configuration, then adds each short command only when the
+name is unclaimed. A colliding alias, function, or command remains yours. Use `exit` to return to
+the outer shell. This keeps your native completion, plugins, history, keybindings, environment,
+and terminal window intact. Use shortcuts such as `cap curl -I http://target`, `note 'port 80 open'`,
 `mem --facts`, and `ask 'what is confirmed?'`. Administrative operations remain available as
 `ctfmem` commands, for example `ctfmem /status`,
 `ctfmem /diff on`, `ctfmem /note <text>`, and `ctfmem /memory`.
@@ -96,6 +94,9 @@ only commands you prefix with `cap` and never observes other terminal activity. 
 ends, it saves the result locally and returns the prompt while a detached, stdin-free child makes
 one initial delivery attempt. Use `ctfmem capture --wait -- COMMAND ...` only when a script needs
 to wait for Memory Core's response.
+
+Earlier versions of `shell-init` wrote a marked block into `~/.zshrc`. It is never installed now;
+run `ctfmem shell-init --remove` once if you want to remove that legacy block.
 Diff is opt-in and prints a git-style ANSI summary directly on stdout. Preferences are stored in
 `.ctfmem/<challenge>/shell-session.json`; no terminal transcript is written.
 

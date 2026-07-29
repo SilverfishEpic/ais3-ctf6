@@ -181,13 +181,12 @@ ctfmem /try sqli --note 'parameter is escaped' --reason 'tested manually'
 ctfmem /ask 'Which ports are open?' --fact
 ```
 
-`ctfmem shell-init --shell zsh` installs static, marked shortcuts into `~/.zshrc`, then enters a
-temporary interactive zsh that has them. Use `exit` to return to the original shell; use
-`--no-launch` to install only. The high-frequency shortcuts are `ctf`, `cap`, `note`, `mem`,
-`ask`, `add`, `edit`, `guess`, and `try`. Installation is all-or-nothing: it refuses to overwrite
-an existing command, function, or alias using any of those names, and the installed code checks
-again at shell startup. `ctfmem shell-init --remove` removes only its own marker block; `--print`
-displays that fixed block without changing a startup file.
+`ctfmem shell-init` enters a temporary interactive zsh. It first loads the normal `~/.zshrc` into
+that child and then adds the high-frequency shortcuts `ctf`, `cap`, `note`, `mem`, `ask`, `add`,
+`edit`, `guess`, and `try` only when each name is unclaimed. It never writes `~/.zshrc`; an
+existing command, function, or alias remains untouched. Use `exit` to return to the original
+shell. `--print` displays the temporary shortcut block. Earlier releases wrote a marked block;
+`ctfmem shell-init --remove` removes only that legacy block and installs nothing.
 
 `cap` is a short explicit wrapper for `ctfmem capture --`. It captures only that command's
 stdout/stderr and exit code; it does not observe unrelated commands or proxy interactive
