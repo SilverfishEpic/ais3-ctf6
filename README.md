@@ -77,10 +77,14 @@ ctfmem config set --challenge web-01 --actor hacker
 ctfmem shell-init --shell zsh
 ```
 
-Open a new zsh afterwards. The installer refuses to overwrite an existing `cap` command,
-function, or alias; `ctfmem shell-init --remove` removes only its own marked block. This keeps
-your native completion, plugins, history, keybindings, environment, and terminal window intact.
-Use slash-style native CLI commands such as `ctfmem /status`,
+When run from a terminal, the installer immediately enters a temporary child zsh that has the
+shortcuts; use `exit` to return. Pass `--no-launch` when you only want installation. The
+installer refuses to overwrite any of its shortcut names (`ctf`, `cap`, `note`, `mem`, `ask`,
+`add`, `edit`, `guess`, `try`); `ctfmem shell-init --remove` removes only its own marked block.
+This keeps your native completion, plugins, history, keybindings, environment, and terminal
+window intact. Use shortcuts such as `cap curl -I http://target`, `note 'port 80 open'`,
+`mem --facts`, and `ask 'what is confirmed?'`. Administrative operations remain available as
+`ctfmem` commands, for example `ctfmem /status`,
 `ctfmem /diff on`, `ctfmem /note <text>`, and `ctfmem /memory`.
 Global settings may appear before or after the command: `ctfmem /memory --challenge web-01`.
 For the shortest one-off form, `ctfmem web-01/memory` means the same thing.

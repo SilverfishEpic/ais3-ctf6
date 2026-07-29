@@ -181,10 +181,13 @@ ctfmem /try sqli --note 'parameter is escaped' --reason 'tested manually'
 ctfmem /ask 'Which ports are open?' --fact
 ```
 
-`ctfmem shell-init --shell zsh` installs a static, marked `cap` function into `~/.zshrc`; open a
-new zsh afterwards. It refuses to overwrite an existing `cap` command, function, or alias, and
-the installed code checks again at shell startup. `ctfmem shell-init --remove` removes only its
-own marker block; `--print` displays that fixed block without changing a startup file.
+`ctfmem shell-init --shell zsh` installs static, marked shortcuts into `~/.zshrc`, then enters a
+temporary interactive zsh that has them. Use `exit` to return to the original shell; use
+`--no-launch` to install only. The high-frequency shortcuts are `ctf`, `cap`, `note`, `mem`,
+`ask`, `add`, `edit`, `guess`, and `try`. Installation is all-or-nothing: it refuses to overwrite
+an existing command, function, or alias using any of those names, and the installed code checks
+again at shell startup. `ctfmem shell-init --remove` removes only its own marker block; `--print`
+displays that fixed block without changing a startup file.
 
 `cap` is a short explicit wrapper for `ctfmem capture --`. It captures only that command's
 stdout/stderr and exit code; it does not observe unrelated commands or proxy interactive
@@ -192,6 +195,12 @@ terminal input. It is for external programs such as `curl`, `nmap`, and `checkse
 builtins (`cd`, `export`, aliases) cannot change the parent shell through `cap`. Do not use it
 for prompt-driven programs such as `gdb` or `sqlmap`; their later terminal input is deliberately
 not recorded.
+
+The direct shortcuts forward their arguments unchanged: `note TEXT` is `ctfmem /note TEXT`,
+`mem` is `/memory`, `ask` is `/ask`, and so on. `ctf COMMAND ...` provides the short, namespaced
+fallback for less frequent operations, for example `ctf /template set web --reason 'reclassified'`.
+Configuration, challenge lifecycle, agent lifecycle, template changes, and pending-capture retry
+remain intentionally explicit under `ctfmem` or `ctf` rather than claiming generic shell names.
 
 `/edit`、`/try` 和 `/template set` 在省略 `--revision` 時會先讀取目前 revision；腳本仍可
 明確提供 `--revision`。revision conflict 絕不重試：`ctfmem` 會顯示目前白板並以 conflict

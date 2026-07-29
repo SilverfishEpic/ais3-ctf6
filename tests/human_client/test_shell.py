@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from human_client import cli
+from human_client import shell as shell_module
 from human_client.cli import _normalise_global_options
 from human_client.config import ClientConfig
 from human_client.errors import USAGE_ERROR
@@ -74,6 +75,8 @@ def test_bash_init_is_collision_safe_and_valid_shell_syntax(tmp_path: Path) -> N
     assert "# >>> ctfmem shell-init >>>" in script
     assert 'cap() { command ctfmem capture -- "$@"; }' in script
     assert "command -v cap" in script
+    for shortcut in ("ctf", "note", "mem", "ask", "add", "edit", "guess", "try"):
+        assert f"{shortcut}()" in script
 
 
 def test_zsh_and_fish_init_do_not_add_command_hooks() -> None:
@@ -84,6 +87,7 @@ def test_zsh_and_fish_init_do_not_add_command_hooks() -> None:
     assert "fish_command_not_found" not in fish
     assert "fish_postexec" not in fish
     assert "function cap" in fish
+    assert "function mem" in fish
 
 
 def test_shell_init_installs_once_and_can_remove_its_own_block(
@@ -91,7 +95,7 @@ def test_shell_init_installs_once_and_can_remove_its_own_block(
 ) -> None:
     rc_file = tmp_path / ".zshrc"
     rc_file.write_text("export KEEP_ME=1\n", encoding="utf-8")
-    argv = ["shell-init", "--shell", "zsh", "--rc-file", str(rc_file)]
+    argv = ["shell-init", "--shell", "zsh", "--rc-file", str(rc_file), "--no-launch"]
 
     assert cli.main(argv) == 0
     assert cli.main(argv) == 0
@@ -124,6 +128,38 @@ def test_shell_init_print_does_not_write_a_startup_file(tmp_path: Path, capsys: 
 
     assert not rc_file.exists()
     assert "# >>> ctfmem shell-init >>>" in capsys.readouterr().out
+
+
+def test_shell_init_launches_a_temporary_shell_after_install(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    rc_file = tmp_path / ".zshrc"
+    launched: list[str] = []
+    monkeypatch.setattr(shell_module, "_shell_rc_file", lambda _shell: rc_file)
+    monkeypatch.setattr(shell_module, "_launch_shell", lambda name: launched.append(name) or 0)
+    monkeypatch.setattr(shell_module, "_has_interactive_tty", lambda: True)
+
+    assert cli.main(["shell-init", "--shell", "zsh"]) == 0
+
+    assert launched == ["zsh"]
+    assert "installed cap integration" in capsys.readouterr().out
+
+
+def test_sourced_shell_block_keeps_an_existing_shortcut(tmp_path: Path) -> None:
+    source = tmp_path / "ctfmem.bash"
+    source.write_text(render_shell_init("bash"), encoding="utf-8")
+    command = f"cap() {{ echo original; }}; source {source}; cap"
+
+    result = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-c", command],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "original\n"
+    assert "cap was not defined" in result.stderr
 
 
 def test_native_cli_accepts_slash_subcommands(
