@@ -8,6 +8,7 @@ from typing import Any
 from human_client import cli
 from human_client.cli import _normalise_global_options
 from human_client.config import ClientConfig
+from human_client.errors import USAGE_ERROR
 from human_client.shell import (
     ShellSession,
     ShellSessionStore,
@@ -58,7 +59,7 @@ def test_shell_session_persists_only_preferences(tmp_path: Path) -> None:
     assert "stdout" not in store.path.read_text(encoding="utf-8")
 
 
-def test_bash_init_uses_aliases_and_is_valid_shell_syntax(tmp_path: Path) -> None:
+def test_bash_init_is_collision_safe_and_valid_shell_syntax(tmp_path: Path) -> None:
     script = render_shell_init("bash")
     source = tmp_path / "ctfmem.bash"
     source.write_text(script, encoding="utf-8")
@@ -70,7 +71,9 @@ def test_bash_init_uses_aliases_and_is_valid_shell_syntax(tmp_path: Path) -> Non
     assert result.returncode == 0, result.stderr
     assert "command_not_found_handle" not in script
     assert "shell-autonote" not in script
+    assert "# >>> ctfmem shell-init >>>" in script
     assert 'cap() { command ctfmem capture -- "$@"; }' in script
+    assert "command -v cap" in script
 
 
 def test_zsh_and_fish_init_do_not_add_command_hooks() -> None:
@@ -81,6 +84,46 @@ def test_zsh_and_fish_init_do_not_add_command_hooks() -> None:
     assert "fish_command_not_found" not in fish
     assert "fish_postexec" not in fish
     assert "function cap" in fish
+
+
+def test_shell_init_installs_once_and_can_remove_its_own_block(
+    tmp_path: Path, capsys: Any
+) -> None:
+    rc_file = tmp_path / ".zshrc"
+    rc_file.write_text("export KEEP_ME=1\n", encoding="utf-8")
+    argv = ["shell-init", "--shell", "zsh", "--rc-file", str(rc_file)]
+
+    assert cli.main(argv) == 0
+    assert cli.main(argv) == 0
+    installed = rc_file.read_text(encoding="utf-8")
+    assert installed.count("# >>> ctfmem shell-init >>>") == 1
+    assert "export KEEP_ME=1" in installed
+    assert "open a new zsh shell" in capsys.readouterr().out
+
+    assert cli.main([*argv, "--remove"]) == 0
+    assert rc_file.read_text(encoding="utf-8") == "export KEEP_ME=1\n"
+
+
+def test_shell_init_refuses_to_overwrite_existing_cap(tmp_path: Path, capsys: Any) -> None:
+    rc_file = tmp_path / ".zshrc"
+    original = "alias cap='other-tool'\n"
+    rc_file.write_text(original, encoding="utf-8")
+
+    assert (
+        cli.main(["shell-init", "--shell", "zsh", "--rc-file", str(rc_file)])
+        == USAGE_ERROR
+    )
+    assert rc_file.read_text(encoding="utf-8") == original
+    assert "refusing to install" in capsys.readouterr().err
+
+
+def test_shell_init_print_does_not_write_a_startup_file(tmp_path: Path, capsys: Any) -> None:
+    rc_file = tmp_path / ".zshrc"
+
+    assert cli.main(["shell-init", "--shell", "zsh", "--rc-file", str(rc_file), "--print"]) == 0
+
+    assert not rc_file.exists()
+    assert "# >>> ctfmem shell-init >>>" in capsys.readouterr().out
 
 
 def test_native_cli_accepts_slash_subcommands(

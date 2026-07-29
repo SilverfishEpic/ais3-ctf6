@@ -181,12 +181,17 @@ ctfmem /try sqli --note 'parameter is escaped' --reason 'tested manually'
 ctfmem /ask 'Which ports are open?' --fact
 ```
 
-After `eval "$(ctfmem shell-init --shell zsh)"`, `cap` is a short explicit wrapper for
-`ctfmem capture --`. It captures only that command's stdout/stderr and exit code; it does not
-observe unrelated commands or proxy interactive terminal input. It is for external programs
-such as `curl`, `nmap`, and `checksec`: shell builtins (`cd`, `export`, aliases) cannot change
-the parent shell through `cap`. Do not use it for prompt-driven programs such as `gdb` or
-`sqlmap`; their later terminal input is deliberately not recorded.
+`ctfmem shell-init --shell zsh` installs a static, marked `cap` function into `~/.zshrc`; open a
+new zsh afterwards. It refuses to overwrite an existing `cap` command, function, or alias, and
+the installed code checks again at shell startup. `ctfmem shell-init --remove` removes only its
+own marker block; `--print` displays that fixed block without changing a startup file.
+
+`cap` is a short explicit wrapper for `ctfmem capture --`. It captures only that command's
+stdout/stderr and exit code; it does not observe unrelated commands or proxy interactive
+terminal input. It is for external programs such as `curl`, `nmap`, and `checksec`: shell
+builtins (`cd`, `export`, aliases) cannot change the parent shell through `cap`. Do not use it
+for prompt-driven programs such as `gdb` or `sqlmap`; their later terminal input is deliberately
+not recorded.
 
 `/edit`、`/try` 和 `/template set` 在省略 `--revision` 時會先讀取目前 revision；腳本仍可
 明確提供 `--revision`。revision conflict 絕不重試：`ctfmem` 會顯示目前白板並以 conflict

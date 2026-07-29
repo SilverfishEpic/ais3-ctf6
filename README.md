@@ -68,17 +68,19 @@ See [`docs/human-webui.md`](docs/human-webui.md), plus
 
 ## Native shell integration
 
-CTF Memory never wraps your terminal or starts a replacement shell. It installs only
-session-local post-command hooks into the shell you already use. Start Memory Core, set the
-one-time local client defaults, then source the integration:
+CTF Memory never wraps your terminal or starts a replacement shell. It installs one static,
+collision-safe `cap` function for future shells; it does not add command hooks. Start Memory
+Core, set the one-time local client defaults, then install the integration:
 
 ```bash
 ctfmem config set --challenge web-01 --actor hacker
-eval "$(ctfmem shell-init --shell zsh)"
+ctfmem shell-init --shell zsh
 ```
 
-This keeps your native completion, plugins, history, keybindings, environment, and terminal
-window intact. Use slash-style native CLI commands such as `ctfmem /status`,
+Open a new zsh afterwards. The installer refuses to overwrite an existing `cap` command,
+function, or alias; `ctfmem shell-init --remove` removes only its own marked block. This keeps
+your native completion, plugins, history, keybindings, environment, and terminal window intact.
+Use slash-style native CLI commands such as `ctfmem /status`,
 `ctfmem /diff on`, `ctfmem /note <text>`, and `ctfmem /memory`.
 Global settings may appear before or after the command: `ctfmem /memory --challenge web-01`.
 For the shortest one-off form, `ctfmem web-01/memory` means the same thing.

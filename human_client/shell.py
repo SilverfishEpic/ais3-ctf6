@@ -1,20 +1,28 @@
 """Native shell integration for CTF Memory.
 
-This module deliberately does not allocate a PTY or proxy terminal input/output.  Operators
-source a small, session-only snippet into their existing shell, which adds `cap` while leaving
-the shell process in control of completion, plugins, and history.
+This module deliberately does not allocate a PTY or proxy terminal input/output.  ``shell-init``
+installs one static, marked shell function so future shells gain ``cap`` without altering the
+current shell or its completion, plugins, and history.
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import re
+import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from .client import MemoryCoreClient
 from .config import ClientConfig, require_challenge
+
+_SHELL_BEGIN = "# >>> ctfmem shell-init >>>"
+_SHELL_END = "# <<< ctfmem shell-init <<<"
+_CAP_DEFINITION = re.compile(
+    r"^\s*(?:alias\s+cap(?:=|\s)|function\s+cap\b|cap\s*\(\s*\))", re.MULTILINE
+)
 
 
 @dataclass
@@ -71,8 +79,18 @@ class ShellSessionStore:
 
 
 def add_shell_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    shell = subparsers.add_parser("shell-init", help="print native Bash/Zsh/Fish integration")
+    shell = subparsers.add_parser(
+        "shell-init", help="install collision-safe cap integration for future shells"
+    )
     shell.add_argument("--shell", choices=("bash", "zsh", "fish"))
+    mode = shell.add_mutually_exclusive_group()
+    mode.add_argument("--print", action="store_true", dest="print_only")
+    mode.add_argument("--remove", action="store_true")
+    shell.add_argument(
+        "--rc-file",
+        type=Path,
+        help="override the shell startup file (useful for a controlled profile)",
+    )
     shell.set_defaults(handler=cmd_shell_init)
 
     command = subparsers.add_parser("shell-command", help=argparse.SUPPRESS)
@@ -92,8 +110,96 @@ def cmd_shell_init(
     args: argparse.Namespace, _config: ClientConfig, _client: MemoryCoreClient
 ) -> int:
     shell = args.shell or _shell_from_environment()
-    print(render_shell_init(shell))
+    snippet = render_shell_init(shell)
+    if args.print_only:
+        print(snippet, end="")
+        return 0
+
+    rc_file = args.rc_file or _shell_rc_file(shell)
+    if args.remove:
+        if _remove_shell_init(rc_file):
+            print(f"ctfmem: removed cap integration from {rc_file}")
+        else:
+            print(f"ctfmem: cap integration is not installed in {rc_file}")
+        return 0
+
+    _install_shell_init(rc_file, snippet)
+    print(f"ctfmem: installed cap integration in {rc_file}")
+    print(f"ctfmem: open a new {shell} shell; the current shell is unchanged.")
     return 0
+
+
+def _shell_rc_file(shell: str) -> Path:
+    home = Path.home()
+    if shell == "bash":
+        return home / ".bashrc"
+    if shell == "zsh":
+        return home / ".zshrc"
+    if shell == "fish":
+        return home / ".config" / "fish" / "config.fish"
+    raise ValueError("shell must be bash, zsh, or fish")
+
+
+def _install_shell_init(rc_file: Path, snippet: str) -> None:
+    try:
+        existing = rc_file.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        existing = ""
+    except OSError as exc:
+        raise ValueError(f"cannot read shell startup file {rc_file}: {exc}") from exc
+
+    without_ours = _without_shell_init(existing)
+    if _CAP_DEFINITION.search(without_ours):
+        raise ValueError(
+            f"refusing to install: {rc_file} already defines cap; no existing command was changed"
+        )
+    command = shutil.which("cap")
+    if command is not None:
+        raise ValueError(
+            f"refusing to install: cap already resolves to {command}; "
+            "no existing command was changed"
+        )
+
+    separator = "" if not without_ours or without_ours.endswith("\n") else "\n"
+    _write_shell_rc(rc_file, f"{without_ours}{separator}{snippet}")
+
+
+def _remove_shell_init(rc_file: Path) -> bool:
+    try:
+        existing = rc_file.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise ValueError(f"cannot read shell startup file {rc_file}: {exc}") from exc
+    if _SHELL_BEGIN not in existing:
+        return False
+    _write_shell_rc(rc_file, _without_shell_init(existing))
+    return True
+
+
+def _without_shell_init(content: str) -> str:
+    begin = content.find(_SHELL_BEGIN)
+    if begin == -1:
+        return content
+    end = content.find(_SHELL_END, begin)
+    if end == -1:
+        raise ValueError(
+            "ctfmem shell-init marker is incomplete; refusing to edit the startup file"
+        )
+    end += len(_SHELL_END)
+    if end < len(content) and content[end] == "\n":
+        end += 1
+    return content[:begin] + content[end:]
+
+
+def _write_shell_rc(rc_file: Path, content: str) -> None:
+    try:
+        rc_file.parent.mkdir(parents=True, exist_ok=True)
+        temporary = rc_file.with_suffix(f"{rc_file.suffix}.ctfmem-tmp")
+        temporary.write_text(content, encoding="utf-8")
+        temporary.replace(rc_file)
+    except OSError as exc:
+        raise ValueError(f"cannot write shell startup file {rc_file}: {exc}") from exc
 
 
 def cmd_shell_command(
@@ -183,26 +289,38 @@ def render_shell_init(shell: str) -> str:
 
 
 def _bash_init() -> str:
-    return '''# ctfmem native Bash integration; source in the current shell only.
-# Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
-# `cap CMD ...` is explicit, byte-safe command-result capture. It never observes other commands.
-cap() { command ctfmem capture -- "$@"; }
+    return f'''{_SHELL_BEGIN}
+# ctfmem native Bash integration.  It never observes other commands or terminal input.
+if ! command -v cap >/dev/null 2>&1; then
+    cap() {{ command ctfmem capture -- "$@"; }}
+else
+    printf '%s\\n' 'ctfmem: cap was not defined because the name is already in use.' >&2
+fi
+{_SHELL_END}
 '''
 
 
 def _zsh_init() -> str:
-    return '''# ctfmem native Zsh integration; source in the current shell only.
-# Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
-# `cap CMD ...` is explicit, byte-safe command-result capture. It never observes other commands.
-cap() { command ctfmem capture -- "$@"; }
+    return f'''{_SHELL_BEGIN}
+# ctfmem native Zsh integration.  It never observes other commands or terminal input.
+if ! command -v cap >/dev/null 2>&1; then
+    cap() {{ command ctfmem capture -- "$@"; }}
+else
+    print -u2 'ctfmem: cap was not defined because the name is already in use.'
+fi
+{_SHELL_END}
 '''
 
 
 def _fish_init() -> str:
-    return '''# ctfmem native Fish integration; source in the current shell only.
-# Slash commands remain native CLI subcommands: ctfmem /status, ctfmem /note <text>.
-# `cap CMD ...` is explicit, byte-safe command-result capture. It never observes other commands.
-function cap
-    command ctfmem capture -- $argv
+    return f'''{_SHELL_BEGIN}
+# ctfmem native Fish integration.  It never observes other commands or terminal input.
+if not type -q cap
+    function cap
+        command ctfmem capture -- $argv
+    end
+else
+    echo 'ctfmem: cap was not defined because the name is already in use.' >&2
 end
+{_SHELL_END}
 '''
