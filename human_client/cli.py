@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import getpass
 import shlex
+import subprocess
 import sys
 from collections.abc import Callable, Sequence
 from contextlib import suppress
@@ -179,6 +180,11 @@ def build_parser() -> argparse.ArgumentParser:
     setup.set_defaults(handler=cmd_setup)
 
     capture = sub.add_parser("capture")
+    capture.add_argument(
+        "--wait",
+        action="store_true",
+        help="wait for Memory Core ingest instead of delivering the saved result in background",
+    )
     capture.add_argument("command_argv", nargs=argparse.REMAINDER)
     capture.set_defaults(handler=cmd_capture)
 
@@ -192,6 +198,9 @@ def build_parser() -> argparse.ArgumentParser:
     retry_capture = pending_capture_sub.add_parser("retry")
     retry_capture.add_argument("id")
     retry_capture.set_defaults(handler=cmd_pending_capture_retry)
+    deliver_capture = pending_capture_sub.add_parser("deliver", help=argparse.SUPPRESS)
+    deliver_capture.add_argument("id")
+    deliver_capture.set_defaults(handler=cmd_pending_capture_deliver)
 
     show = sub.add_parser("show")
     show.add_argument("--facts", action="store_true")
@@ -290,6 +299,7 @@ def _add_slash_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     note.set_defaults(handler=cmd_slash_note)
 
     capture = subparsers.add_parser("/capture", help="run a command and record its result")
+    capture.add_argument("--wait", action="store_true")
     capture.add_argument("command_argv", nargs=argparse.REMAINDER)
     capture.set_defaults(handler=cmd_slash_capture)
 
@@ -642,6 +652,31 @@ def cmd_capture(args: argparse.Namespace, config: ClientConfig, client: MemoryCo
     pending = _pending_capture_store(args).enqueue(
         challenge=challenge, actor=config.actor, result=command_result
     )
+    if not args.wait:
+        delivery_started = _start_background_capture_delivery(args, config, challenge, pending)
+        if config.json_output:
+            emit_json(
+                {
+                    "ok": True,
+                    "child_exit_code": result.exit_code,
+                    "pending_capture_id": pending.id,
+                    "delivery": "background" if delivery_started else "queued",
+                }
+            )
+        else:
+            if delivery_started:
+                print(
+                    f"Capture saved as {pending.id}; "
+                    "Memory Core delivery continues in the background.",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Capture saved as {pending.id}; delivery was not started. "
+                    f"Retry it explicitly with `ctfmem capture-pending retry {pending.id}`.",
+                    file=sys.stderr,
+                )
+        return result.exit_code
     try:
         payload = client.ingest_command_result(challenge, command_result, actor=config.actor)
     except (CoreError, CoreConnectionError) as exc:
@@ -687,6 +722,26 @@ def cmd_pending_capture_retry(
     return OK
 
 
+def cmd_pending_capture_deliver(
+    args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient
+) -> int:
+    """Deliver one newly captured result from the detached uploader.
+
+    This is deliberately separate from ``retry``: it performs the one initial request that
+    follows a successful local capture.  A later retry remains an explicit user action because
+    a failed HTTP request may already have reached Memory Core.
+    """
+
+    store = _pending_capture_store(args)
+    pending = store.get(args.id)
+    try:
+        client.ingest_command_result(pending.challenge, pending.result, actor=pending.actor)
+    except (CoreError, CoreConnectionError) as exc:
+        return _capture_ingest_failed(exc, config, pending)
+    store.remove(pending.id)
+    return OK
+
+
 def cmd_slash_pending_capture_retry(
     args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient
 ) -> int:
@@ -695,6 +750,57 @@ def cmd_slash_pending_capture_retry(
 
 def _pending_capture_store(args: argparse.Namespace) -> PendingCaptureStore:
     return PendingCaptureStore(config_path_from_args(args).parent / "pending-captures.json")
+
+
+def _start_background_capture_delivery(
+    args: argparse.Namespace,
+    config: ClientConfig,
+    challenge: str,
+    pending: PendingCapture,
+) -> bool:
+    """Start one detached delivery attempt without retaining the operator's terminal.
+
+    The complete result has already reached the durable local queue at this point.  The child
+    inherits neither terminal stream nor stdin, so it cannot consume keystrokes or delay the
+    prompt.  If it cannot deliver, it leaves the queue entry for an explicit retry.
+    """
+
+    config_path = config_path_from_args(args).resolve()
+    command = [
+        sys.executable,
+        "-m",
+        "human_client.cli",
+        "--api-url",
+        config.api_url,
+        "--challenge",
+        challenge,
+        "--actor",
+        config.actor,
+        "--timeout",
+        str(config.timeout),
+        "--config",
+        str(config_path),
+        "capture-pending",
+        "deliver",
+        pending.id,
+    ]
+    try:
+        subprocess.Popen(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True,
+        )
+        return True
+    except OSError as exc:
+        print(
+            f"ctfmem: could not start background delivery ({exc}); "
+            f"capture remains queued as {pending.id}.",
+            file=sys.stderr,
+        )
+        return False
 
 
 def _format_pending_capture(entry: dict[str, object]) -> str:

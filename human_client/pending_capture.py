@@ -8,6 +8,8 @@ leave the client unable to know whether the server received the original request
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -49,10 +51,18 @@ class PendingCaptureStore:
             actor=actor,
             result=result,
         )
-        self._write([*self.load(), pending])
+        # ``capture`` may start a detached one-shot uploader immediately after this returns.
+        # The write is complete before that process exists, so a capture result is never only
+        # held in the foreground process's memory.  The lock also prevents an uploader removing
+        # an older entry from overwriting a capture that arrived in the meantime.
+        with self._locked():
+            self._write([*self._load(), pending])
         return pending
 
     def load(self) -> list[PendingCapture]:
+        return self._load()
+
+    def _load(self) -> list[PendingCapture]:
         try:
             raw: Any = json.loads(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
@@ -73,11 +83,28 @@ class PendingCaptureStore:
         raise ValueError(f"pending capture {pending_id!r} was not found")
 
     def remove(self, pending_id: str) -> None:
-        pending = self.load()
-        retained = [entry for entry in pending if entry.id != pending_id]
-        if len(retained) == len(pending):
-            raise ValueError(f"pending capture {pending_id!r} was not found")
-        self._write(retained)
+        with self._locked():
+            pending = self._load()
+            retained = [entry for entry in pending if entry.id != pending_id]
+            if len(retained) == len(pending):
+                raise ValueError(f"pending capture {pending_id!r} was not found")
+            self._write(retained)
+
+    @contextmanager
+    def _locked(self) -> Iterator[None]:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self.path.with_suffix(f"{self.path.suffix}.lock")
+        with lock_path.open("a", encoding="utf-8") as lock_file:
+            try:  # ``fcntl`` is unavailable on Windows; atomic replacement protects readers.
+                import fcntl
+            except ImportError:  # pragma: no cover - exercised only on Windows
+                yield
+                return
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def _write(self, entries: list[PendingCapture]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

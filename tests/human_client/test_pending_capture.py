@@ -60,6 +60,7 @@ def test_capture_queues_result_when_ingest_connection_fails(
             "--challenge",
             "demo",
             "capture",
+            "--wait",
             "--",
                 sys.executable,
                 "-c",
@@ -72,6 +73,49 @@ def test_capture_queues_result_when_ingest_connection_fails(
     pending = PendingCaptureStore(tmp_path / "pending-captures.json").load()
     assert len(pending) == 1
     assert pending[0].result["stdout_base64"] == "Y2FwdHVyZWQgb3V0cHV0Cg=="
+
+
+def test_capture_returns_after_starting_one_detached_delivery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    started: list[tuple[list[str], dict[str, object]]] = []
+    real_popen = cli.subprocess.Popen
+
+    def fake_popen(command: list[str], **kwargs: object) -> object:
+        if command[1:3] != ["-m", "human_client.cli"]:
+            return real_popen(command, **kwargs)
+        started.append((command, kwargs))
+        return object()
+
+    monkeypatch.setattr(cli.subprocess, "Popen", fake_popen)
+    config_path = tmp_path / "client.json"
+
+    assert (
+        cli.main(
+            [
+                "--config",
+                str(config_path),
+                "--challenge",
+                "demo",
+                "capture",
+                "--",
+                sys.executable,
+                "-c",
+                "print('captured output')",
+            ]
+        )
+        == 0
+    )
+
+    assert "Memory Core delivery continues in the background" in capsys.readouterr().err
+    assert len(started) == 1
+    command, kwargs = started[0]
+    assert command[-3:] == ["capture-pending", "deliver", command[-1]]
+    assert kwargs["stdin"] is cli.subprocess.DEVNULL
+    assert kwargs["stdout"] is cli.subprocess.DEVNULL
+    assert kwargs["stderr"] is cli.subprocess.DEVNULL
+    assert kwargs["start_new_session"] is True
+    assert len(PendingCaptureStore(tmp_path / "pending-captures.json").load()) == 1
 
 
 def test_pending_capture_retry_renders_its_actual_ingest_payload(

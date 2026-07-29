@@ -109,6 +109,7 @@ def test_capture_ingests_one_command_result(
             "--challenge",
             "demo-web",
             "capture",
+            "--wait",
             "--",
             sys.executable,
             "-c",

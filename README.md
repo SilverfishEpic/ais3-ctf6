@@ -92,7 +92,10 @@ Agent runs remain explicit through `ctfmem agent run` and `ctfmem agent stop`. B
 safely interpret a bare `/status` as anything other than an absolute path without intercepting
 its input loop, so the `ctfmem /…` form is intentional. The sourced integration provides
 `cap COMMAND ...` as the short, explicit form of `ctfmem capture -- COMMAND ...`; it records
-only commands you prefix with `cap` and never observes other terminal activity.
+only commands you prefix with `cap` and never observes other terminal activity. Once the command
+ends, it saves the result locally and returns the prompt while a detached, stdin-free child makes
+one initial delivery attempt. Use `ctfmem capture --wait -- COMMAND ...` only when a script needs
+to wait for Memory Core's response.
 Diff is opt-in and prints a git-style ANSI summary directly on stdout. Preferences are stored in
 `.ctfmem/<challenge>/shell-session.json`; no terminal transcript is written.
 

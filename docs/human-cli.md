@@ -196,6 +196,11 @@ builtins (`cd`, `export`, aliases) cannot change the parent shell through `cap`.
 for prompt-driven programs such as `gdb` or `sqlmap`; their later terminal input is deliberately
 not recorded.
 
+After the program exits, `cap` writes the complete result to the local pending queue and returns
+the prompt immediately. A detached, stdin-free child makes one initial Memory Core delivery
+attempt; it cannot block the terminal or consume terminal input. Use `ctfmem capture --wait --
+COMMAND ...` only when the caller explicitly needs to wait for the resulting diff.
+
 The direct shortcuts forward their arguments unchanged: `note TEXT` is `ctfmem /note TEXT`,
 `mem` is `/memory`, `ask` is `/ask`, and so on. `ctf COMMAND ...` provides the short, namespaced
 fallback for less frequent operations, for example `ctf /template set web --reason 'reclassified'`.
@@ -520,7 +525,7 @@ ctfmem --challenge demo-web capture -- nmap -sC -sV target
 
 - child stdout 即時 tee 到目前 stdout。
 - child stderr 即時 tee 到目前 stderr。
-- 程序結束後只送出一個完整 `command_result` ingest。
+- 程序結束後只送出一個完整 `command_result` ingest；預設由 detached child 執行，不等待它。
 - `stdout`/`stderr` 是可顯示的 UTF-8 replacement preview；`stdout_base64`/`stderr_base64`
   同時保存原始 bytes，因此非 UTF-8 輸出不會令 capture 中斷或遺失。
 - 不使用 `shell=True` / `os.system()`。
@@ -528,9 +533,11 @@ ctfmem --challenge demo-web capture -- nmap -sC -sV target
 - `--json` 模式為維持 stdout 單一合法 JSON document，child stdout/stderr 會 tee 到 stderr。
 - 只適用於會自行結束的命令；不攔截或記錄 child 的後續互動 stdin。
 
-每次 ingest 前，capture 都會先在 `.ctfmem/pending-captures.json` 寫入完整結果。若 Core
-連線或回應失敗，結果會保留並印出 pending ID；它**不會**自動重送，因為斷線時客戶端無法
-確定伺服器是否已收到原請求。操作員可先查看再明確重送：
+每次 ingest 前，capture 都會先在 `.ctfmem/pending-captures.json` 寫入完整結果。預設模式
+會在命令結束後立即回到 prompt，並由不繼承 stdin/stdout/stderr 的 detached child 做一次
+首次送出；因此 Core 慢或 timeout 不會卡住操作終端。若首次送出失敗，結果會保留在 queue。
+它**不會**自動重送，因為斷線時客戶端無法確定伺服器是否已收到原請求。操作員可先查看再
+明確重送：
 
 ```bash
 ctfmem capture-pending list
@@ -539,6 +546,12 @@ ctfmem capture-pending retry PENDING_ID
 
 retry 成功才會移除本機項目；若原請求其實已送達，重送可能建立另一筆 journal record，因此
 應先依 ID 與 Core 白板／journal 狀態判斷。
+
+若腳本需要等到本次 ingest 的結果才繼續，明確使用 `--wait`：
+
+```bash
+ctfmem --challenge demo-web capture --wait -- nmap -sC -sV target
+```
 
 ### `add`
 
