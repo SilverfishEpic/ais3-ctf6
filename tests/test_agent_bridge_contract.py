@@ -34,6 +34,7 @@ def test_fake_adapter_fixtures_are_committed_and_replayable() -> None:
         envelope = FakeAgentAdapter(scenario).run_sync()
         parsed = IngestEnvelope.model_validate(envelope)
         assert parsed.source.type == "agent"
+        assert parsed.source.provider == "fake"
         assert parsed.input.type == "run_log"
         assert parsed.input.events
 

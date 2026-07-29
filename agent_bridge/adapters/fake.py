@@ -83,7 +83,11 @@ class FakeAgentAdapter:
     def _replay(self, prompt: str, board: str | None, via: str) -> RunResult:
         self.calls.append({"via": via, "prompt": prompt, "board": board})
         run = self.load_run()
-        envelope = build_envelope(run, run_id=f"fake-{self.scenario}-{len(self.calls)}")
+        envelope = build_envelope(
+            run,
+            provider="fake",
+            run_id=f"fake-{self.scenario}-{len(self.calls)}",
+        )
         return RunResult(envelope=envelope, run=run)
 
     def load_run(self) -> NormalizedRun:

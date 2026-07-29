@@ -375,7 +375,7 @@ ctfmem agent run
   ↓
 AgentLoop
   ↓
-ClaudeAdapter 或 FakeAgentAdapter
+ClaudeAdapter、CodexAdapter 或 FakeAgentAdapter
   ↓
 normalized run log
   ↓
@@ -386,19 +386,73 @@ Memory Core /ingest
 
 ```bash
 uv run ctfmem --challenge demo-web agent run \
+  --provider fake \
   --fake-agent multi_tool \
   "繼續分析"
 ```
+
+為了相容既有指令，省略 `--provider` 但提供 `--fake-agent` 時也會使用 fake
+provider。
 
 真 Claude normal run：
 
 ```bash
 uv run ctfmem --challenge demo-web agent run \
+  --provider claude \
   --workspace . \
   --mode normal \
   --session same \
   "繼續分析"
 ```
+
+Claude 是目前預設 provider。若省略 `--provider` 且沒有 `--fake-agent`，等同於
+`--provider claude`，除非環境變數 `CTFMEM_AGENT_PROVIDER` 指定其他值。
+
+Codex MVP normal run：
+
+```bash
+uv run ctfmem --challenge demo-web agent run \
+  --provider codex \
+  --workspace . \
+  --mode normal \
+  --session same \
+  "繼續分析"
+```
+
+Codex 目前透過 `codex exec --json` 非互動模式執行。這個 MVP 刻意保守：
+
+```text
+[x] 支援 normal run
+[x] 支援 YOLO run
+[x] 支援 session=same
+[x] 支援 session=new
+[x] 將 Codex JSONL events normalize 成 AgentRunEvent
+[x] unknown provenance 以 outcome=unknown 保存
+[x] 支援唯讀 Codex MCP memory skill
+[x] Codex subprocess 會移除 AIS3 / Memory Core provider env
+[x] Codex run 會固定使用 untrusted approval policy、忽略 user config 與 project rules，並固定使用 read-only sandbox
+[x] Codex 與 Claude 達到相同保守權限等級，但 enforcement mechanism 不同
+```
+
+Codex 若要使用和 Claude 類似的跨輪上下文，使用 `--session same`。若要每輪只依賴
+Memory Core 白板，使用 `--session new`。
+
+預設會依照 memory policy 啟用唯讀 memory skill，提供：
+
+```text
+memory_show
+memory_query
+memory_guess
+```
+
+若要完全關閉 memory skill，只保留 prompt board injection，可加上
+`--no-memory-skill`。
+
+Codex path 會強制加入 `--ask-for-approval untrusted`、`--ignore-user-config`、
+`--ignore-rules`、`--sandbox read-only`，並在啟動 Codex subprocess 前移除
+`AIS3_API_KEY`、`AIS3_BASE_URL`、
+`AIS3_SUMMARIZER_MODEL`、`AIS3_TIMEOUT` 等 Memory Core provider credentials。
+這表示 Codex 可以讀白板，但不應取得 AIS3 key。
 
 YOLO run：
 
@@ -409,6 +463,18 @@ uv run ctfmem --challenge demo-web agent run \
   --max-turns 10 \
   --max-cost-usd 5 \
   --idle-turns 3 \
+  "把題目解完"
+```
+
+Codex YOLO run：
+
+```bash
+uv run ctfmem --challenge demo-web agent run \
+  --provider codex \
+  --mode yolo \
+  --session same \
+  --max-turns 5 \
+  --idle-turns 2 \
   "把題目解完"
 ```
 
@@ -456,6 +522,7 @@ JSON mode：
 
 ```bash
 uv run ctfmem --json --challenge demo-web agent run \
+  --provider fake \
   --fake-agent single_tool \
   "查一下"
 ```

@@ -53,7 +53,39 @@ def test_agent_run_fake_agent_ingests_agent_run_log(
     assert len(memory.ingested) == 1
     envelope = memory.ingested[0]
     assert envelope["source"]["type"] == "agent"
+    assert envelope["source"]["provider"] == "fake"
     assert envelope["input"]["type"] == "run_log"
+
+
+def test_agent_run_codex_allows_memory_skill_by_default(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_build_agent_adapter(**kwargs: Any) -> object:
+        assert kwargs["provider"] == "codex"
+        assert kwargs["no_memory_skill"] is False
+        raise ValueError("adapter factory reached")
+
+    monkeypatch.setattr(agent_cli, "build_agent_adapter", fake_build_agent_adapter)
+
+    code = cli.main(
+        [
+            "--challenge",
+            "demo-web",
+            "agent",
+            "run",
+            "--provider",
+            "codex",
+            "--runtime-dir",
+            str(tmp_path),
+            "繼續分析",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code != OK
+    assert "adapter factory reached" in captured.err
 
 
 def test_agent_run_json_output_is_machine_safe(
