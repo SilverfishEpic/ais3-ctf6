@@ -33,21 +33,90 @@ Memory Core is the only semantic-memory writer. Human CLI and Agent Bridge reach
 through the public HTTP/OpenAPI contract; neither client writes `state.yaml` or
 `journal.jsonl` directly.
 
-## Human CLI quick start
+## Human CLI: start here
 
-`ctfmem` is the human-facing HTTP client for Memory Core. The most reliable invocation is
-through `uv run`:
+`ctfmem` is the human-facing client for Memory Core. This is the complete Linux/zsh workflow
+for a new CTF session. It intentionally uses ordinary shell commands: there is no terminal
+proxy, no background observation of every command, and no persistent shell modification.
+
+### 1. Prepare the project shell
+
+From the repository root, install the development environment once, then activate it in the
+shell from which you will start the CTF session:
 
 ```bash
-uv run ctfmem --help
+uv sync --extra dev
+source .venv/bin/activate
+ctfmem --help
 ```
 
-If you install the package with `uv pip install -e .`, the executable is installed inside
-the project virtual environment. Use `source .venv/bin/activate` on Linux/macOS or
-`.\.venv\Scripts\Activate.ps1` on Windows PowerShell before calling `ctfmem` directly.
+Activating the venv matters: the temporary zsh created later inherits this `PATH`, so its short
+commands can still find `ctfmem`. If direct `ctfmem` is not wanted, the long form
+`uv run ctfmem ...` also works, but is deliberately not used for the high-frequency examples
+below.
 
-Full installation and Linux/Windows usage notes are in
-[`docs/human-cli.md`](docs/human-cli.md).
+### 2. Start Memory Core
+
+In a separate terminal, initialise the non-secret Core configuration if needed, then start the
+local server. The API key belongs only to this server process; never put it in CLI config or a
+shell profile.
+
+```bash
+./scripts/memory-core-init.sh
+AIS3_API_KEY='set-this-only-in-the-server-environment' \
+  uv run python -m memory_core --host 127.0.0.1 --port 8000
+```
+
+If the Core is already running, skip this step. The CLI default URL is
+`http://127.0.0.1:8000`.
+
+### 3. Create and select a challenge
+
+Back in the activated project shell, create the challenge once, then store only local,
+non-secret defaults. `.ctfmem/client-config.json` is project-local and git-ignored.
+
+```bash
+ctfmem challenge create web-01 --title 'Web 01' --template web
+ctfmem config set --challenge web-01 --actor hacker --api-url http://127.0.0.1:8000
+ctfmem config show
+```
+
+For a fully guided setup, use `ctfmem setup` instead. To work on another challenge for one
+command, add `--challenge other-id`; command-line options override the saved defaults.
+
+### 4. Enter the short-command shell
+
+Run this from the activated shell:
+
+```bash
+ctfmem shell-init
+```
+
+It opens a **temporary nested zsh**. Your normal `.zshrc` is loaded into that child first, then
+CTF shortcuts are created only when their names are unclaimed. Nothing is written to `.zshrc`.
+Type `exit` when the CTF session ends to return to the outer shell.
+
+The shortcuts are the primary daily interface:
+
+| Short command | Full command | Use it for |
+| --- | --- | --- |
+| `cap CMD ...` | `ctfmem /capture -- CMD ...` | run one finishing external command and retain its result |
+| `note TEXT` | `ctfmem /note TEXT` | record an observation in plain language |
+| `mem ...` | `ctfmem /memory ...` | deterministic Fact/Assumption lookup |
+| `ask QUESTION ...` | `ctfmem /ask QUESTION ...` | semantic question to Memory Core |
+| `add ...` | `ctfmem /add ...` | add a Fact or Assumption, interactively or with fields |
+| `edit ...` | `ctfmem /edit ...` | make an explicit whiteboard mutation |
+| `guess ...` | `ctfmem /guess ...` | show template-backed techniques |
+| `try ...` | `ctfmem /try ...` | mark a technique as tried |
+| `ctf ...` | `ctfmem ...` | short namespaced escape hatch for less-common commands |
+
+If a name already belongs to your alias, function, or command, `shell-init` prints a collision
+warning and leaves it alone. Use the full `ctfmem ...` command in that case. The legacy cleanup
+command below is only for old releases that previously edited `.zshrc`:
+
+```bash
+ctfmem shell-init --remove
+```
 
 ## Web UI quick start
 
@@ -68,64 +137,145 @@ See [`docs/human-webui.md`](docs/human-webui.md), plus
 
 ## Native shell integration
 
-`ctfmem shell-init` starts an isolated, temporary zsh for a CTF session. It never modifies your
-`.zshrc`, adds no command hooks, and does not proxy terminal I/O. Set the local defaults once,
-then enter that shell:
+This section is a practical session playbook. Run it after the four setup steps above, inside the
+temporary zsh. The short commands are not aliases for arbitrary shell automation; each one maps
+to one explicit `ctfmem` operation.
+
+### A. Capture a command that finishes
+
+Use `cap` for a non-interactive external command such as `curl`, `nmap`, or `checksec`:
 
 ```bash
-ctfmem config set --challenge web-01 --actor hacker
-ctfmem shell-init
-```
-
-The child loads your usual zsh configuration first, then adds a shortcut only if its name is not
-already an alias, function, or command. A collision always leaves your existing command intact.
-Use `exit` to return to the outer shell; its configuration is untouched.
-
-```bash
-# Run a non-interactive command and retain stdout/stderr/exit code.
+cap curl -i http://target/
 cap nmap -sV target
-
-# Add a human observation or inspect the whiteboard.
-note 'port 80 redirects to HTTPS'
-mem --facts
-mem fact F001
-mem assumption --find 'SQL injection'
-mem fact --tag web --section target
-
-# Ask for a semantic summary; append & when you do not want to wait at the prompt.
-ask 'what is confirmed?' --fact &
-
-# Less frequent commands remain namespaced.
-ctf capture-pending list
-ctf /template set web --reason 'confirmed service type'
-exit
 ```
 
-Available shortcuts, when unclaimed, are `ctf`, `cap`, `note`, `mem`, `ask`, `add`, `edit`,
-`guess`, and `try`. `cap COMMAND ...` is explicit capture only: it does not observe unrelated
-commands or terminal input. When the command ends, `cap` durably queues its raw stdout/stderr and
-returns the prompt; a detached, stdin-free process makes one initial delivery attempt to Memory
-Core. If delivery fails, use `ctf capture-pending list` and explicitly retry the retained result.
-For a script that must wait for the ingest response, use:
+`cap` displays the command's normal stdout/stderr and returns the child program's exit code. Once
+the program exits, it saves the complete raw output (including non-UTF-8 bytes) in the local
+pending queue and immediately gives the terminal back. A detached, stdin-free worker then makes
+one delivery attempt to Memory Core, so a slow Core does not block your prompt.
+
+Check or explicitly retry a retained result only when needed:
+
+```bash
+ctf capture-pending list
+ctf capture-pending retry PENDING_ID
+```
+
+The worker never auto-retries: after a network failure it cannot know whether the server received
+the first request, and blindly replaying could duplicate a record. A script that genuinely needs
+the ingest result before continuing can opt in to waiting:
 
 ```bash
 ctfmem capture --wait -- nmap -sV target
 ```
 
-Use `mem` for immediate, deterministic Fact/Assumption lookup. `mem fact F001` and
-`mem assumption A003` look up one stable ID. `--find` performs a case-insensitive substring match
-over IDs, item text, tags, and evidence IDs; `--tag` matches an exact tag and may be repeated.
-The existing `mem --facts`, `mem --assumptions`, and `--section` forms remain available. Use
-`ask` only when you want a natural-language answer; it calls the Core query path and can wait for
-the model, so zsh job control (`ask ... &`) is the non-blocking form.
+`cap` is intentionally **not autocapture**. It cannot record commands typed outside `cap`, and it
+does not record later terminal input. Do not use it for interactive/prompt-driven programs such
+as `gdb` or `sqlmap`; run those normally and record the meaningful outcome with `note` or `add`.
+Capturing every command's output would require intercepting the shell's stdout/stderr and would
+change TTY behaviour; capturing interactive stdin additionally needs a terminal proxy/PTY. Those
+trade-offs are deliberately not hidden behind this workflow.
 
-There is currently no autocapture mode. Recording arbitrary command output would require
-intercepting the child shell's stdout/stderr, which changes TTY behaviour for some programs;
-recording later interactive stdin additionally requires a terminal proxy/PTY. `gdb` and `sqlmap`
-therefore remain outside the scope of `cap`'s capture guarantee.
+### B. Record what you learned
 
-Earlier releases wrote a marked block into `~/.zshrc`. New `shell-init` never installs it; run
-`ctfmem shell-init --remove` once to remove an existing legacy block.
+Use `note` for an unstructured observation. It is the fastest way to leave context for the next
+person or query; Memory Core decides how to summarise it.
+
+```bash
+note 'The login page accepts only alphanumeric credentials in client-side JavaScript.'
+note 'curl showed a Big5 page; inspect checkUserAccessTo next.'
+```
+
+Use `add` when you know whether the item is a confirmed **Fact** or an unconfirmed
+**Assumption**, and want to supply the Web UI-equivalent fields. With no fields, `add` asks for
+them one at a time in an interactive terminal.
+
+```bash
+add fact --text 'The /cloud/ endpoint serves a login page' \
+  --section recon --reason 'observed with curl' --evidence I-0003 --tag web
+
+add assumption --text 'The authentication request may be vulnerable to SQL injection' \
+  --section attack_surface --reason 'input handling has not been tested' --tag sqli
+```
+
+`--evidence` and `--tag` may each be repeated. `reason` is the rationale for an explicit
+whiteboard change; it is not a substitute for raw command output.
+
+### C. Find a known Fact or Assumption immediately
+
+`mem` is deterministic: it reads the current whiteboard and does not ask a model to formulate an
+answer. Prefer it when you need exact, inspectable information.
+
+```bash
+# Browse a layer.
+mem --facts
+mem --assumptions
+
+# Look up a stable item ID (case-insensitive).
+mem fact F001
+mem assumption A003
+
+# Search items by ID, text, tag, or evidence ID.
+mem fact --find cloud
+mem assumption --find 'SQL injection'
+
+# Narrow the lookup. Repeated --tag values must all be present.
+mem fact --tag web --section recon
+mem assumption --tag sqli --tag login
+```
+
+An unknown ID returns a not-found error; a search with no matches prints `No matching ... items.`
+and succeeds. `mem fact F001` is the right command when an answer refers to `F001` and you need
+to verify the underlying record rather than trust a summary.
+
+### D. Ask a semantic question without losing the prompt
+
+`ask` is for questions such as a situation summary or a comparison across records. It uses the
+Memory Core query path, so it may wait for the configured model. Add `&` in zsh when you want the
+prompt back immediately:
+
+```bash
+ask 'What is confirmed about the login endpoint?' --fact &
+ask 'Which assumptions should be tested next?' --assumption &
+```
+
+When the answer arrives, it includes references such as `F001`; use `mem fact F001` to inspect
+the source item. Use `jobs`, `fg`, and normal zsh job control to manage background questions.
+
+### E. Work through the technique catalog
+
+`guess` only displays techniques from the active challenge template; it never runs a scan or
+attack. `try` records that a named technique was attempted and why.
+
+```bash
+guess --count 3
+try WEB-SSTI --note 'Template markers were rendered literally' \
+  --reason 'manual probe on the login form'
+```
+
+### F. Make a deliberate correction
+
+Use `edit` for an explicit mutation of an existing whiteboard item. In an interactive shell it
+prompts for omitted revision/reason fields; scripts should provide them explicitly. For example:
+
+```bash
+edit promote A003 --reason 'A reproducible payload confirmed the hypothesis'
+edit replace F001 --text 'The /cloud/ endpoint redirects to /cloud/login' \
+  --reason 'verified with curl -I'
+```
+
+For less frequent operations, retain the `ctf` prefix rather than taking common shell command
+names. For example:
+
+```bash
+ctf /template set web --reason 'confirmed service type'
+ctf /challenge list
+ctf /memory --facts --section recon
+```
+
+Outside the temporary zsh, use the same interface with the `ctfmem` prefix, for example
+`ctfmem /memory fact F001` or `ctfmem capture -- curl -i http://target/`.
 
 ## License
 
