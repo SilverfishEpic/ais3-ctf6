@@ -36,6 +36,20 @@ def test_capture_preserves_nonzero_exit_code() -> None:
     assert result.command[:2] == [sys.executable, "-c"]
 
 
+def test_capture_preserves_non_utf8_bytes_without_crashing() -> None:
+    stdout = io.StringIO()
+    result = run_capture(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xa5text')"],
+        stdout=stdout,
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout_bytes == b"\xa5text"
+    assert result.stdout == "\ufffdtext"
+    assert result.stdout_base64 == "pXRleHQ="
+    assert stdout.getvalue() == "\ufffdtext"
+
+
 def test_capture_requires_structured_argv() -> None:
     with pytest.raises(ValueError):
         run_capture([])

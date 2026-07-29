@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 
 class IngestEnvelope(TypedDict):
@@ -13,6 +13,8 @@ class CommandResult(TypedDict):
     exit_code: int
     stdout: str
     stderr: str
+    stdout_base64: NotRequired[str]
+    stderr_base64: NotRequired[str]
 
 
 Layer = Literal["fact", "assumption", "guessing"]
@@ -34,5 +36,7 @@ def command_result_envelope(result: CommandResult, actor: str) -> IngestEnvelope
             "exit_code": result["exit_code"],
             "stdout": result["stdout"],
             "stderr": result["stderr"],
+            "stdout_base64": result.get("stdout_base64"),
+            "stderr_base64": result.get("stderr_base64"),
         },
     }

@@ -133,57 +133,155 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 `ctfmem` 只連線到 Memory Core HTTP API。AIS3 key 只屬於 Memory Core server process，不應提供給 `ctfmem`。
 
+模型、endpoint、timeout、runs 和 templates 路徑可放進被 git 忽略的
+`.ctfmem/core-config.json`；第一次只需初始化一次。AIS3 API key 是唯一必須保留在
+server process environment 的設定。
+
 ### 5.1 Linux / zsh / bash
 
 ```bash
-set -a
-. ./.env.local
-set +a
+./scripts/memory-core-init.sh
 
-uv run python -m memory_core \
-  --runs ./runs \
-  --templates ./templates \
-  --host 127.0.0.1 \
-  --port 8000
+AIS3_API_KEY='...' uv run python -m memory_core --host 127.0.0.1 --port 8000
 ```
 
 ### 5.2 Windows PowerShell
 
-PowerShell 不會直接 source POSIX `.env`。可用下列方式載入簡單的 `KEY=value` 格式：
-
 ```powershell
-Get-Content .env.local | ForEach-Object {
-  if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
-    [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), "Process")
-  }
-}
+.\scripts\memory-core-init.ps1 -Model "ais3/nemotron-3-ultra-550b"
+# Make AIS3_API_KEY available only to this server process via your approved secret mechanism.
 
-uv run python -m memory_core `
-  --runs ./runs `
-  --templates ./templates `
-  --host 127.0.0.1 `
-  --port 8000
+uv run python -m memory_core --host 127.0.0.1 --port 8000
 ```
+
+Use your organisation's secret manager or set `AIS3_API_KEY` only for that process. The important
+boundary is that neither init script writes a key to disk.
 
 ## 6. Linux / Windows 基本使用
 
-另開一個 console 設定 Human CLI 連線資訊。
+## 原生終端 slash 操作面
+
+`ctfmem` 不會接管終端或啟動全螢幕 UI；slash 命令就是一般 CLI 子命令，因此 shell
+原有的 history、completion、plugin 與快捷鍵都照常運作。Web UI 的操作功能可用文字輸出
+完成，但不嘗試複製動畫或輪詢畫面。
+
+```bash
+ctfmem /challenge list
+ctfmem /challenge create web-01 --title 'Web 01' --template web
+ctfmem /challenge use web-01
+ctfmem /memory --facts --section recon
+ctfmem /memory fact F001
+ctfmem /memory assumption --find sqli
+ctfmem /note 'port 80 is open'
+cap curl -i http://target/
+ctfmem /command --command 'nmap -sV target' --exit-code 0 --stdout '...'
+ctfmem /add fact --text 'TLS is enabled' --section recon --reason 'confirmed with curl' --tag tls
+ctfmem /edit add fact --text 'TLS is enabled' --reason 'confirmed with curl'
+ctfmem /template set web --reason 'service classification changed'
+ctfmem /guess --count 1 --seed 7
+ctfmem /try sqli --note 'parameter is escaped' --reason 'tested manually'
+ctfmem /ask 'Which ports are open?' --fact
+```
+
+`ctfmem shell-init` enters a temporary interactive zsh. It first loads the normal `~/.zshrc` into
+that child and then adds the high-frequency shortcuts `ctf`, `cap`, `note`, `mem`, `ask`, `add`,
+`edit`, `guess`, and `try` only when each name is unclaimed. It never writes `~/.zshrc`; an
+existing command, function, or alias remains untouched. Use `exit` to return to the original
+shell. `--print` displays the temporary shortcut block. Earlier releases wrote a marked block;
+`ctfmem shell-init --remove` removes only that legacy block and installs nothing.
+
+`cap` is a short explicit wrapper for `ctfmem capture --`. It captures only that command's
+stdout/stderr and exit code; it does not observe unrelated commands or proxy interactive
+terminal input. It is for external programs such as `curl`, `nmap`, and `checksec`: shell
+builtins (`cd`, `export`, aliases) cannot change the parent shell through `cap`. Do not use it
+for prompt-driven programs such as `gdb` or `sqlmap`; their later terminal input is deliberately
+not recorded.
+
+After the program exits, `cap` writes the complete result to the local pending queue and returns
+the prompt immediately. A detached, stdin-free child makes one initial Memory Core delivery
+attempt; it cannot block the terminal or consume terminal input. Use `ctfmem capture --wait --
+COMMAND ...` only when the caller explicitly needs to wait for the resulting diff.
+
+The direct shortcuts forward their arguments unchanged: `note TEXT` is `ctfmem /note TEXT`,
+`mem` is `/memory`, `ask` is `/ask`, and so on. `ctf COMMAND ...` provides the short, namespaced
+fallback for less frequent operations, for example `ctf /template set web --reason 'reclassified'`.
+Configuration, challenge lifecycle, agent lifecycle, template changes, and pending-capture retry
+remain intentionally explicit under `ctfmem` or `ctf` rather than claiming generic shell names.
+
+`mem`／`show` 是 deterministic whiteboard lookup，不會呼叫 query model。除了既有
+`--facts`、`--assumptions`、`--section` 外，Fact／Assumption 支援短位置語法：
+
+```bash
+mem fact F001
+mem assumption A003
+mem fact --find cloud
+mem assumption --tag sqli --section attack_surface
+```
+
+ID 是不分大小寫的精確查找；`--find` 不分大小寫比對 ID、text、tags、evidence source ID；
+`--tag` 是不分大小寫的 exact tag，重複指定時必須同時符合。指定 ID 找不到會以 not-found
+exit code 結束；搜尋無結果會印出 no matches 並正常結束。要取得自然語言整理才用 `ask`；它
+可能等待 Core query，zsh 中可用 `ask 'question' --fact &` 讓 prompt 立即可用。
+
+`/edit`、`/try` 和 `/template set` 在省略 `--revision` 時會先讀取目前 revision；腳本仍可
+明確提供 `--revision`。revision conflict 絕不重試：`ctfmem` 會顯示目前白板並以 conflict
+exit code 結束，讓操作員自行檢閱。互動式 TTY 中缺少 challenge id、reason 或 agent prompt
+等單一值時會逐欄詢問；pipe stdin 不會詢問，而是回傳 usage error。多行 note 使用
+`/note --stdin`；`/command --stdin` 接收含 `command`、`exit_code`、`stdout`、`stderr` 的
+JSON 物件（也可用 `--stdin stdout` / `--stdin stderr` 輸入單一 stream）。
+
+## Agent workspace
+
+Agent work is enabled only after explicitly naming a directory. This avoids silently placing
+agent output beside Memory Core state or a challenge solution:
+
+```bash
+ctfmem /agent init ./agent-work
+ctfmem /agent run 'inspect the binary' --mode normal
+ctfmem /agent run --provider codex 'inspect the binary' --mode normal
+ctfmem /agent status
+ctfmem /agent stop
+```
+
+`/agent init` creates the directory, resolves and saves its absolute path in the non-secret
+project config. `ctfmem setup --agent-workspace PATH` and `ctfmem config set
+--agent-workspace PATH` write the same setting. The existing long-form `ctfmem agent run
+--workspace PATH ...` remains compatible.
+
+`/agent run` accepts the same `--provider` choice as the long-form command. Use
+`--provider codex` to select the Codex adapter; `agent` by itself is not a shell shortcut.
+
+Human CLI 的日常設定不必再寫入 environment。第一次為一個專案設定即可；它只會寫入
+被 git 忽略的 `.ctfmem/client-config.json`，內容為 Core URL、challenge、actor、timeout。
+它**不會**保存 API key、模型或其他 AIS3 憑證。
 
 Linux / zsh / bash：
 
 ```bash
-export CTFMEM_API_URL=http://127.0.0.1:8000
-export CTFMEM_CHALLENGE=demo-web
-export CTFMEM_ACTOR=ctshen
+./scripts/ctfmem-init.sh
+# 非互動式（自動化）設定：
+ctfmem setup --no-input --api-url http://127.0.0.1:8000 --challenge demo-web --actor ctshen
 ```
 
 Windows PowerShell：
 
 ```powershell
-$env:CTFMEM_API_URL = "http://127.0.0.1:8000"
-$env:CTFMEM_CHALLENGE = "demo-web"
-$env:CTFMEM_ACTOR = "ctshen"
+.\scripts\ctfmem-init.ps1 -Challenge demo-web -Actor ctshen
+# 也可直接使用：ctfmem setup
 ```
+
+檢視目前設定：
+
+```bash
+ctfmem config show
+```
+
+命令列的 `--api-url`、`--challenge`、`--actor`、`--timeout` 永遠優先；其次才是
+專案 JSON 設定。`CTFMEM_*` environment variables 不再讀取。可用
+`--config path/to/config.json` 選用另一份非機密設定檔。
+
+AIS3 的 API key 必須仍由 Memory Core server process 的 environment 提供。模型、base URL、
+timeout 是 server-side 設定，絕不會傳給或寫入 human CLI。
 
 建立 challenge：
 
@@ -433,7 +531,7 @@ uv run ctfmem --json --challenge demo-web agent run \
   "查一下"
 ```
 
-## 8. 全域參數與環境變數
+## 8. 全域參數與設定來源
 
 全域參數：
 
@@ -447,19 +545,10 @@ uv run ctfmem --json --challenge demo-web agent run \
 --no-color
 ```
 
-環境變數：
-
-```bash
-CTFMEM_API_URL=http://127.0.0.1:8000
-CTFMEM_CHALLENGE=demo-web
-CTFMEM_ACTOR=ctshen
-CTFMEM_TIMEOUT=30
-```
-
 解析優先序：
 
 ```text
-CLI argument > environment variable > documented default / error
+CLI argument > .ctfmem/client-config.json > documented default / error
 ```
 
 沒有 challenge 的命令必須明確報錯，不可默默套用未知題目。
@@ -523,10 +612,47 @@ ctfmem --challenge demo-web capture -- nmap -sC -sV target
 
 - child stdout 即時 tee 到目前 stdout。
 - child stderr 即時 tee 到目前 stderr。
-- 程序結束後只送出一個完整 `command_result` ingest。
+- 程序結束後只送出一個完整 `command_result` ingest；預設由 detached child 執行，不等待它。
+- `stdout`/`stderr` 是可顯示的 UTF-8 replacement preview；`stdout_base64`/`stderr_base64`
+  同時保存原始 bytes，因此非 UTF-8 輸出不會令 capture 中斷或遺失。
 - 不使用 `shell=True` / `os.system()`。
 - 非零 child exit code 不代表 ingest 失敗；JSON output 需保留 `child_exit_code` 與 ingest result。
 - `--json` 模式為維持 stdout 單一合法 JSON document，child stdout/stderr 會 tee 到 stderr。
+- 只適用於會自行結束的命令；不攔截或記錄 child 的後續互動 stdin。
+
+每次 ingest 前，capture 都會先在 `.ctfmem/pending-captures.json` 寫入完整結果。預設模式
+會在命令結束後立即回到 prompt，並由不繼承 stdin/stdout/stderr 的 detached child 做一次
+首次送出；因此 Core 慢或 timeout 不會卡住操作終端。若首次送出失敗，結果會保留在 queue。
+它**不會**自動重送，因為斷線時客戶端無法確定伺服器是否已收到原請求。操作員可先查看再
+明確重送：
+
+```bash
+ctfmem capture-pending list
+ctfmem capture-pending retry PENDING_ID
+```
+
+retry 成功才會移除本機項目；若原請求其實已送達，重送可能建立另一筆 journal record，因此
+應先依 ID 與 Core 白板／journal 狀態判斷。
+
+若腳本需要等到本次 ingest 的結果才繼續，明確使用 `--wait`：
+
+```bash
+ctfmem --challenge demo-web capture --wait -- nmap -sC -sV target
+```
+
+### `add`
+
+`ctfmem add` 與 `/add` 是 Web UI「新增 Fact／Assumption」表單的終端入口。可直接帶齊
+欄位，也可在 TTY 中逐欄選擇 layer、section、text、reason；section 會以編號與名稱列出。
+
+```bash
+ctfmem --challenge demo-web /add fact --text 'port 443 is open' \
+  --section recon --reason 'nmap result I-0003' --evidence I-0003 --tag network
+```
+
+`--evidence` 和 `--tag` 都可重複指定。`/edit add`、`mutate add` 與 `replace` 同樣支援
+這兩個欄位；replace 可用 `--clear-evidence` 或 `--clear-tags` 明確清空其中一項，讓腳本和
+Web UI 使用相同的 mutation 資料。
 
 ### `show`
 

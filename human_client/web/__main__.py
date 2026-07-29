@@ -18,7 +18,7 @@ import uvicorn
 from agent_bridge.runtime import DEFAULT_RUNTIME_DIR
 
 from ..client import MemoryCoreClient
-from ..config import config_from_args
+from ..config import config_from_args, config_path_from_args, load_saved_client_config
 from .agent import ALL_POLICIES, FAKE_AGENTS, MODES, PREFERRED_POLICIES, SESSIONS, AgentSettings
 from .app import create_web_app
 
@@ -40,6 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--api-url", default=None, help="Memory Core base URL.")
     parser.add_argument("--actor", default=None, help="Attributed to every write.")
+    parser.add_argument(
+        "--config",
+        help="local non-secret defaults file (default: .ctfmem/client-config.json)",
+    )
     parser.add_argument("--timeout", type=float, default=None, help="Read timeout, seconds.")
     parser.add_argument(
         "--core-timeout",
@@ -103,9 +107,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _agent_settings(args: argparse.Namespace) -> AgentSettings | None:
-    if args.agent_workspace is None:
+    """Resolve an explicit flag first, then the workspace approved by ``agent init``."""
+
+    configured = load_saved_client_config(config_path_from_args(args)).agent_workspace
+    raw_workspace = args.agent_workspace or configured
+    if raw_workspace is None:
         return None
-    workspace = args.agent_workspace.resolve()
+    workspace = Path(raw_workspace).expanduser().resolve()
     if not workspace.is_dir():
         raise ValueError(f"agent workspace {workspace} does not exist")
     return AgentSettings(
@@ -151,7 +159,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  templates {config.api_url.rstrip('/')}/v1/templates")
     print(f"  timeouts  {config.timeout}s reads, {args.core_timeout}s summarizer routes")
     if agent is None:
-        print("  agent     off (pass --agent-workspace to enable)")
+        print(
+            "  agent     off (run `ctfmem /agent init <path>` or pass --agent-workspace to enable)"
+        )
     else:
         print(f"  agent     {agent.workspace}")
         print(

@@ -163,7 +163,8 @@ def create_web_app(
             raise WebUiError(
                 403,
                 "agent_disabled",
-                "agent runs are off; start ctfmem-web with --agent-workspace to enable them",
+                "agent runs are off; run `ctfmem /agent init <path>` or start ctfmem-web "
+                "with --agent-workspace to enable them",
             )
         return agent
 
@@ -247,6 +248,8 @@ def create_web_app(
                 exit_code=_field(body,"exit_code"),
                 stdout=_field(body,"stdout", ""),
                 stderr=_field(body,"stderr", ""),
+                stdout_base64=_field(body, "stdout_base64", None),
+                stderr_base64=_field(body, "stderr_base64", None),
             )
             return summarizing_client.ingest_command_result(
                 challenge_id, result, actor=config.actor

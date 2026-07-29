@@ -139,6 +139,8 @@ class CommandResultInput(_Model):
     exit_code: int
     stdout: str = ""
     stderr: str = ""
+    stdout_base64: str | None = None
+    stderr_base64: str | None = None
 
 
 class RunLogInput(_Model):
