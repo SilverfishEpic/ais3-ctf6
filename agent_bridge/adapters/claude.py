@@ -132,6 +132,7 @@ class ClaudeAdapter:
         run = normalize(rows, policy=self.truncation)
         envelope = build_envelope(
             run,
+            provider="anthropic",
             run_id=f"turn-{self._turn}",
             session_id=run.run_meta.get("session_id"),
         )

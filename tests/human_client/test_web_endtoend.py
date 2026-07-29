@@ -1,20 +1,139 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import pytest
-from conftest import ASGITestClient
 from fastapi import FastAPI
 
-from human_client.client import MemoryCoreClient
 from human_client.config import ClientConfig
+from human_client.errors import CoreError
+from human_client.models import CommandResult, command_result_envelope, human_note_envelope
 from human_client.web.app import create_web_app
+from memory_core.errors import MemoryCoreError
+from memory_core.models import (
+    CreateChallengeRequest,
+    IngestEnvelope,
+    MemoryMutation,
+    TemplateChangeRequest,
+)
 from memory_core.service import MemoryService
 
 PORT = 8787
 ORIGIN = f"http://127.0.0.1:{PORT}"
+
+
+class DirectMemoryServiceClient:
+    """Synchronous web-client double backed by the real MemoryService.
+
+    The web app itself is already an ASGI app in these tests. Calling Memory Core through a
+    second ASGITransport from inside that request would require nested event loops. This
+    adapter keeps the test focused on the web proxy while still exercising the real service
+    methods and error mapping.
+    """
+
+    def __init__(self, service: MemoryService) -> None:
+        self.service = service
+
+    def create_challenge(
+        self,
+        challenge_id: str,
+        *,
+        title: str,
+        template: str | None = None,
+        initial_input: str | None = None,
+    ) -> dict[str, Any]:
+        return self._call(
+            self.service.create_challenge,
+            CreateChallengeRequest(
+                id=challenge_id,
+                title=title,
+                template=template,
+                initial_input=initial_input,
+            ),
+        )
+
+    def ingest_note(self, challenge_id: str, content: str, *, actor: str) -> dict[str, Any]:
+        return self._call(
+            self.service.ingest,
+            challenge_id,
+            IngestEnvelope.model_validate(human_note_envelope(content, actor)),
+        )
+
+    def ingest_command_result(
+        self, challenge_id: str, result: CommandResult, *, actor: str
+    ) -> dict[str, Any]:
+        return self._call(
+            self.service.ingest,
+            challenge_id,
+            IngestEnvelope.model_validate(command_result_envelope(result, actor)),
+        )
+
+    def read_memory(
+        self, challenge_id: str, *, layer: str | None = None, section: str | None = None
+    ) -> dict[str, Any]:
+        return self._call(self.service.read_memory, challenge_id, layer=layer, section=section)
+
+    def mutate(
+        self,
+        challenge_id: str,
+        *,
+        expected_revision: int,
+        actor: str,
+        reason: str,
+        operations: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        return self._call(
+            self.service.mutate,
+            challenge_id,
+            MemoryMutation.model_validate(
+                {
+                    "expected_revision": expected_revision,
+                    "actor": actor,
+                    "reason": reason,
+                    "operations": operations,
+                }
+            ),
+        )
+
+    def set_template(
+        self,
+        challenge_id: str,
+        *,
+        template: str,
+        expected_revision: int,
+        actor: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        return self._call(
+            self.service.set_template,
+            challenge_id,
+            TemplateChangeRequest(
+                template=template,
+                expected_revision=expected_revision,
+                actor=actor,
+                reason=reason,
+            ),
+        )
+
+    def _call(self, func: Any, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        try:
+            result = func(*args, **kwargs)
+        except MemoryCoreError as exc:
+            raise CoreError(
+                exc.status,
+                {
+                    "error": {
+                        "code": exc.code,
+                        "message": exc.message,
+                        "details": exc.details,
+                    }
+                },
+            ) from exc
+        if hasattr(result, "model_dump"):
+            return cast(dict[str, Any], result.model_dump(mode="json"))
+        return cast(dict[str, Any], result)
 
 
 def call(app: FastAPI, method: str, url: str, **kwargs: Any) -> httpx.Response:
@@ -34,7 +153,7 @@ def app(service: MemoryService) -> FastAPI:
     suite can still notice when the proxy and the service stop agreeing.
     """
 
-    client = MemoryCoreClient("http://testserver", http_client=ASGITestClient(service))
+    client = DirectMemoryServiceClient(service)
     config = ClientConfig(
         api_url="http://testserver",
         challenge=None,
@@ -45,8 +164,8 @@ def app(service: MemoryService) -> FastAPI:
         color=False,
     )
     return create_web_app(
-        client=client,
-        summarizing_client=client,
+        client=client,  # type: ignore[arg-type]
+        summarizing_client=client,  # type: ignore[arg-type]
         config=config,
         port=PORT,
     )

@@ -12,7 +12,7 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 - [Contracts](contracts.md) - how clients should use the shared API.
 - [Branch Strategy](branch-strategy.md) - dependency and merge policy.
 - [Roadmap](roadmap.md) - realistic future phases and exit criteria.
-- [Agent Bridge](agent-bridge.md) - Claude adapter, loop behavior, memory skill boundary.
+- [Agent Bridge](agent-bridge.md) - agent provider adapters, loop behavior, memory skill boundary.
 - [Templates](templates.md) - category catalog ownership and validation.
 - [Agent Bridge real SDK findings](agent-bridge/real-sdk-findings.md) - sanitized replay-shape notes.
 
@@ -23,6 +23,9 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 - [ADR 0002 - Agent runs from the web UI](adr/0002-web-agent-runs.md) - supersedes 0001 on
   agent orchestration; why the web spawns `ctfmem agent run` rather than driving the loop
   itself, and the guardrails that come with it. Accepted.
+- [ADR 0003 - Agent provider abstraction for Claude and Codex](adr/0003-agent-provider-abstraction.md)
+  - planned adapter boundary for adding Codex without changing Memory Core or the web
+  orchestration model. Proposed.
 
 ## Historical Design Material
 
