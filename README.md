@@ -65,6 +65,7 @@ shell profile.
 ./scripts/memory-core-init.sh
 AIS3_API_KEY='set-this-only-in-the-server-environment' \
   uv run python -m memory_core --host 127.0.0.1 --port 8000
+export $(grep -v '^#' .env | xargs)
 ```
 
 If the Core is already running, skip this step. The CLI default URL is
@@ -72,17 +73,42 @@ If the Core is already running, skip this step. The CLI default URL is
 
 ### 3. Create and select a challenge
 
-Back in the activated project shell, create the challenge once, then store only local,
-non-secret defaults. `.ctfmem/client-config.json` is project-local and git-ignored.
+For a first session, create the challenge, then let `setup` ask the four ordinary client
+questions one by one. Press Enter to accept the displayed defaults (including the local Core URL).
+`setup` writes only project-local, non-secret defaults to `.ctfmem/client-config.json`, which is
+git-ignored.
 
 ```bash
 ctfmem challenge create web-01 --title 'Web 01' --template web
+ctfmem setup
+```
+
+At the prompts, use these values for this example:
+
+```text
+Memory Core URL [http://127.0.0.1:8000]: <press Enter>
+Challenge ID: web-01
+Operator name [human]: hacker
+HTTP timeout (seconds) [30.0]: <press Enter>
+Agent workspace (optional): <press Enter>
+```
+
+Confirm what was saved:
+
+```bash
+ctfmem config show
+```
+
+After becoming familiar with the fields, the same configuration can be set without prompts,
+which is useful for repeatable setup or scripts:
+
+```bash
 ctfmem config set --challenge web-01 --actor hacker --api-url http://127.0.0.1:8000
 ctfmem config show
 ```
 
-For a fully guided setup, use `ctfmem setup` instead. To work on another challenge for one
-command, add `--challenge other-id`; command-line options override the saved defaults.
+To work on another challenge for one command, add `--challenge other-id`; command-line options
+override the saved defaults.
 
 ### 4. Enter the short-command shell
 
@@ -121,11 +147,23 @@ ctfmem shell-init --remove
 ## Web UI quick start
 
 `ctfmem-web` serves the same operations as a local page, bound to `127.0.0.1` and
-unauthenticated. Start Memory Core first, then:
+unauthenticated. After completing `ctfmem setup` above and starting Memory Core, launch it with
+the short console command:
 
 ```bash
-python -m human_client.web --api-url http://127.0.0.1:8777
+ctfmem-web
 ```
+
+It uses the same `.ctfmem/client-config.json` defaults as `ctfmem` (including the Core URL,
+challenge, and actor) and serves the page at `http://127.0.0.1:8787`. Override the Core URL or
+web port only when needed:
+
+```bash
+ctfmem-web --api-url http://127.0.0.1:8000 --port 8787
+```
+
+As with `ctfmem`, run it after `source .venv/bin/activate`; otherwise use
+`uv run ctfmem-web` from the repository root.
 
 Adding `--agent-workspace <dir>` also lets the page start `ctfmem agent` runs, by launching
 the CLI as a child process. Without that flag the capability is off entirely.
