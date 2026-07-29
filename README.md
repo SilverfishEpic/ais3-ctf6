@@ -68,37 +68,52 @@ See [`docs/human-webui.md`](docs/human-webui.md), plus
 
 ## Native shell integration
 
-CTF Memory starts an isolated child zsh; it never modifies your `.zshrc`, does not add command
-hooks, and does not proxy terminal I/O. Start Memory Core, set the one-time local client defaults,
-then enter the temporary CTF shell:
+`ctfmem shell-init` starts an isolated, temporary zsh for a CTF session. It never modifies your
+`.zshrc`, adds no command hooks, and does not proxy terminal I/O. Set the local defaults once,
+then enter that shell:
 
 ```bash
 ctfmem config set --challenge web-01 --actor hacker
-ctfmem shell-init --shell zsh
+ctfmem shell-init
 ```
 
-The child first loads your normal zsh configuration, then adds each short command only when the
-name is unclaimed. A colliding alias, function, or command remains yours. Use `exit` to return to
-the outer shell. This keeps your native completion, plugins, history, keybindings, environment,
-and terminal window intact. Use shortcuts such as `cap curl -I http://target`, `note 'port 80 open'`,
-`mem --facts`, and `ask 'what is confirmed?'`. Administrative operations remain available as
-`ctfmem` commands, for example `ctfmem /status`,
-`ctfmem /diff on`, `ctfmem /note <text>`, and `ctfmem /memory`.
-Global settings may appear before or after the command: `ctfmem /memory --challenge web-01`.
-For the shortest one-off form, `ctfmem web-01/memory` means the same thing.
-Agent runs remain explicit through `ctfmem agent run` and `ctfmem agent stop`. Bash cannot
-safely interpret a bare `/status` as anything other than an absolute path without intercepting
-its input loop, so the `ctfmem /…` form is intentional. The sourced integration provides
-`cap COMMAND ...` as the short, explicit form of `ctfmem capture -- COMMAND ...`; it records
-only commands you prefix with `cap` and never observes other terminal activity. Once the command
-ends, it saves the result locally and returns the prompt while a detached, stdin-free child makes
-one initial delivery attempt. Use `ctfmem capture --wait -- COMMAND ...` only when a script needs
-to wait for Memory Core's response.
+The child loads your usual zsh configuration first, then adds a shortcut only if its name is not
+already an alias, function, or command. A collision always leaves your existing command intact.
+Use `exit` to return to the outer shell; its configuration is untouched.
 
-Earlier versions of `shell-init` wrote a marked block into `~/.zshrc`. It is never installed now;
-run `ctfmem shell-init --remove` once if you want to remove that legacy block.
-Diff is opt-in and prints a git-style ANSI summary directly on stdout. Preferences are stored in
-`.ctfmem/<challenge>/shell-session.json`; no terminal transcript is written.
+```bash
+# Run a non-interactive command and retain stdout/stderr/exit code.
+cap nmap -sV target
+
+# Add a human observation or inspect the whiteboard.
+note 'port 80 redirects to HTTPS'
+mem --facts
+ask 'what is confirmed?'
+
+# Less frequent commands remain namespaced.
+ctf capture-pending list
+ctf /template set web --reason 'confirmed service type'
+exit
+```
+
+Available shortcuts, when unclaimed, are `ctf`, `cap`, `note`, `mem`, `ask`, `add`, `edit`,
+`guess`, and `try`. `cap COMMAND ...` is explicit capture only: it does not observe unrelated
+commands or terminal input. When the command ends, `cap` durably queues its raw stdout/stderr and
+returns the prompt; a detached, stdin-free process makes one initial delivery attempt to Memory
+Core. If delivery fails, use `ctf capture-pending list` and explicitly retry the retained result.
+For a script that must wait for the ingest response, use:
+
+```bash
+ctfmem capture --wait -- nmap -sV target
+```
+
+There is currently no autocapture mode. Recording arbitrary command output would require
+intercepting the child shell's stdout/stderr, which changes TTY behaviour for some programs;
+recording later interactive stdin additionally requires a terminal proxy/PTY. `gdb` and `sqlmap`
+therefore remain outside the scope of `cap`'s capture guarantee.
+
+Earlier releases wrote a marked block into `~/.zshrc`. New `shell-init` never installs it; run
+`ctfmem shell-init --remove` once to remove an existing legacy block.
 
 ## License
 
