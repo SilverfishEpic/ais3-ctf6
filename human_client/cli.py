@@ -11,7 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from .agent_cli import add_agent_parser, cmd_agent_run, cmd_agent_status, cmd_agent_stop
+from .agent_cli import PROVIDERS, add_agent_parser, cmd_agent_run, cmd_agent_status, cmd_agent_stop
 from .capture import run_capture
 from .client import MemoryCoreClient
 from .config import (
@@ -429,6 +429,12 @@ def _slash_mutation_parser(
 def _add_agent_run_options(
     parser: argparse.ArgumentParser, *, workspace_default: str | None
 ) -> None:
+    parser.add_argument(
+        "--provider",
+        choices=PROVIDERS,
+        default=None,
+        help="Agent provider. Defaults to CTFMEM_AGENT_PROVIDER or claude.",
+    )
     parser.add_argument("--mode", choices=("normal", "yolo"), default="normal")
     parser.add_argument("--session", choices=("same", "new"), default="same")
     parser.add_argument("--workspace", default=workspace_default)

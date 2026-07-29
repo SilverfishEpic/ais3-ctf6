@@ -238,6 +238,7 @@ agent output beside Memory Core state or a challenge solution:
 ```bash
 ctfmem /agent init ./agent-work
 ctfmem /agent run 'inspect the binary' --mode normal
+ctfmem /agent run --provider codex 'inspect the binary' --mode normal
 ctfmem /agent status
 ctfmem /agent stop
 ```
@@ -246,6 +247,9 @@ ctfmem /agent stop
 project config. `ctfmem setup --agent-workspace PATH` and `ctfmem config set
 --agent-workspace PATH` write the same setting. The existing long-form `ctfmem agent run
 --workspace PATH ...` remains compatible.
+
+`/agent run` accepts the same `--provider` choice as the long-form command. Use
+`--provider codex` to select the Codex adapter; `agent` by itself is not a shell shortcut.
 
 Human CLI 的日常設定不必再寫入 environment。第一次為一個專案設定即可；它只會寫入
 被 git 忽略的 `.ctfmem/client-config.json`，內容為 Core URL、challenge、actor、timeout。

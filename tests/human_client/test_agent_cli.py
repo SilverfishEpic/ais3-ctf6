@@ -88,6 +88,36 @@ def test_agent_run_codex_allows_memory_skill_by_default(
     assert "adapter factory reached" in captured.err
 
 
+def test_slash_agent_run_accepts_codex_provider(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_build_agent_adapter(**kwargs: Any) -> object:
+        assert kwargs["provider"] == "codex"
+        raise ValueError("slash adapter factory reached")
+
+    monkeypatch.setattr(agent_cli, "build_agent_adapter", fake_build_agent_adapter)
+
+    code = cli.main(
+        [
+            "--challenge",
+            "demo-web",
+            "/agent",
+            "run",
+            "--provider",
+            "codex",
+            "--workspace",
+            str(tmp_path),
+            "繼續分析",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert code != OK
+    assert "slash adapter factory reached" in captured.err
+
+
 def test_agent_run_json_output_is_machine_safe(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
