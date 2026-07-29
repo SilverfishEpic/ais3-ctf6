@@ -680,11 +680,11 @@ def cmd_pending_capture_retry(
     except (CoreError, CoreConnectionError) as exc:
         return _capture_ingest_failed(exc, config, pending)
     store.remove(pending.id)
-    return _emit(
-        {"ok": True, "pending_capture_id": pending.id, "ingest": payload},
-        config,
-        renderer=render_diff,
-    )
+    if config.json_output:
+        emit_json({"ok": True, "pending_capture_id": pending.id, "ingest": payload})
+    else:
+        render_diff(payload)
+    return OK
 
 
 def cmd_slash_pending_capture_retry(
