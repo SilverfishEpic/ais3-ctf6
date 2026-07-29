@@ -170,6 +170,8 @@ ctfmem /challenge list
 ctfmem /challenge create web-01 --title 'Web 01' --template web
 ctfmem /challenge use web-01
 ctfmem /memory --facts --section recon
+ctfmem /memory fact F001
+ctfmem /memory assumption --find sqli
 ctfmem /note 'port 80 is open'
 cap curl -i http://target/
 ctfmem /command --command 'nmap -sV target' --exit-code 0 --stdout '...'
@@ -205,6 +207,21 @@ The direct shortcuts forward their arguments unchanged: `note TEXT` is `ctfmem /
 fallback for less frequent operations, for example `ctf /template set web --reason 'reclassified'`.
 Configuration, challenge lifecycle, agent lifecycle, template changes, and pending-capture retry
 remain intentionally explicit under `ctfmem` or `ctf` rather than claiming generic shell names.
+
+`mem`／`show` 是 deterministic whiteboard lookup，不會呼叫 query model。除了既有
+`--facts`、`--assumptions`、`--section` 外，Fact／Assumption 支援短位置語法：
+
+```bash
+mem fact F001
+mem assumption A003
+mem fact --find cloud
+mem assumption --tag sqli --section attack_surface
+```
+
+ID 是不分大小寫的精確查找；`--find` 不分大小寫比對 ID、text、tags、evidence source ID；
+`--tag` 是不分大小寫的 exact tag，重複指定時必須同時符合。指定 ID 找不到會以 not-found
+exit code 結束；搜尋無結果會印出 no matches 並正常結束。要取得自然語言整理才用 `ask`；它
+可能等待 Core query，zsh 中可用 `ask 'question' --fact &` 讓 prompt 立即可用。
 
 `/edit`、`/try` 和 `/template set` 在省略 `--revision` 時會先讀取目前 revision；腳本仍可
 明確提供 `--revision`。revision conflict 絕不重試：`ctfmem` 會顯示目前白板並以 conflict

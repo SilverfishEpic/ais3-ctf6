@@ -88,7 +88,12 @@ cap nmap -sV target
 # Add a human observation or inspect the whiteboard.
 note 'port 80 redirects to HTTPS'
 mem --facts
-ask 'what is confirmed?'
+mem fact F001
+mem assumption --find 'SQL injection'
+mem fact --tag web --section target
+
+# Ask for a semantic summary; append & when you do not want to wait at the prompt.
+ask 'what is confirmed?' --fact &
 
 # Less frequent commands remain namespaced.
 ctf capture-pending list
@@ -106,6 +111,13 @@ For a script that must wait for the ingest response, use:
 ```bash
 ctfmem capture --wait -- nmap -sV target
 ```
+
+Use `mem` for immediate, deterministic Fact/Assumption lookup. `mem fact F001` and
+`mem assumption A003` look up one stable ID. `--find` performs a case-insensitive substring match
+over IDs, item text, tags, and evidence IDs; `--tag` matches an exact tag and may be repeated.
+The existing `mem --facts`, `mem --assumptions`, and `--section` forms remain available. Use
+`ask` only when you want a natural-language answer; it calls the Core query path and can wait for
+the model, so zsh job control (`ask ... &`) is the non-blocking form.
 
 There is currently no autocapture mode. Recording arbitrary command output would require
 intercepting the child shell's stdout/stderr, which changes TTY behaviour for some programs;

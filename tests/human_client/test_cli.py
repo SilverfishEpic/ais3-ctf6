@@ -9,7 +9,7 @@ from conftest import ASGITestClient
 
 from human_client import cli
 from human_client.client import MemoryCoreClient
-from human_client.errors import OK, REVISION_CONFLICT
+from human_client.errors import NOT_FOUND, OK, REVISION_CONFLICT
 from memory_core.service import MemoryService
 
 
@@ -186,6 +186,124 @@ def test_add_keeps_web_form_evidence_and_tags(
     item = next(item for item in board["fact"]["target"] if item["text"] == "port 443 is open")
     assert item["evidence"] == []
     assert item["tags"] == []
+
+
+def test_memory_lookup_finds_fact_and_assumption_by_id_and_deterministic_fields(
+    patched_client: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(
+        ["challenge", "create", "lookup-demo", "--title", "Lookup Demo", "--template", "web"]
+    ) == OK
+    assert (
+        cli.main(
+            [
+                "--challenge",
+                "lookup-demo",
+                "/add",
+                "fact",
+                "--text",
+                "Cloud login is served at /cloud/",
+                "--section",
+                "target",
+                "--reason",
+                "manual verification",
+                "--evidence",
+                "I-0003",
+                "--tag",
+                "web",
+            ]
+        )
+        == OK
+    )
+    assert (
+        cli.main(
+            [
+                "--challenge",
+                "lookup-demo",
+                "/add",
+                "assumption",
+                "--text",
+                "Cloud login may have a SQL injection path",
+                "--section",
+                "attack_surface",
+                "--reason",
+                "input validation is client-side",
+                "--tag",
+                "sqli",
+            ]
+        )
+        == OK
+    )
+    capsys.readouterr()
+
+    assert cli.main(["--json", "--challenge", "lookup-demo", "/memory", "fact", "F001"]) == OK
+    fact_by_id = json.loads(capsys.readouterr().out)
+    assert [item["id"] for item in fact_by_id["fact"]["target"]] == ["F001"]
+
+    assert (
+        cli.main(["--json", "--challenge", "lookup-demo", "show", "fact", "--find", "I-0003"])
+        == OK
+    )
+    fact_by_evidence = json.loads(capsys.readouterr().out)
+    assert fact_by_evidence["fact"]["target"][0]["text"].startswith("Cloud login")
+
+    assert (
+        cli.main(
+            [
+                "--json",
+                "--challenge",
+                "lookup-demo",
+                "/memory",
+                "assumption",
+                "--tag",
+                "SQLI",
+                "--section",
+                "attack_surface",
+            ]
+        )
+        == OK
+    )
+    assumption_by_tag = json.loads(capsys.readouterr().out)
+    assert assumption_by_tag["assumption"]["attack_surface"][0]["id"] == "A001"
+
+
+def test_memory_lookup_preserves_old_flags_and_reports_empty_or_missing_items(
+    patched_client: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli.main(
+        ["challenge", "create", "lookup-demo", "--title", "Lookup Demo", "--template", "web"]
+    ) == OK
+    assert (
+        cli.main(
+            [
+                "--challenge",
+                "lookup-demo",
+                "/add",
+                "fact",
+                "--text",
+                "HTTPS is enabled",
+                "--section",
+                "target",
+                "--reason",
+                "manual verification",
+                "--tag",
+                "tls",
+            ]
+        )
+        == OK
+    )
+    capsys.readouterr()
+
+    assert cli.main(["--challenge", "lookup-demo", "/memory", "--facts"]) == OK
+    assert "HTTPS is enabled" in capsys.readouterr().out
+
+    assert cli.main(["--challenge", "lookup-demo", "show", "fact", "--find", "missing"]) == OK
+    assert "No matching Fact items." in capsys.readouterr().out
+
+    assert cli.main(["--challenge", "lookup-demo", "/memory", "assumption", "A404"]) == NOT_FOUND
+    assert "Assumption 'A404' was not found" in capsys.readouterr().err
 
 
 def test_slash_commands_reuse_the_long_form_handlers(

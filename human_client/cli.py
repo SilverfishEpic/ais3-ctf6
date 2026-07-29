@@ -28,6 +28,7 @@ from .config import (
 )
 from .errors import (
     CAPTURE_START_ERROR,
+    NOT_FOUND,
     OK,
     USAGE_ERROR,
     CoreConnectionError,
@@ -203,10 +204,7 @@ def build_parser() -> argparse.ArgumentParser:
     deliver_capture.set_defaults(handler=cmd_pending_capture_deliver)
 
     show = sub.add_parser("show")
-    show.add_argument("--facts", action="store_true")
-    show.add_argument("--assumptions", action="store_true")
-    show.add_argument("--guessing", action="store_true")
-    show.add_argument("--section")
+    _add_memory_lookup_arguments(show)
     show.set_defaults(handler=cmd_show)
 
     query = sub.add_parser("query")
@@ -285,12 +283,11 @@ def _add_slash_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentP
     create.add_argument("--initial-input")
     create.set_defaults(handler=cmd_slash_challenge_create)
 
-    memory = subparsers.add_parser("/memory", help="show the current whiteboard")
-    memory.add_argument("--facts", action="store_true")
-    memory.add_argument("--assumptions", action="store_true")
-    memory.add_argument("--guessing", action="store_true")
+    memory = subparsers.add_parser(
+        "/memory", help="show or deterministically find whiteboard items"
+    )
+    _add_memory_lookup_arguments(memory)
     memory.add_argument("--layer", choices=("fact", "assumption", "guessing"))
-    memory.add_argument("--section")
     memory.set_defaults(handler=cmd_slash_show)
 
     note = subparsers.add_parser("/note", help="record a human observation")
@@ -399,6 +396,19 @@ def _add_slash_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentP
         item = agent_sub.add_parser(name)
         item.add_argument("--runtime-dir", default=None)
         item.set_defaults(handler=agent_handler)
+
+
+def _add_memory_lookup_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add compatible browsing and deterministic Fact/Assumption lookup arguments."""
+
+    parser.add_argument("lookup_layer", choices=("fact", "assumption", "guessing"), nargs="?")
+    parser.add_argument("item_id", nargs="?")
+    parser.add_argument("--facts", action="store_true")
+    parser.add_argument("--assumptions", action="store_true")
+    parser.add_argument("--guessing", action="store_true")
+    parser.add_argument("--section")
+    parser.add_argument("--find", dest="find_text")
+    parser.add_argument("--tag", dest="tags", action="append", default=[])
 
 
 def _slash_mutation_parser(
@@ -898,13 +908,24 @@ def cmd_slash_command(
 
 def cmd_show(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient) -> int:
     challenge = require_challenge(config)
-    layer = _show_layer(args)
+    layer, item_id, find_text, tags = _memory_lookup_arguments(args)
     payload = client.read_memory(challenge, layer=layer, section=args.section)
+    if item_id is None and find_text is None and not tags:
+        return _emit(payload, config, renderer=render_memory)
+
+    filtered, count = _filter_memory_payload(
+        payload, layer=layer, item_id=item_id, find_text=find_text, tags=tags
+    )
+    if item_id is not None and count == 0:
+        return _emit_memory_item_not_found(item_id, layer, config)
+    if count == 0:
+        return _emit_memory_no_matches(layer, filtered, config)
+    payload = filtered
     return _emit(payload, config, renderer=render_memory)
 
 
 def cmd_slash_show(args: argparse.Namespace, config: ClientConfig, client: MemoryCoreClient) -> int:
-    if args.layer:
+    if getattr(args, "layer", None):
         setattr(args, f"{args.layer}s" if args.layer != "guessing" else "guessing", True)
     return cmd_show(args, _slash_config_with_challenge(config), client)
 
@@ -1201,6 +1222,107 @@ def _show_layer(args: argparse.Namespace) -> str | None:
     if len(layers) > 1:
         raise ValueError("choose only one of --facts, --assumptions, --guessing")
     return layers[0] if layers else None
+
+
+def _memory_lookup_arguments(
+    args: argparse.Namespace,
+) -> tuple[str | None, str | None, str | None, list[str]]:
+    """Resolve compact layer syntax without weakening the original flag syntax."""
+
+    flagged_layer = _show_layer(args)
+    positional_layer = args.lookup_layer
+    if (
+        flagged_layer is not None
+        and positional_layer is not None
+        and flagged_layer != positional_layer
+    ):
+        raise ValueError("the positional layer and --facts/--assumptions/--guessing must agree")
+    layer = positional_layer or flagged_layer
+    item_id = args.item_id
+    find_text = args.find_text
+    tags = list(args.tags)
+    has_lookup = item_id is not None or find_text is not None or bool(tags)
+    if has_lookup and layer not in {"fact", "assumption"}:
+        raise ValueError("Fact/Assumption lookup requires a fact or assumption layer")
+    if item_id is not None and (find_text is not None or tags):
+        raise ValueError("an item ID cannot be combined with --find or --tag")
+    return layer, item_id, find_text, tags
+
+
+def _filter_memory_payload(
+    payload: dict[str, Any],
+    *,
+    layer: str | None,
+    item_id: str | None,
+    find_text: str | None,
+    tags: list[str],
+) -> tuple[dict[str, Any], int]:
+    """Apply local, deterministic filters to a Memory Core read response."""
+
+    if layer not in {"fact", "assumption"}:
+        raise ValueError("Fact/Assumption lookup requires a fact or assumption layer")
+    sections = payload.get(layer)
+    if not isinstance(sections, dict):
+        raise ValueError("Memory Core returned an invalid section layout")
+
+    filtered: dict[str, list[dict[str, Any]]] = {}
+    for section, items in sections.items():
+        if not isinstance(items, list):
+            continue
+        matches = [
+            item
+            for item in items
+            if isinstance(item, dict)
+            and _memory_item_matches(item, item_id=item_id, find_text=find_text, tags=tags)
+        ]
+        if matches:
+            filtered[str(section)] = matches
+    result = dict(payload)
+    result[layer] = filtered
+    return result, sum(len(items) for items in filtered.values())
+
+
+def _memory_item_matches(
+    item: dict[str, Any], *, item_id: str | None, find_text: str | None, tags: list[str]
+) -> bool:
+    if item_id is not None:
+        value = item.get("id")
+        return isinstance(value, str) and value.casefold() == item_id.casefold()
+
+    if find_text is not None:
+        needle = find_text.casefold()
+        fields = [
+            item.get("id"),
+            item.get("text"),
+            *(item.get("tags") or []),
+            *(item.get("evidence") or []),
+        ]
+        if not any(needle in str(value).casefold() for value in fields):
+            return False
+
+    item_tags = {str(tag).casefold() for tag in item.get("tags") or []}
+    return all(tag.casefold() in item_tags for tag in tags)
+
+
+def _emit_memory_item_not_found(item_id: str, layer: str | None, config: ClientConfig) -> int:
+    label = "Fact" if layer == "fact" else "Assumption"
+    message = f"{label} {item_id!r} was not found"
+    if config.json_output:
+        emit_json({"ok": False, "error": {"type": "not_found", "message": message}})
+    else:
+        print(message, file=sys.stderr)
+    return NOT_FOUND
+
+
+def _emit_memory_no_matches(
+    layer: str | None, payload: dict[str, Any], config: ClientConfig
+) -> int:
+    label = "Fact" if layer == "fact" else "Assumption"
+    if config.json_output:
+        emit_json(payload)
+    else:
+        print(f"No matching {label} items.")
+    return OK
 
 
 def _emit(
