@@ -1,0 +1,211 @@
+schema_version: 2
+revision: 1
+challenge:
+  id: armb3-matrixlab
+  title: Matrix Lab 1 (arm B run 2)
+  category: rev
+  template: rev
+  template_version: 1
+  summary: 'Matrix Lab 1 is a Java CTF challenge (Matrix_Lab_1.class) that prompts for a flag input and
+    validates it. The binary is a Java class file (magic bytes 0xCAFEBABE) containing strings ''Enter
+    the flag: '', ''Oops, wrong flag!'', and references to ''Sekai'' (likely the flag prefix).'
+fact:
+  target:
+  - id: F001
+    text: 'Challenge file: Matrix_Lab_1.class (2992 bytes) located in challenge/ directory'
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - java
+    - class-file
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  binary_format:
+  - id: F002
+    text: 'Java class file format (magic bytes: 0xCAFEBABE at offset 0)'
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - java
+    - class-file
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  architecture: []
+  loader_layout: []
+  imports_exports:
+  - id: F006
+    text: Imports java.util.Scanner for input reading
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - java
+    - scanner
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  - id: F007
+    text: Imports java.lang.System (System.in, System.out)
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - java
+    - io
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  - id: F008
+    text: Imports java.io.PrintStream and java.io.InputStream
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - java
+    - io
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  functions:
+  - id: F009
+    text: Contains <init> method (constructor) and likely a main method (implied by Scanner/System usage)
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - java
+    - entry-point
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  data_structures: []
+  control_flow: []
+  constants_strings:
+  - id: F003
+    text: 'String constant: ''Enter the flag: '' (offset 0xE0)'
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - prompt
+    - user-input
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  - id: F004
+    text: 'String constant: ''Oops, wrong flag!'' (offset 0x190)'
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - error-message
+    - validation-failure
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  - id: F005
+    text: 'String constant: ''Sekai'' (offset 0x1C0) - likely flag prefix'
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - flag-prefix
+    - sekai
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  runtime_behavior: []
+  compiler_artifacts: []
+  anti_analysis: []
+  malware_behavior: []
+  progress:
+  - id: F010
+    text: 'Initial reconnaissance complete: identified Java class file with flag prompt and validation
+      logic'
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - recon
+    - initial
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  general: []
+assumption:
+  program_intent:
+  - id: A001
+    text: The program reads a flag from stdin via Scanner, validates it against some logic, and prints
+      'Oops, wrong flag!' on failure
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - validation
+    - flag-check
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  function_roles: []
+  validation_logic: []
+  data_model:
+  - id: A002
+    text: Flag format likely starts with 'Sekai' based on string constant in binary
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - flag-format
+    - prefix
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  compiler_hypotheses: []
+  obfuscation_hypotheses: []
+  anti_analysis_hypotheses: []
+  malware_capabilities: []
+  analysis_paths: []
+  next_checks:
+  - id: A003
+    text: Need to decompile the class file to understand the flag validation logic (javap -c or similar)
+    evidence:
+    - I-d21b985c
+    source_actor: agent
+    tags:
+    - decompilation
+    - static-analysis
+    created_at: '2026-07-30T06:43:58Z'
+    updated_at: '2026-07-30T06:43:58Z'
+  general: []
+guessing:
+  catalog: rev@1
+  state:
+    REV-FOOTHOLD:
+      tried: false
+    REV-CALLING-CONVENTION:
+      tried: false
+    REV-STRUCT-RECOVERY:
+      tried: false
+    REV-COMPILER-ARTIFACT:
+      tried: false
+    REV-Z3-CONSTRAINT:
+      tried: false
+    REV-DEOBFUSCATION:
+      tried: false
+    REV-RUNTIME-CODE-MAP:
+      tried: false
+    REV-PACKER-DETECT:
+      tried: false
+    REV-VM-PACKER:
+      tried: false
+    REV-ANTI-ANALYSIS:
+      tried: false
+    REV-ANTIDISASM:
+      tried: false
+    REV-PE-API-RESOLUTION:
+      tried: false
+    REV-EMBEDDED-PE:
+      tried: false
+    REV-PERSISTENCE-STARTUP:
+      tried: false
+    REV-PROCESS-INJECTION:
+      tried: false
+    REV-C2-PROTOCOL:
+      tried: false
+meta:
+  last_input_id: I-d21b985c
+  last_updated_at: '2026-07-30T06:43:58Z'
+  fact_seq: 10
+  assumption_seq: 3

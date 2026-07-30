@@ -1,0 +1,200 @@
+schema_version: 2
+revision: 3
+challenge:
+  id: armb6-matrixlab
+  title: Matrix Lab 1 (arm B, loosened sandbox)
+  category: rev
+  template: rev
+  template_version: 1
+  summary: Matrix Lab 1 is fully solved. The flag SEKAI{m4tr1x_d3cryP710N_15_Fun_M4T3_@2D2D!} was recovered
+    by inverting the 6x6 matrix rotation + row-pair interleaving + XOR pipeline, and validated by running
+    the original class file which prints 'Congratulations, you got the flag!'.
+fact:
+  target:
+  - id: F001
+    text: 'Challenge is a single Java class file: challenge/Matrix_Lab_1.class (compiled from Sekai.java,
+      Java SE 17 / class version 61.0)'
+    evidence:
+    - I-b223b8d7
+    source_actor: agent
+    tags:
+    - java
+    - class-file
+    created_at: '2026-07-30T07:20:22Z'
+    updated_at: '2026-07-30T07:20:22Z'
+  binary_format:
+  - id: F002
+    text: Java class file, version 61.0 (Java SE 17)
+    evidence:
+    - I-b223b8d7
+    source_actor: agent
+    tags:
+    - java
+    - class-format
+    created_at: '2026-07-30T07:20:22Z'
+    updated_at: '2026-07-30T07:20:22Z'
+  architecture: []
+  loader_layout: []
+  imports_exports: []
+  functions:
+  - id: F003
+    text: 'Class Sekai contains: main(String[]) reads flag from stdin, validates length == 43, extracts
+      middle 36 chars, transforms via 6x6 matrix rotation + row-pair interleaving + XOR, compares to constant;
+      static initializer computes length = (int)Math.pow(2,3) - 2 = 6; solve() method implements the transformation
+      pipeline'
+    evidence:
+    - I-b223b8d7
+    source_actor: agent
+    tags:
+    - main
+    - solve
+    - static-init
+    - flag-validation
+    created_at: '2026-07-30T07:20:22Z'
+    updated_at: '2026-07-30T07:20:22Z'
+  data_structures:
+  - id: F005
+    text: 6x6 character matrix (N=6); middle 36 chars of flag mapped row-major; in-place 90° layer rotation;
+      row pairs (0,5), (1,4), (2,3) extracted with second row reversed; encrypt() interleaves from ends
+      toward center (i1=N-1 down, i2=N up) and XORs with key (2,1,0 respectively)
+    evidence:
+    - I-b223b8d7
+    source_actor: agent
+    tags:
+    - matrix
+    - rotation
+    - interleaving
+    - xor
+    created_at: '2026-07-30T07:20:22Z'
+    updated_at: '2026-07-30T07:20:22Z'
+  control_flow:
+  - id: F006
+    text: 'main: read input -> check length 43 -> extract substring(6, 42) -> solve() -> compare to target
+      -> print success/fail; solve: matrix fill -> rotate layers -> three block encryptions -> concatenate
+      -> return; static init: compute length = 2^3 - 2 = 6'
+    evidence:
+    - I-b223b8d7
+    source_actor: agent
+    tags:
+    - validation
+    - pipeline
+    created_at: '2026-07-30T07:20:22Z'
+    updated_at: '2026-07-30T07:20:22Z'
+  constants_strings:
+  - id: F008
+    text: 'Success string is ''Congratulations, you got the flag!'' (constant pool #76), not ''Congratulations!'''
+    evidence:
+    - I-834a3d33
+    source_actor: agent
+    tags:
+    - correction
+    created_at: '2026-07-30T07:20:58Z'
+    updated_at: '2026-07-30T07:20:58Z'
+  runtime_behavior: []
+  compiler_artifacts: []
+  anti_analysis: []
+  malware_behavior: []
+  progress:
+  - id: F009
+    text: Solver script executed successfully; recovered middle 36 chars 'm4tr1x_d3cryP710N_15_Fun_M4T3_@2D2D!';
+      re-encryption matches target constant exactly; full flag validated against original bytecode
+    evidence:
+    - I-834a3d33
+    source_actor: agent
+    tags:
+    - solved
+    created_at: '2026-07-30T07:20:58Z'
+    updated_at: '2026-07-30T07:20:58Z'
+  - id: F007
+    text: Full bytecode recovered via javap; transformation logic fully understood; solver script written
+      and executed at C:\Users\Ronny\AppData\Local\Temp\claude\C--Users-Ronny--claude\d218d5f5-0abf-4981-ac67-4d1367bd1396\scratchpad\armB\matrix-lab-1\solve.py;
+      recovered flag SEKAI{m4tr1x_d3cryP710N_15_Fun_M4T3_@2D2D!} validated against original class file
+    evidence:
+    - I-b223b8d7
+    - I-834a3d33
+    source_actor: agent
+    tags:
+    - solver-ready
+    - bytecode-analyzed
+    created_at: '2026-07-30T07:20:22Z'
+    updated_at: '2026-07-30T07:20:58Z'
+  general: []
+assumption:
+  program_intent: []
+  function_roles: []
+  validation_logic: []
+  data_model: []
+  compiler_hypotheses: []
+  obfuscation_hypotheses: []
+  anti_analysis_hypotheses: []
+  malware_capabilities: []
+  analysis_paths: []
+  next_checks: []
+  general:
+  - id: A002
+    text: 'Prompt string: ''Enter the flag:''; Failure string: ''Oops, wrong flag!''; Success string:
+      ''Congratulations, you got the flag!''; Target ciphertext (36 chars): ''oz]{R]3l]]B#50es6O4tL23Etr3c10_F4TD2'';
+      Flag prefix: ''SEKAI{''; Flag suffix: ''}'''
+    evidence:
+    - I-b223b8d7
+    - I-834a3d33
+    source_actor: agent
+    tags:
+    - strings
+    - target-ciphertext
+    - flag-format
+    created_at: '2026-07-30T07:20:22Z'
+    updated_at: '2026-07-30T07:20:58Z'
+    promoted_from: F004
+  - id: A003
+    text: Running the solver script will produce the correct 36-character middle section, yielding the
+      full flag SEKAI{...}
+    evidence:
+    - I-b223b8d7
+    - I-834a3d33
+    source_actor: agent
+    tags:
+    - next-step
+    created_at: '2026-07-30T07:20:22Z'
+    updated_at: '2026-07-30T07:21:51Z'
+    promoted_from: F010
+guessing:
+  catalog: rev@1
+  state:
+    REV-FOOTHOLD:
+      tried: false
+    REV-CALLING-CONVENTION:
+      tried: false
+    REV-STRUCT-RECOVERY:
+      tried: false
+    REV-COMPILER-ARTIFACT:
+      tried: false
+    REV-Z3-CONSTRAINT:
+      tried: false
+    REV-DEOBFUSCATION:
+      tried: false
+    REV-RUNTIME-CODE-MAP:
+      tried: false
+    REV-PACKER-DETECT:
+      tried: false
+    REV-VM-PACKER:
+      tried: false
+    REV-ANTI-ANALYSIS:
+      tried: false
+    REV-ANTIDISASM:
+      tried: false
+    REV-PE-API-RESOLUTION:
+      tried: false
+    REV-EMBEDDED-PE:
+      tried: false
+    REV-PERSISTENCE-STARTUP:
+      tried: false
+    REV-PROCESS-INJECTION:
+      tried: false
+    REV-C2-PROTOCOL:
+      tried: false
+meta:
+  last_input_id: I-01b57008
+  last_updated_at: '2026-07-30T07:21:51Z'
+  fact_seq: 10
+  assumption_seq: 3

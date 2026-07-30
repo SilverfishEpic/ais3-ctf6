@@ -1,0 +1,74 @@
+schema_version: 2
+revision: 0
+challenge:
+  id: armb-matrixlab
+  title: Matrix Lab 1 (arm B)
+  category: generic
+  template: generic
+  template_version: 1
+fact:
+  target: []
+  artifacts: []
+  environment: []
+  interfaces: []
+  inputs_outputs: []
+  formats: []
+  observed_behavior: []
+  recovered_data: []
+  validated_relations: []
+  progress: []
+  general: []
+assumption:
+  challenge_model: []
+  attack_surface: []
+  data_hypotheses: []
+  structure_hypotheses: []
+  behavior_hypotheses: []
+  attack_paths: []
+  next_checks: []
+  general: []
+guessing:
+  catalog: generic@1
+  state:
+    GEN-ARTIFACT-TRIAGE:
+      tried: false
+    GEN-DYNAMIC-OBSERVATION:
+      tried: false
+    GEN-ENUMERATION:
+      tried: false
+    GEN-ENCODING:
+      tried: false
+    GEN-CONTAINER:
+      tried: false
+    GEN-CARVING:
+      tried: false
+    GEN-TRANSFORM:
+      tried: false
+    GEN-DIFFERENTIAL:
+      tried: false
+    GEN-PROTOCOL:
+      tried: false
+    GEN-STATE-MACHINE:
+      tried: false
+    GEN-CONSTRAINT:
+      tried: false
+    GEN-BRUTE-FORCE:
+      tried: false
+    GEN-ORACLE:
+      tried: false
+    GEN-HIDDEN-DATA:
+      tried: false
+    GEN-FORENSIC-RECOVERY:
+      tried: false
+    GEN-TRAFFIC:
+      tried: false
+    GEN-OSINT:
+      tried: false
+    GEN-SIGNAL:
+      tried: false
+    GEN-PACKAGE-ASSET:
+      tried: false
+meta:
+  last_updated_at: '2026-07-30T06:37:44Z'
+  fact_seq: 0
+  assumption_seq: 0

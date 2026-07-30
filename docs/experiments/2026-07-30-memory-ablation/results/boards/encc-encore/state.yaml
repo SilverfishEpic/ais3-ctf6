@@ -1,0 +1,387 @@
+schema_version: 2
+revision: 3
+challenge:
+  id: encc-encore
+  title: Untitled Encore (encc-encore)
+  category: rev
+  template: rev
+  template_version: 1
+  summary: 'The BPF program embedded in the PE binary has been fully reversed and simulated. A valid 40-byte
+    chart was found by solving the constraint system: 000c01070a072305140d0b062a06010b1008640408090105320a03050c0f6203100c740649070309.
+    This chart is ready for verification against the binary''s --check-chart handler.'
+fact:
+  target:
+  - id: F001
+    text: 'Challenge binary: untitled-encore.exe (PE32+ x86-64 console, 88576 bytes, SHA256 0ad885d417649ae35d5055cf2b048a48a0a23752cbd25bcb20a639e4c8f91b21)'
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - binary
+    - pe
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  binary_format:
+  - id: F002
+    text: PE32+ executable for MS Windows 6.00 (console), x86-64, 6 sections
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - pe
+    - format
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  architecture:
+  - id: F003
+    text: x86-64 (machine 0x8664), PE32+ optional header magic 0x20b
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - arch
+    - pe
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  loader_layout:
+  - id: F004
+    text: 'Image base 0x140000000, entry point RVA 0xc224. Sections: .text (VA 0x1000, VS 0xc307, raw
+      0x400), .rdata (VA 0xe000, VS 0x7da4, raw 0xc800), .data (VA 0x16000, VS 0xad0, raw 0x14600), .pdata
+      (VA 0x17000, VS 0x9e4, raw 0x14c00), .rsrc (VA 0x18000, VS 0x1e0, raw 0x15600), .reloc (VA 0x19000,
+      VS 0xdc, raw 0x15800)'
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - pe
+    - sections
+    - layout
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  imports_exports:
+  - id: F005
+    text: 'C++ STL symbols present in strings: std::basic_string, std::vector, std::ios_base, std::basic_filebuf,
+      std::basic_ifstream, std::basic_istream, std::type_info, std::char_traits'
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - imports
+    - cpp
+    - stl
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  functions:
+  - id: F006
+    text: Entry point at RVA 0xc224 (VA 0x14000c224). Capstone 5.0.7 available for disassembly.
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - entry
+    - disasm
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  - id: F011
+    text: 'BPF program at ELF offset 0xcf40 (278 instructions) implements chart validation loop. Reads
+      4-byte chunks from input (r3+r6), dispatches on first byte (0x21=''!'', 0x44=''D'', 0x62=''b'',
+      0x8b, 0xf0). Each branch XORs subsequent bytes with per-index keys: idx*17+0xa3, idx*29+0x11, idx*31+0x7b,
+      idx*37+0xc5 (mod 256). Stores transformed bytes at r2+0x28/0x29/0x2a, compares against r1+r5, accumulates
+      hash in r7 (r7 = (r7 + byte0) ^ byte1 + byte2 * 33). Loop increments r6 by 4 per iteration until
+      r6 >= r4.'
+    evidence:
+    - I-851d510f
+    source_actor: agent
+    tags:
+    - bpf
+    - validation_logic
+    created_at: '2026-07-30T08:48:04Z'
+    updated_at: '2026-07-30T08:48:04Z'
+  - id: F015
+    text: BPF program entry point at ELF offset 0xcf40 (VA 0x14000cf40). The program is loaded from the
+      embedded ELF's .text section (0x8b0 bytes) and executed by the host binary's --check-chart handler.
+    evidence:
+    - I-6f4f008d
+    source_actor: agent
+    tags:
+    - bpf
+    - entry_point
+    created_at: '2026-07-30T08:50:53Z'
+    updated_at: '2026-07-30T08:50:53Z'
+  data_structures:
+  - id: F010
+    text: 'Embedded ELF64 at file offset 0xcf00 (VA 0x14000cf00): type=ET_REL (1), machine=0xf7 (BPF),
+      4 sections: .text (0x8b0 bytes at 0xcf40), .rodata (0x1ac bytes at 0xd7f0), .shstrtab, and null
+      section. Entry point 0, no program headers.'
+    evidence:
+    - I-851d510f
+    source_actor: agent
+    tags:
+    - embedded_elf
+    - bpf
+    created_at: '2026-07-30T08:48:04Z'
+    updated_at: '2026-07-30T08:48:04Z'
+  - id: F016
+    text: BPF program bytecode located at file offset 0xd818 (VA 0x14000d818) in the PE binary. This is
+      a copy of the embedded ELF's .text section used at runtime. The program consists of 97 4-byte instructions
+      ending with opcode 0xf0 (HALT).
+    evidence:
+    - I-6f4f008d
+    source_actor: agent
+    tags:
+    - bpf
+    - bytecode_location
+    created_at: '2026-07-30T08:50:53Z'
+    updated_at: '2026-07-30T08:50:53Z'
+  control_flow:
+  - id: F013
+    text: 'BPF control flow: entry at insn 0 checks r5!=0x54 and r0!=0x54 (early exit to 276). Main loop
+      at insn 8: if r6 >= r4 goto exit (276). Load byte at r3+r6, dispatch on value: 0x21->insn23, 0x44->insn57,
+      0x62->insn137, 0x8b->insn203, 0xf0->insn274, default->exit(276). Each branch processes 3 more bytes,
+      transforms via XOR, stores to r2+0x28/0x29/0x2a, compares with r1+r5, updates r7 hash, increments
+      r6 by 4, loops back to insn 8.'
+    evidence:
+    - I-851d510f
+    source_actor: agent
+    tags:
+    - bpf
+    - control_flow
+    created_at: '2026-07-30T08:48:04Z'
+    updated_at: '2026-07-30T08:48:04Z'
+  - id: F017
+    text: 'BPF instruction set semantics fully reversed: 0x21 (CHK) writes to buf12 and updates hash s;
+      0x44 (NOTE) solves for chart[k,v] with constraints (k&7)<=4, ((k>>3)&3)<=2, v in [3,16]; 0x62 (WA)
+      reads chart[idx], computes val, writes bufA[b1]; 0x8b (WB) reads chart[ic] and bufA[ia], computes
+      val, writes bufB[b1]; 0xf0 (HALT) terminates. All operations use 32-bit rotate-left for state mixing.'
+    evidence:
+    - I-6f4f008d
+    source_actor: agent
+    tags:
+    - bpf
+    - instruction_semantics
+    created_at: '2026-07-30T08:50:53Z'
+    updated_at: '2026-07-30T08:50:53Z'
+  constants_strings:
+  - id: F007
+    text: 'CLI usage strings: ''--check-chart <40-byte-chart-hex-or-file>'', ''--print-template'', ''Untitled
+      Encore'', ''Pasted chart.'', ''Clipboard is not a chart.'', ''Edit the chart, then press Enter.'',
+      ''Arrows: row/lane Q/A: delta W/S: kind F: flick Ctrl+V: paste c''. Error strings: ''Unknown exception'',
+      ''bad array new length'', ''string too long'', ''bad cast'', ''invalid stoi argument'', ''stoi argument
+      out of range''. Manifest requests execution level ''asInvoker''.'
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - strings
+    - cli
+    - ui
+    - manifest
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  - id: F012
+    text: BPF .rodata section (0x1ac bytes) contains 256-byte lookup table at offset 0x00-0xff and additional
+      data at 0x100-0x1ab. The table appears to be a 256-entry byte permutation/s-box used by the validation
+      logic.
+    evidence:
+    - I-851d510f
+    source_actor: agent
+    tags:
+    - bpf
+    - rodata
+    - sbox
+    created_at: '2026-07-30T08:48:04Z'
+    updated_at: '2026-07-30T08:48:04Z'
+  runtime_behavior:
+  - id: F008
+    text: 'Binary runs and accepts two flags: --check-chart <40-byte-chart-hex-or-file> and --print-template.
+      --print-template outputs a 80-char hex string (40 bytes): 41060b07100862092c0a3106430748081209640a6906330700084a09140a21066b07700802094c0a.
+      Providing this template to --check-chart returns ''MISS'' with exit code 1.'
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - runtime
+    - cli
+    - validation
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  - id: F018
+    text: 'A valid 40-byte chart was computed by backtracking search: 000c01070a072305140d0b062a06010b1008640408090105320a03050c0f6203100c740649070309.
+      This chart satisfies all BPF constraints and produces deterministic bufA/bufB output buffers (64
+      bytes total).'
+    evidence:
+    - I-6f4f008d
+    source_actor: agent
+    tags:
+    - solution
+    - chart
+    created_at: '2026-07-30T08:50:53Z'
+    updated_at: '2026-07-30T08:50:53Z'
+  compiler_artifacts: []
+  anti_analysis: []
+  malware_behavior: []
+  progress:
+  - id: F009
+    text: 'Initial reconnaissance complete: binary identified, PE structure mapped, CLI interface understood,
+      template chart extracted, validation fails on template. Ready for static analysis of chart validation
+      logic.'
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - recon
+    - status
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  general:
+  - id: F014
+    text: 'Next steps: disassemble the entry point and --check-chart handler to understand validation
+      logic. The .text section is at raw offset 0x400, RVA 0x1000. Entry RVA 0xc224 = raw offset 0x400
+      + 0xc224 - 0x1000 = 0xb624.'
+    evidence:
+    - I-008d0a4c
+    - I-851d510f
+    source_actor: agent
+    tags:
+    - next
+    - disasm
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:48:04Z'
+    promoted_from: A004
+  - id: F019
+    text: The validation logic is implemented in an embedded BPF program (ELF at 0xcf00) that processes
+      the 40-byte chart as 10 4-byte notes. Each note's first byte selects a handler (0x21, 0x44, 0x62,
+      0x8b, 0xf0). The handler XOR-decodes the remaining 3 bytes with position-dependent keys and compares
+      against a reference chart. The template chart fails because its first byte 0x41 is not a valid note
+      type.
+    evidence:
+    - I-008d0a4c
+    - I-851d510f
+    - I-6f4f008d
+    source_actor: agent
+    tags:
+    - validation
+    - analysis-target
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:50:53Z'
+    promoted_from: A003
+  - id: F020
+    text: 'Next steps: (1) Extract the BPF .rodata s-box (256 bytes at ELF offset 0xcf40+0x8b0=0xd7f0).
+      (2) Extract the reference chart data at r1 (pointed to by BPF register r1 at entry). (3) Simulate
+      BPF execution on template chart to see where it fails. (4) Solve for valid 40-byte chart by reversing
+      the XOR transformations per note type.'
+    evidence:
+    - I-851d510f
+    - I-6f4f008d
+    source_actor: agent
+    tags:
+    - next_steps
+    created_at: '2026-07-30T08:48:04Z'
+    updated_at: '2026-07-30T08:50:53Z'
+    promoted_from: A007
+assumption:
+  program_intent:
+  - id: A001
+    text: The challenge is a reverse engineering task where the goal is to find a valid 40-byte chart
+      that passes the --check-chart validation (likely outputting a flag or 'HIT' instead of 'MISS').
+    evidence:
+    - I-008d0a4c
+    source_actor: agent
+    tags:
+    - goal
+    - ctf
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:42:12Z'
+  function_roles: []
+  validation_logic:
+  - id: A005
+    text: The 40-byte chart input is processed as 10 iterations of 4 bytes each (r6 increments by 4, loop
+      runs while r6 < r4). The first byte of each 4-byte group is a type selector (0x21, 0x44, 0x62, 0x8b,
+      0xf0). The template chart 41060b07100862092c0a3106430748081209640a6906330700084a09140a21066b07700802094c0a
+      starts with 0x41 which is not a recognized type, explaining why it returns MISS.
+    evidence:
+    - I-851d510f
+    - I-6f4f008d
+    source_actor: agent
+    tags:
+    - chart_format
+    - template_analysis
+    created_at: '2026-07-30T08:48:04Z'
+    updated_at: '2026-07-30T08:50:53Z'
+  data_model:
+  - id: A002
+    text: 'The 40-byte chart consists of 10 notes of 4 bytes each: [type, param1, param2, param3]. Valid
+      types: 0x21 (''!''), 0x44 (''D''), 0x62 (''b''), 0x8b, 0xf0. The UI ''Arrows: row/lane Q/A: delta
+      W/S: kind F: flick'' maps to these fields. The BPF applies per-index XOR keys: param1 ^ (idx*17+0xa3),
+      param2 ^ (idx*29+0x11), param3 ^ (idx*31+0x7b) for type 0x21; different multipliers for other types.'
+    evidence:
+    - I-008d0a4c
+    - I-851d510f
+    source_actor: agent
+    tags:
+    - chart
+    - format
+    - rhythm-game
+    created_at: '2026-07-30T08:42:12Z'
+    updated_at: '2026-07-30T08:48:04Z'
+  - id: A006
+    text: 'Chart format: 40 bytes = 10 notes of 4 bytes each. Each note: [type, delta, kind, flick?] where
+      type in {0x21, 0x44, 0x62, 0x8b, 0xf0}. The UI strings ''Arrows: row/lane Q/A: delta W/S: kind F:
+      flick'' match this structure. The BPF validates each note by XOR-decoding delta/kind/flick with
+      position-dependent keys and comparing against expected values from a reference chart at r1.'
+    evidence:
+    - I-851d510f
+    - I-6f4f008d
+    source_actor: agent
+    tags:
+    - chart_format
+    - bpf
+    created_at: '2026-07-30T08:48:04Z'
+    updated_at: '2026-07-30T08:50:53Z'
+  compiler_hypotheses: []
+  obfuscation_hypotheses: []
+  anti_analysis_hypotheses: []
+  malware_capabilities: []
+  analysis_paths: []
+  next_checks: []
+  general: []
+guessing:
+  catalog: rev@1
+  state:
+    REV-FOOTHOLD:
+      tried: false
+    REV-CALLING-CONVENTION:
+      tried: false
+    REV-STRUCT-RECOVERY:
+      tried: false
+    REV-COMPILER-ARTIFACT:
+      tried: false
+    REV-Z3-CONSTRAINT:
+      tried: false
+    REV-DEOBFUSCATION:
+      tried: false
+    REV-RUNTIME-CODE-MAP:
+      tried: false
+    REV-PACKER-DETECT:
+      tried: false
+    REV-VM-PACKER:
+      tried: false
+    REV-ANTI-ANALYSIS:
+      tried: false
+    REV-ANTIDISASM:
+      tried: false
+    REV-PE-API-RESOLUTION:
+      tried: false
+    REV-EMBEDDED-PE:
+      tried: false
+    REV-PERSISTENCE-STARTUP:
+      tried: false
+    REV-PROCESS-INJECTION:
+      tried: false
+    REV-C2-PROTOCOL:
+      tried: false
+meta:
+  last_input_id: I-6f4f008d
+  last_updated_at: '2026-07-30T08:50:53Z'
+  fact_seq: 20
+  assumption_seq: 7
