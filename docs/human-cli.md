@@ -386,6 +386,32 @@ normalized run log
 Memory Core /ingest
 ```
 
+YOLO flag-stop completion is opt-in. It can stop a YOLO run when a real tool output
+contains a new plausible flag-shaped token:
+
+```bash
+ctfmem agent run \
+  --mode yolo \
+  --flag-prefix SEKAI \
+  --workspace ./challenge-workspace \
+  "continue solving"
+```
+
+For evaluation runs with a ground-truth answer file, prefer hash-based verification:
+
+```bash
+ctfmem agent run \
+  --mode yolo \
+  --expect-flag-file ./answer.txt \
+  --baseline-root ./challenge-root \
+  --mask-flag \
+  "continue solving"
+```
+
+Flag-stop is disabled unless `--flagstop`, `--flag-prefix`, `--flag-regex`, or
+`--expect-flag-file` is provided. `--flagstop-off` disables it explicitly for ablation
+controls.
+
 離線 fake-agent 驗證：
 
 ```bash

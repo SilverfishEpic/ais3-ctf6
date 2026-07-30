@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import socket
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -30,6 +31,12 @@ TEMPLATES_DIR = REPO_ROOT / "templates"
 
 class NetworkBlocked(RuntimeError):
     pass
+
+
+#: Captured at import, before any fixture has had a chance to replace them.
+_REAL_CONNECT = socket.socket.connect
+_REAL_CONNECT_EX = socket.socket.connect_ex
+_REAL_SOCKETPAIR = socket.socketpair
 
 
 class ASGITestClient:
@@ -60,15 +67,40 @@ def _no_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch)
     if request.node.get_closest_marker("live"):
         return
 
-    def guard(*args: object, **kwargs: object) -> None:
+    # Every asyncio event loop wants a self-pipe.  On POSIX that is the AF_UNIX
+    # ``socketpair`` syscall and never reaches ``connect``; on Windows CPython emulates it
+    # with a real loopback listen/connect/accept, so an unqualified guard fails every
+    # ``asyncio.run`` in the suite before the test body even starts.  The exemption below is
+    # scoped to that one call, so a genuine outbound connect - loopback included - is still
+    # blocked, and the guarantee in this module's docstring is unchanged.
+    building_self_pipe = False
+
+    def blocked(*_args: object, **_kwargs: object) -> None:
         raise NetworkBlocked(
             "the default test suite must not make network calls; "
             "mark the test with @pytest.mark.live if it genuinely needs one"
         )
 
-    monkeypatch.setattr(socket.socket, "connect", guard)
-    monkeypatch.setattr(socket.socket, "connect_ex", guard)
-    monkeypatch.setattr(socket, "create_connection", guard)
+    def guard(real: Callable[..., Any]) -> Callable[..., Any]:
+        def check(*args: Any, **kwargs: Any) -> Any:
+            if building_self_pipe:
+                return real(*args, **kwargs)
+            return blocked(*args, **kwargs)
+
+        return check
+
+    def socketpair(*args: Any, **kwargs: Any) -> tuple[socket.socket, socket.socket]:
+        nonlocal building_self_pipe
+        building_self_pipe = True
+        try:
+            return _REAL_SOCKETPAIR(*args, **kwargs)
+        finally:
+            building_self_pipe = False
+
+    monkeypatch.setattr(socket.socket, "connect", guard(_REAL_CONNECT))
+    monkeypatch.setattr(socket.socket, "connect_ex", guard(_REAL_CONNECT_EX))
+    monkeypatch.setattr(socket, "create_connection", blocked)
+    monkeypatch.setattr(socket, "socketpair", socketpair)
 
 
 @pytest.fixture

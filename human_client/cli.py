@@ -11,7 +11,14 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from .agent_cli import PROVIDERS, add_agent_parser, cmd_agent_run, cmd_agent_status, cmd_agent_stop
+from .agent_cli import (
+    PROVIDERS,
+    _add_flagstop_arguments,
+    add_agent_parser,
+    cmd_agent_run,
+    cmd_agent_status,
+    cmd_agent_stop,
+)
 from .capture import run_capture
 from .client import MemoryCoreClient
 from .config import (
@@ -451,6 +458,7 @@ def _add_agent_run_options(
     parser.add_argument("--fake-agent", metavar="SCENARIO")
     parser.add_argument("--runtime-dir", default=None)
     parser.add_argument("--no-memory-skill", action="store_true")
+    _add_flagstop_arguments(parser)
 
 
 def cmd_challenge_create(

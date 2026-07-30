@@ -32,6 +32,19 @@ class AgentStatus:
     last_revision: int | None = None
     stopped_because: str | None = None
     total_cost_usd: float | None = None
+    #: Machine-readable stop classification (``agent_bridge.completion.StopClass``) for YOLO
+    #: runs.  ``stopped_because`` is a free-form human string that nothing downstream can
+    #: parse.  ``None`` for ``--mode normal``, which has no brakes to classify.
+    #:
+    #: The flag itself is deliberately absent: the agent's allowlist has ``cat``, so a later
+    #: run could read a previous run's answer out of this file and the detector would score
+    #: that as a fresh sighting.  The flag goes to stdout instead - which is *not* the same
+    #: as saying nobody can read it back: ``human_client/web/agent.py`` appends a
+    #: CLI-launched run's stdout to ``agent-run.log`` in this same directory.  That is why
+    #: the t=0 baseline scan deliberately does not skip the runtime directory (see
+    #: ``completion.SKIP_DIRS``), so a flag echoed into that log is on the suppression list
+    #: rather than available as a fresh discovery.
+    stop_class: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -90,8 +103,13 @@ def process_is_running(pid: object) -> bool:
         return False
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
     except PermissionError:
+        # The process exists, it just belongs to somebody else.
         return True
+    except OSError:
+        # POSIX raises ProcessLookupError for a pid that is gone.  Windows raises
+        # OSError[WinError 87] ("invalid parameter") for a pid it cannot open at all,
+        # which is what a stale status file left behind by a reboot looks like.  Either
+        # way the answer is "not running" - `ctfmem agent status` must not crash on it.
+        return False
     return True

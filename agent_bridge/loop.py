@@ -10,11 +10,16 @@ YOLO 就是上面那圈重複，中間重讀白板。**YOLO 屬於 bridge，不�
 - 每輪開場由 bridge 強制注入，不靠 Agent 自己查
 - 第一輪整份；same-session 之後只給 diff；new-session 每輪都整份
 
-停下來的四個理由
+停下來的五個理由
 - 人喊停（sentinel 檔或 Ctrl-C）—— 決定 7
 - 連續 N 圈 diff 全空，代表在原地打轉 —— 決定 8
 - 圈數 / 花費上限
 - Agent 自己被中斷
+- **拿到 flag 了**（`completion.CompletionDetector`，預設不啟用）
+
+前四個都是「上限」，只會在跑過頭之後才踩下去；第五個是完成訊號。
+沒有它的實測後果：第 1 圈就解掉的題目照樣跑到花費上限，$2.63 對上對照組的 $0.52。
+它預設是 `None`（關閉）—— 沒有明確開啟的人，行為與加這個煞車之前完全相同。
 
 中止之後，**已經跑完的部分仍然會送進 ingest**（規劃書 §14 的三條保證）——
 M0 實測確認被中斷那一輪先前跑完的工具在 collector 的 buffer 裡拿得到。
@@ -30,6 +35,12 @@ from pathlib import Path
 from typing import Any
 
 from agent_bridge.board import is_empty_diff, revision
+from agent_bridge.completion import (
+    CompletionDetector,
+    StopClass,
+    StopVerdict,
+    is_provider_failure,
+)
 from agent_bridge.inject import render_board, render_diff
 from agent_bridge.policy import MemoryPolicy, SessionMode
 from agent_bridge.protocols import AgentAdapter, MemoryClient, RunResult
@@ -59,11 +70,30 @@ class TurnRecord:
     def cost_usd(self) -> float:
         return self.result.cost_usd or 0.0
 
+    @property
+    def provider_failed(self) -> bool:
+        """模型根本沒跑起來的一圈（529 之類）。
+
+        **刻意不影響 `LoopOutcome.productive_turns`。** 那個數字是封存的消融實驗
+        逐 run 記下來的共變量（實測那一次記到 `turns=3 productive_turns=3`），
+        讓它在沒有人開啟任何東西的情況下改變，等於回頭改對照組的數據 ——
+        完成訊號預設關閉的理由，一字不改地適用於它。
+        這裡只把事實暴露出來，要不要拿去算是呼叫端的事。
+        """
+        return is_provider_failure(self.result.run)
+
 
 @dataclass
 class LoopOutcome:
     turns: list[TurnRecord] = field(default_factory=list)
     stopped_because: str = "completed"
+    #: 機器讀的停止分類。`stopped_because` 是給人看的自由格式字串，解析不了。
+    stop_class: StopClass = StopClass.OTHER
+    #: 完成訊號的判定（只有偵測器踩煞車時才有）
+    verdict: StopVerdict | None = None
+    #: 偵測器自己爆炸時的訊息。煞車故障不能害死一圈真金白銀的執行，
+    #: 但也不能安靜地消失 —— 一個被靜音的煞車正是最花錢的那種 bug。
+    completion_error: str | None = None
 
     @property
     def total_cost_usd(self) -> float:
@@ -71,12 +101,22 @@ class LoopOutcome:
 
     @property
     def productive_turns(self) -> int:
+        """讓白板長出東西的圈數。定義與這個煞車存在之前完全相同（見 `TurnRecord`）。"""
         return sum(1 for t in self.turns if t.changed_board)
+
+    @property
+    def solved(self) -> bool:
+        return self.stop_class.counts_as_solved
 
 
 @dataclass
 class LoopLimits:
-    """YOLO 的煞車。全部都是上限，先到先停。"""
+    """YOLO 的煞車。**全部都是上限**，先到先停。
+
+    完成訊號刻意不放在這裡：上限是「跑過頭了」，完成是「做完了」，
+    兩者的形狀與生命週期都不同（後者要跨圈記狀態、要一份 t=0 baseline）。
+    它住在 `completion.CompletionDetector`，由 `AgentLoop(completion=...)` 傳進來。
+    """
 
     max_turns: int = 10
     max_cost_usd: float | None = 5.0
@@ -143,6 +183,7 @@ class AgentLoop:
         session: SessionMode | None = None,
         limits: LoopLimits | None = None,
         stop: StopSignal | None = None,
+        completion: CompletionDetector | None = None,
     ) -> None:
         self.adapter = adapter
         self.memory = memory
@@ -157,6 +198,8 @@ class AgentLoop:
         self.policy = self.session.effective(policy or MemoryPolicy())
         self.limits = limits or LoopLimits()
         self.stop = stop or StopSignal()
+        #: None = 沒有完成訊號，行為與這個煞車存在之前完全相同（決定：預設關閉）
+        self.completion = completion
         self._turn = 0
         self._last_revision: int | None = None
         self._last_injected_revision: int | None = None
@@ -179,18 +222,31 @@ class AgentLoop:
         try:
             for index in range(self.limits.max_turns):
                 if self.stop.raised:
+                    outcome.stop_class = StopClass.HUMAN_STOP
                     outcome.stopped_because = "人喊停"
                     break
 
                 record = await self._turn_once_until_stopped(prompt, first=index == 0)
                 outcome.turns.append(record)
 
+                # 完成訊號排在所有上限之前：解出來的那一圈就是最後一圈。
+                # 它比 `interrupted` 還早看，因為「工具印出了 flag」是關於題目的事實，
+                # 中不中斷只是關於這一圈怎麼結束的。
+                verdict = self._completion_verdict(record, outcome)
+                if verdict is not None:
+                    outcome.verdict = verdict
+                    outcome.stop_class = verdict.stop_class
+                    outcome.stopped_because = verdict.stopped_because
+                    break
+
                 if record.result.interrupted:
+                    outcome.stop_class = StopClass.INTERRUPTED
                     outcome.stopped_because = "Agent 執行被中斷"
                     break
 
                 idle_streak = 0 if record.changed_board else idle_streak + 1
                 if idle_streak >= self.limits.idle_turns_before_stop:
+                    outcome.stop_class = StopClass.IDLE
                     outcome.stopped_because = (
                         f"連續 {idle_streak} 圈白板沒有變化，停止避免原地打轉"
                     )
@@ -200,6 +256,7 @@ class AgentLoop:
                     self.limits.max_cost_usd is not None
                     and outcome.total_cost_usd >= self.limits.max_cost_usd
                 ):
+                    outcome.stop_class = StopClass.BUDGET
                     outcome.stopped_because = (
                         f"達到花費上限 ${self.limits.max_cost_usd}"
                     )
@@ -208,6 +265,7 @@ class AgentLoop:
                 # 第二輪起不必再重述原始要求，白板的 diff 就是這一輪的輸入
                 prompt = "根據白板的最新異動繼續。"
             else:
+                outcome.stop_class = StopClass.TURN_CAP
                 outcome.stopped_because = f"達到圈數上限 {self.limits.max_turns}"
         finally:
             self.stop.restore()
@@ -215,6 +273,23 @@ class AgentLoop:
         return outcome
 
     # ---- 內部 ------------------------------------------------------
+
+    def _completion_verdict(
+        self, record: TurnRecord, outcome: LoopOutcome
+    ) -> StopVerdict | None:
+        """問偵測器這一圈有沒有解出來。沒有偵測器就永遠是 `None`。
+
+        偵測器爆炸時 fail open —— 一個 bug 不該把已經付過錢的 run 整個弄掉，
+        但錯誤會記在 `outcome.completion_error` 上，讓 CLI 講出「煞車其實沒在跑」。
+        """
+        if self.completion is None:
+            return None
+        try:
+            return self.completion.observe(record.result.run, turn=record.index)
+        except Exception as exc:  # 攔得這麼寬的理由見 docstring
+            outcome.completion_error = f"{type(exc).__name__}: {exc}"
+            self.completion = None
+            return None
 
     async def _turn_once(self, prompt: str, *, first: bool) -> TurnRecord:
         self._turn += 1
@@ -323,9 +398,12 @@ async def run_normal(
 __all__ = [
     "STOP_FILE",
     "AgentLoop",
+    "CompletionDetector",
     "LoopLimits",
     "LoopOutcome",
+    "StopClass",
     "StopSignal",
+    "StopVerdict",
     "TurnRecord",
     "run_normal",
 ]
