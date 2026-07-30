@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted. This ADR exists because `web GUI` is on an enforced non-goal list, and the rule
-attached to that list requires an ADR before an implementation, not after one.
+Accepted. This ADR records why the local web UI is allowed as a Human Client surface and
+which boundaries keep it from becoming a second Memory Core.
 
 Superseded in part by [ADR 0002](0002-web-agent-runs.md): the sentence below stating that
 agent orchestration "is not exposed and will not be" no longer holds. Agent runs are now
@@ -11,19 +11,12 @@ exposed, under the guardrails 0002 records. The rest of this document stands.
 
 ## The Non-Goal This ADR Addresses
 
-`docs/memory-core-v2.md` lists `web GUI` under a heading that reads "Non-goals (enforced,
-not aspirational)", and states the agreed rule:
-
-> write an ADR describing the observed problem first - do not implement it and document it
-> afterwards.
-
-`docs/CTF共享記憶系統_v2_設計規劃書.md` §21 repeats `web GUI` in its 明確非目標 list.
-
-`spec/protocol.md` §14 does not list `web GUI`. That is silence, not a reversal:
-`docs/README.md` demotes a historical document only where it *disagrees* with `spec/`, and
-`spec/` says nothing here. This ADR is the explicit acceptance record for the local,
-single-user Web UI exception and the boundaries that keep it from becoming a second
-system.
+Early design drafts treated `web GUI` as a non-goal because a browser surface can easily
+grow into a second stateful system: CORS, auth, sessions, server-side orchestration,
+client-side caches, and multi-user synchronization. Those drafts are no longer maintained
+in `main`; this ADR is the durable decision record that preserves the useful constraint:
+the browser may exist only as a local Human Client surface, and Memory Core remains the
+only semantic-memory writer.
 
 ## Observed Problem
 
@@ -48,12 +41,9 @@ Four concrete costs follow, all observed while operating the current CLI:
    costs a context switch, observations stop being recorded, and the system's entire value
    proposition - that the whiteboard is where the truth lives - degrades to an empty file.
 
-The Human Client is the component whose job is exactly this: `spec/protocol.md` §1 gives
-Person 2 "diff rendering, JSON output" and CLI UX; `docs/roadmap.md` Phase 5 already
-anticipates a "Human Cockpit" with a diff timeline and revision-safe intervention. The
-disagreement between that roadmap entry and the non-goal list is that Phase 5 says TUI.
-This ADR argues the same cockpit is better delivered in a browser, and that the reasons the
-original non-goal list rejected a web GUI do not apply to what is proposed here.
+The Human Client is the component whose job is exactly this: diff rendering, JSON output,
+CLI UX, and local operator-facing surfaces. This ADR argues that the same cockpit can be
+delivered in a browser without violating the Memory Core boundary.
 
 ## Why The Original Non-Goal Was Right, And What Changed
 
@@ -115,9 +105,9 @@ on the process that owns every write. Rejected.
 a dependency tree into a repository that is deliberately Python-only with six runtime
 dependencies. Rejected as disproportionate.
 
-**The TUI in `docs/roadmap.md` Phase 5.** Legitimate and still open. It is rejected here
-only on reach: the board is two-dimensional and wide, and a browser renders it without a
-layout engine written by hand. If this ADR is rejected, Phase 5 remains the fallback.
+**A TUI cockpit.** Legitimate and still open. It is rejected here only on reach: the board
+is two-dimensional and wide, and a browser renders it without a layout engine written by
+hand.
 
 ## Consequences
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Accepted.
 
 ## Context
 
@@ -116,10 +116,9 @@ thread id reported by the first turn. This brings Codex loop/session behavior in
 the Agent Bridge session model while keeping provider event normalization outside Memory
 Core.
 
-The implementation now supports same-session resume, read-only Codex MCP memory tools, and
-Codex subprocess credential isolation. It still does not claim parity for
-Claude-equivalent pre-tool command allowlist enforcement; that remains a separate
-verification item.
+The implementation now supports provider selection, Claude/Fake compatibility, Codex
+normal and YOLO runs, same-session resume, read-only Codex MCP memory tools, cancellation,
+partial-event ingestion, and Codex subprocess credential isolation.
 
 ## Event Normalization
 
@@ -217,9 +216,11 @@ ctfmem-web --agent-default-provider claude
 The browser can select from the allowlist, but cannot choose executables, workspaces,
 credentials, sandbox modes, or extra tool authority.
 
-## Phases
+## Implementation Record
 
-### Phase 1 - Provider Registry
+The accepted implementation completed these increments:
+
+### Provider Registry
 
 - add `--provider`;
 - create adapter registry;
@@ -227,51 +228,40 @@ credentials, sandbox modes, or extra tool authority.
 - make provider identity explicit in envelopes;
 - update tests and documentation.
 
-Exit criteria:
+Exit criteria were met: existing Claude and fake behavior is preserved,
+`ctfmem agent run --provider claude` is equivalent to the default, and unknown providers
+produce stable usage errors.
 
-- existing Claude and fake tests pass unchanged in behavior;
-- `ctfmem agent run --provider claude` is equivalent to today's default;
-- unknown provider produces a stable usage error.
-
-### Phase 2 - Codex CLI MVP
+### Codex CLI Adapter
 
 - implement `CodexAdapter` using `codex exec --json`;
 - add sanitized Codex JSONL fixtures;
 - normalize Codex events into `AgentRunEvent`;
-- support normal and new-session runs.
+- support normal, YOLO, new-session, and same-session runs.
 
-Exit criteria:
+Exit criteria were met: Codex fixtures validate as `IngestEnvelope`; successful, failed,
+denied, interrupted, and unknown outcomes are covered; the offline suite requires no Codex
+credentials or network; live Codex verification remains opt-in.
 
-- Codex fixtures validate as `IngestEnvelope`;
-- successful, failed, denied, interrupted, and unknown outcomes are covered;
-- offline suite does not require Codex credentials or network;
-- a live Codex smoke test is opt-in.
-
-### Phase 3 - Codex Memory MCP
+### Codex Memory MCP
 
 - expose the read-only memory skill through a provider-neutral MCP server;
 - wire Codex to that MCP server through scoped configuration;
 - verify Codex never receives AIS3 credentials.
 
-Exit criteria:
+Exit criteria were met: Codex can call `memory_show`, `memory_query`, and `memory_guess`;
+Memory Core remains the only state writer; MCP failures degrade clearly; Codex and its MCP
+server do not receive AIS3 provider credentials.
 
-- Codex can call `memory_show`, `memory_query`, and `memory_guess`;
-- Memory Core remains the only state writer;
-- MCP failures degrade clearly instead of silently removing memory access.
-- Codex and its MCP server do not receive AIS3 provider credentials.
-
-### Phase 4 - Session and YOLO Parity
+### Session and YOLO Parity
 
 - prove Codex resume or Codex SDK same-session behavior;
 - implement `continue_run()`;
 - enable YOLO after cancellation and partial-event ingestion are verified.
 
-Exit criteria:
-
-- same-session and new-session behavior are distinguishable in tests;
-- stop requests interrupt a running Codex turn;
-- completed partial events are still ingested;
-- no semantic mutation is retried without human confirmation.
+Exit criteria were met: same-session and new-session behavior are distinguishable in
+tests; stop requests interrupt a running Codex turn; completed partial events are still
+ingested; no semantic mutation is retried without human confirmation.
 
 ## Acceptance Gate
 
@@ -297,9 +287,9 @@ Codex support is mergeable only when:
 
 **Negative, accepted.**
 
-- Codex MVP will not be feature-equivalent to Claude on day one.
-- Sandbox and MCP parity require separate proof.
-- More fixtures are needed because replay data must reflect real provider event shapes.
+- Claude and Codex still enforce tool authority through provider-native mechanisms rather
+  than a literally identical hook.
+- More fixtures may be needed when providers change their event shapes.
 
 ## Non-goals
 
@@ -308,4 +298,4 @@ Codex support is mergeable only when:
 - a second web-only Codex runner;
 - automatic semantic mutation retries;
 - treating free-form Codex prose as command evidence;
-- enabling YOLO for Codex before same-session and cancellation semantics are verified.
+- widening Codex sandbox or approval authority without a separate design review.

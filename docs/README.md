@@ -11,10 +11,8 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 - [Human Web UI (`ctfmem-web`)](human-webui.md) - the local page, its concurrency rules, and its boundaries.
 - [Contracts](contracts.md) - how clients should use the shared API.
 - [Branch Strategy](branch-strategy.md) - dependency and merge policy.
-- [Roadmap](roadmap.md) - realistic future phases and exit criteria.
 - [Agent Bridge](agent-bridge.md) - agent provider adapters, loop behavior, memory skill boundary.
 - [Templates](templates.md) - category catalog ownership and validation.
-- [Agent Bridge real SDK findings](agent-bridge/real-sdk-findings.md) - sanitized replay-shape notes.
 
 ## Decisions
 
@@ -24,13 +22,10 @@ boundaries, but they do not override the generated schemas or OpenAPI.
   agent orchestration; why the web spawns `ctfmem agent run` rather than driving the loop
   itself, and the guardrails that come with it. Accepted.
 - [ADR 0003 - Agent provider abstraction for Claude and Codex](adr/0003-agent-provider-abstraction.md)
-  - planned adapter boundary for adding Codex without changing Memory Core or the web
-  orchestration model. Proposed.
+  - provider boundary for Claude/Codex/Fake without changing Memory Core or the web
+  orchestration model. Accepted.
 
-## Historical Design Material
-
-- [CTF 共享記憶系統 v2 共通設計起點](CTF共享記憶系統_v2_共通設計起點.md)
-- [CTF 共享記憶系統 v2 設計規劃書](CTF共享記憶系統_v2_設計規劃書.md)
-- [Memory Core v2 implementation notes](memory-core-v2.md)
-
-If a historical document and `spec/` disagree, `spec/` wins.
+Historical design drafts, one-off experiment reports, and SDK discovery notes are not kept
+in `main`. They should be recovered from archived branches or tags when audit history is
+needed. Current `main` documentation should describe the implemented system and active
+decision records only.

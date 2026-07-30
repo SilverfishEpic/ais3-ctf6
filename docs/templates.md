@@ -24,7 +24,8 @@ runtime.
 - Human Client and Web UI use `GET /v1/templates` for template picker metadata and Guessing
   labels; they do not read `templates/*.yaml` directly.
 - Agent Bridge may use template catalogs as read-only Guessing context through Memory Core.
-- Future `forensics` and `misc` catalogs remain roadmap items until implemented and tested.
+- Future `forensics` and `misc` catalogs remain unimplemented until added with schema
+  validation and tests.
 
 ## Review Checklist
 

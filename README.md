@@ -27,7 +27,7 @@ contract.
 - `spec/` - normative protocol, OpenAPI, and JSON schemas.
 - `templates/` - curated CTF category catalogs used by Memory Core guessing.
 - `scripts/memctl.py` - developer/admin helper for exercising Memory Core.
-- `docs/` - maintained documentation index, architecture notes, contracts, and roadmap.
+- `docs/` - maintained documentation index, architecture notes, contracts, and ADRs.
 
 Memory Core is the only semantic-memory writer. Human CLI and Agent Bridge reach it
 through the public HTTP/OpenAPI contract; neither client writes `state.yaml` or

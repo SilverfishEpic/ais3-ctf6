@@ -31,7 +31,7 @@ Agent Bridge owns:
 - read-only memory skill;
 - normal and YOLO orchestration;
 - same-session/new-session behavior, cancellation, and run-log ingestion;
-- real category templates and curated Guessing catalogs.
+- provider-specific execution details before events are normalized for Memory Core.
 
 ## Boundaries
 

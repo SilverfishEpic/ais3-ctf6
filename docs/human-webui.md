@@ -4,10 +4,9 @@ A local, single-user page for reading and editing the whiteboard. It is the web 
 of `ctfmem` and does exactly what `ctfmem` does: it talks to Memory Core over the frozen
 HTTP contract and writes nothing itself.
 
-`web GUI` appears on the enforced non-goal list in `docs/memory-core-v2.md`. The reasoning
-for building one anyway, and the boundaries it accepts in exchange, are in
-[`adr/0001-human-web-ui.md`](adr/0001-human-web-ui.md). Read that first if you are
-reviewing this component.
+The web UI exists by explicit ADR exception rather than by historical proposal drift. The
+reasoning and accepted boundaries are in [`adr/0001-human-web-ui.md`](adr/0001-human-web-ui.md).
+Read that first if you are reviewing this component.
 
 ## Running it
 
