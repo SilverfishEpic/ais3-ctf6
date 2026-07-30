@@ -91,6 +91,37 @@ stop signal while the adapter turn is running. If the signal is raised, it calls
 `adapter.cancel()`, awaits the interrupted run result when the adapter can provide it, and
 still ingests completed partial events.
 
+### Optional flag-stop brake
+
+YOLO has an optional completion brake for CTF runs that should stop once a tool prints a
+new, plausible flag-shaped token. It is disabled by default; existing agent runs behave as
+before unless one of the flag-stop options is provided.
+
+The detector only inspects provider-normalized `tool_result` events whose outcome proves
+that a tool actually ran. It deliberately ignores assistant prose and read-only memory tool
+output so the agent cannot stop merely because it claimed success or because the whiteboard
+contains an old flag-shaped string.
+
+When armed, the detector also scans the workspace at t=0 and suppresses tokens that already
+existed on disk. This avoids scoring a run as solved when the agent simply reads an answer
+that shipped with the challenge or was left behind by a previous run.
+
+CLI controls:
+
+- `--flagstop`: arm the generic flag-shaped detector.
+- `--flag-prefix NAME`: restrict detection to a known prefix such as `SEKAI`; repeatable.
+- `--flag-regex RE`: advanced custom pattern; overrides prefixes.
+- `--expect-flag-file PATH`: ground-truth mode; the CLI hashes the file content in memory
+  and never passes the plaintext answer through argv.
+- `--baseline-root PATH`: scan additional t=0 directories that the agent can reach.
+- `--no-baseline`: skip t=0 scanning; useful only for controlled debugging.
+- `--flagstop-off`: force the brake off even when other flag options are present.
+- `--mask-flag`: print a prefix plus hash instead of the candidate flag value.
+
+`agent-status.json` stores only the machine-readable stop class, not the flag text. Human
+and JSON command output can include the candidate value; use `--mask-flag` for shareable
+logs.
+
 ## Memory Skill
 
 The Agent-facing memory skill is read-only. It may show the current memory, answer grounded

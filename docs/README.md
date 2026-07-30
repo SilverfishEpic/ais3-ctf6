@@ -16,13 +16,6 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 - [Templates](templates.md) - category catalog ownership and validation.
 - [Agent Bridge real SDK findings](agent-bridge/real-sdk-findings.md) - sanitized replay-shape notes.
 
-## Experiments
-
-- [Memory ablation and flag-stop (2026-07-30)](experiments/2026-07-30-memory-ablation/README.md)
-  - measured `Memory Core + Claude` against plain Claude on two real challenges, plus the
-  board-quality and classification-scaffolding controls. Records the three mechanical defects
-  the runs exposed, and the methodology trap that would have faked a positive result.
-
 ## Decisions
 
 - [ADR 0001 - A local human web UI](adr/0001-human-web-ui.md) - why a component on the
