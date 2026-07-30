@@ -5,9 +5,10 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
-from agent_bridge.adapters.registry import PROVIDERS, build_agent_adapter
+from agent_bridge.adapters.registry import PROVIDERS as AGENT_PROVIDERS
+from agent_bridge.adapters.registry import build_agent_adapter
 from agent_bridge.completion import (
     Baseline,
     BaselineLimits,
@@ -47,6 +48,7 @@ from .errors import CONNECTION_ERROR, OK, SERVER_ERROR, USAGE_ERROR
 from .render import emit_json, render_diff, render_error
 
 AGENT_ERROR = 8
+PROVIDERS: Final = AGENT_PROVIDERS
 #: How many rejected flag-shaped tokens the JSON output samples.
 REJECTED_SAMPLE = 20
 POLICY_ALIASES = {

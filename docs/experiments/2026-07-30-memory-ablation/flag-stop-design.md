@@ -91,7 +91,7 @@ body 為空 / 在 placeholder 名單（`dummy_flag`、`test_flag`…）/ 少於 
 實測全部被殺：`SEKAI{''; Flag suffix: ''}`、`SEKAI{}`、`SekaiCTF{...}`、`sum_{i=0}`、
 `SEKAI{test_flag}`、`SEKAI{dummy_flag}`、`SEKAI{[a-z_]+}`、`SEKAI{%s}`、
 `SEKAI{") && substring3.equals("}`、`SEKAI{____}`；
-真 flag（`SEKAI{eBPF_my_B3l0v3d}` 等）全部通過。
+形狀合理的真 flag 會通過；原始答案不保留在文件中。
 
 ### 第 4 層：可選的 ground-truth 確認（給 eval 用）
 `--expect-flag-file PATH`：wrapper 自己讀檔，**只在記憶體裡留 SHA-256**，

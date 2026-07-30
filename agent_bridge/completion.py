@@ -245,7 +245,7 @@ def implausible(token: str) -> str | None:
 
     實測全部被殺：`SEKAI{''; Flag suffix: ''}`、`SEKAI{}`、`SekaiCTF{...}`、
     `sum_{i=0}`、`SEKAI{test_flag}`、`SEKAI{[a-z_]+}`、`SEKAI{%s}`、`SEKAI{____}`；
-    真 flag（`SEKAI{eBPF_my_B3l0v3d}` 等）全部通過。
+    形狀合理的真 flag 會通過；原始答案不保留在程式註解中。
 
     有 ground truth 時這一整層都不會被呼叫（見 `_reject`）。
     """
