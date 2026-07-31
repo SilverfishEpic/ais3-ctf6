@@ -6,6 +6,8 @@ boundaries, but they do not override the generated schemas or OpenAPI.
 ## Maintained Common Docs
 
 - [Architecture](architecture.md) - component ownership and non-goals.
+- [Research Grounding](research-grounding.md) - papers that influenced the architecture
+  and the machinery intentionally not adopted.
 - [Memory Core](memory-core.md) - service responsibilities and verification.
 - [Human CLI (`ctfmem`)](human-cli.md) - installation, Linux/Windows usage, command contract, and acceptance criteria.
 - [Human Web UI (`ctfmem-web`)](human-webui.md) - the local page, its concurrency rules, and its boundaries.
