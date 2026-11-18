@@ -317,15 +317,14 @@ Outside the temporary zsh, use the same interface with the `ctfmem` prefix, for 
 
 ## License
 
-This project is licensed under the Smoking Elephant Slop Public License,
-Version 1.1.
+This project uses the **Smoking Elephant Slop Public License v1.2**
+(SESPL-1.2): a custom WTFPL/Unlicense-inspired public-domain dedication,
+WTFPL-style fallback, and patent non-assertion / automatic grant.
 
-SESPL-1.1 is a custom permissive license. It is not OSI-approved and is not
-listed in the SPDX License List. For tooling purposes, use:
+The elephant has not reviewed the code. Neither has the patent office.
 
-```text
-LicenseRef-SESPL-1.1
-```
+This is **not** formal `WTFPL OR Unlicense` dual licensing, nor an
+OSI-approved or SPDX-listed license. Custom identifier: `LicenseRef-SESPL-1.2`.
 
 See [LICENSE](LICENSE) and [docs/license.md](docs/license.md).
 
